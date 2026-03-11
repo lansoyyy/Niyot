@@ -4,15 +4,17 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Colors
-  static const Color primary = Color(0xFF6C63FF);
-  static const Color primaryDark = Color(0xFF5A52D5);
-  static const Color primaryLight = Color(0xFF8B85FF);
+  // Primary Colors - Deep Crimson Red
+  static const Color primary = Color(0xFFC62828);
+  static const Color primaryDark = Color(0xFF8E0000);
+  static const Color primaryLight = Color(0xFFE57373);
+  static const Color primarySurface = Color(0xFFFFEBEE);
+  static const Color primaryContainer = Color(0xFFFFCDD2);
 
-  // Secondary Colors
-  static const Color secondary = Color(0xFFFF6B6B);
-  static const Color secondaryDark = Color(0xFFE05555);
-  static const Color secondaryLight = Color(0xFFFF8585);
+  // Secondary Colors - Rose
+  static const Color secondary = Color(0xFFAD1457);
+  static const Color secondaryDark = Color(0xFF78002E);
+  static const Color secondaryLight = Color(0xFFE35183);
 
   // Neutral Colors
   static const Color white = Color(0xFFFFFFFF);
@@ -60,13 +62,18 @@ class AppColors {
 
   // Gradient Colors
   static const List<Color> primaryGradient = [
-    Color(0xFF6C63FF),
-    Color(0xFF8B85FF),
+    Color(0xFF8E0000),
+    Color(0xFFC62828),
   ];
 
   static const List<Color> secondaryGradient = [
-    Color(0xFFFF6B6B),
-    Color(0xFFFF8585),
+    Color(0xFFAD1457),
+    Color(0xFFE35183),
+  ];
+
+  static const List<Color> darkGradient = [
+    Color(0xFF1A0000),
+    Color(0xFF3D0000),
   ];
 
   // Shadow Colors
