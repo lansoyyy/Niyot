@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../auth/login_screen.dart';
+import '../profile/edit_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -75,7 +76,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
@@ -119,7 +122,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
+                          );
+                        },
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.white70),
                           foregroundColor: Colors.white,
@@ -147,7 +156,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.person_outline_rounded,
                 title: 'Personal Information',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const EditProfileScreen(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.lock_outline_rounded,
@@ -158,7 +173,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.badge_outlined,
                 title: 'Professional Profile',
                 subtitle: 'Portfolio, services, pricing',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const EditProfileScreen(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.verified_outlined,
@@ -167,7 +188,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () {},
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(6),
@@ -235,7 +258,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () {},
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF6B0000), Color(0xFFC62828)],
@@ -307,14 +332,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: Text(
                                 'Cancel',
                                 style: GoogleFonts.poppins(
-                                    color: const Color(0xFF7A7A7A)),
+                                  color: const Color(0xFF7A7A7A),
+                                ),
                               ),
                             ),
                             ElevatedButton(
                               onPressed: () {
                                 Navigator.of(context).pushAndRemoveUntil(
                                   MaterialPageRoute(
-                                      builder: (_) => const LoginScreen()),
+                                    builder: (_) => const LoginScreen(),
+                                  ),
                                   (route) => false,
                                 );
                               },
@@ -329,7 +356,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               child: Text(
                                 'Sign Out',
                                 style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w600),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -434,7 +462,8 @@ class _SettingsTile extends StatelessWidget {
                 ),
               )
             : null,
-        trailing: trailing ??
+        trailing:
+            trailing ??
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFFBDBDBD),

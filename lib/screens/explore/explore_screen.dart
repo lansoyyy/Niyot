@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../photographer/photographer_profile_screen.dart';
+import 'map_view_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -216,7 +217,8 @@ class _ExploreScreenState extends State<ExploreScreen>
                                   duration: const Duration(milliseconds: 200),
                                   margin: const EdgeInsets.only(right: 8),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 14),
+                                    horizontal: 14,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: selected
                                         ? const Color(0xFFC62828)
@@ -248,8 +250,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () =>
-                            setState(() => _isGridView = !_isGridView),
+                        onTap: () => setState(() => _isGridView = !_isGridView),
                         child: Container(
                           width: 36,
                           height: 36,
@@ -262,6 +263,29 @@ class _ExploreScreenState extends State<ExploreScreen>
                                 ? Icons.view_list_rounded
                                 : Icons.grid_view_rounded,
                             color: const Color(0xFFC62828),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const MapViewScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.map_rounded,
+                            color: Color(0xFF1976D2),
                             size: 18,
                           ),
                         ),
@@ -311,11 +335,7 @@ class _ExploreScreenState extends State<ExploreScreen>
               ),
             ),
             // Results
-            Expanded(
-              child: _isGridView
-                  ? _buildGrid()
-                  : _buildList(),
-            ),
+            Expanded(child: _isGridView ? _buildGrid() : _buildList()),
           ],
         ),
       ),
@@ -371,8 +391,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   child: Stack(
                     children: [
                       Center(
-                        child: _initalsAvatar(
-                            item['initials'] as String, 56),
+                        child: _initalsAvatar(item['initials'] as String, 56),
                       ),
                       if (item['available'] as bool)
                         Positioned(
@@ -380,7 +399,9 @@ class _ExploreScreenState extends State<ExploreScreen>
                           left: 10,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green,
                               borderRadius: BorderRadius.circular(6),
@@ -400,7 +421,9 @@ class _ExploreScreenState extends State<ExploreScreen>
                         right: 8,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
@@ -408,8 +431,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star_rounded,
-                                  color: Colors.yellowAccent, size: 11),
+                              const Icon(
+                                Icons.star_rounded,
+                                color: Colors.yellowAccent,
+                                size: 11,
+                              ),
                               const SizedBox(width: 2),
                               Text(
                                 '${item['rating']}',
@@ -550,8 +576,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.star_rounded,
-                              color: Color(0xFFFFB300), size: 14),
+                          const Icon(
+                            Icons.star_rounded,
+                            color: Color(0xFFFFB300),
+                            size: 14,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${item['rating']} (${item['reviews']})',
@@ -561,8 +590,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.location_on_outlined,
-                              size: 12, color: Color(0xFFBDBDBD)),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 12,
+                            color: Color(0xFFBDBDBD),
+                          ),
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
@@ -578,7 +610,9 @@ class _ExploreScreenState extends State<ExploreScreen>
                           if (item['available'] as bool)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(6),
@@ -612,7 +646,10 @@ class _ExploreScreenState extends State<ExploreScreen>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.2),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.5),
+          width: 2,
+        ),
       ),
       child: Center(
         child: Text(

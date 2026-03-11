@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'booking_confirmation_screen.dart';
+import '../calendar/calendar_screen.dart';
+import '../payment/payment_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key, required this.photographerData});
@@ -18,8 +20,15 @@ class _BookingScreenState extends State<BookingScreen> {
   final _notesController = TextEditingController();
 
   final List<String> _timeSlots = [
-    '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
-    '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM',
+    '8:00 AM',
+    '9:00 AM',
+    '10:00 AM',
+    '11:00 AM',
+    '12:00 PM',
+    '1:00 PM',
+    '2:00 PM',
+    '3:00 PM',
+    '4:00 PM',
   ];
 
   final List<Map<String, dynamic>> _services = [
@@ -96,8 +105,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: List<Color>.from(
-                            data['gradient'] as List),
+                        colors: List<Color>.from(data['gradient'] as List),
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -139,8 +147,11 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded,
-                          color: Color(0xFFFFB300), size: 14),
+                      const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 14,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${data['rating']}',
@@ -156,8 +167,50 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // Service selection
-            _sectionTitle('Select Package'),
+            // Date selection with calendar link
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _sectionTitle('Select Date'),
+                TextButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CalendarScreen(
+                          photographerData: widget.photographerData,
+                        ),
+                      ),
+                    );
+                    if (result != null && result is Map) {
+                      setState(() {
+                        _selectedDate = result['date'] as DateTime;
+                        _selectedTimeSlot = _timeSlots.indexOf(
+                          result['time'] as String,
+                        );
+                      });
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(
+                    Icons.calendar_month_rounded,
+                    size: 16,
+                    color: Color(0xFFC62828),
+                  ),
+                  label: Text(
+                    'View Full Calendar',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFC62828),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             ...List.generate(
               _services.length,
@@ -198,8 +251,11 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                         ),
                         child: _selectedService == index
-                            ? const Icon(Icons.check,
-                                color: Colors.white, size: 12)
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              )
                             : null,
                       ),
                       const SizedBox(width: 12),
@@ -257,8 +313,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 itemBuilder: (context, index) {
                   final selected = _selectedTimeSlot == index;
                   return GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedTimeSlot = index),
+                    onTap: () => setState(() => _selectedTimeSlot = index),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       margin: const EdgeInsets.only(right: 10),
@@ -306,7 +361,9 @@ class _BookingScreenState extends State<BookingScreen> {
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 4),
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   prefixIcon: const Icon(
                     Icons.event_rounded,
                     color: Color(0xFF9E9E9E),
@@ -314,11 +371,21 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                 ),
                 style: GoogleFonts.poppins(
-                    fontSize: 14, color: const Color(0xFF1F2937)),
-                items: [
-                  'Wedding', 'Portrait', 'Event', 'Commercial',
-                  'Fashion', 'Product', 'Other',
-                ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  fontSize: 14,
+                  color: const Color(0xFF1F2937),
+                ),
+                items:
+                    [
+                          'Wedding',
+                          'Portrait',
+                          'Event',
+                          'Commercial',
+                          'Fashion',
+                          'Product',
+                          'Other',
+                        ]
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
                 onChanged: (_) {},
                 dropdownColor: Colors.white,
               ),
@@ -337,7 +404,9 @@ class _BookingScreenState extends State<BookingScreen> {
                 controller: _notesController,
                 maxLines: 3,
                 style: GoogleFonts.poppins(
-                    fontSize: 14, color: const Color(0xFF1F2937)),
+                  fontSize: 14,
+                  color: const Color(0xFF1F2937),
+                ),
                 decoration: InputDecoration(
                   hintText:
                       'Any special requirements, locations, or style preferences...',
@@ -394,14 +463,17 @@ class _BookingScreenState extends State<BookingScreen> {
             Expanded(
               flex: 2,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pushReplacement(
+                onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => BookingConfirmationScreen(
+                    builder: (_) => PaymentScreen(
                       photographerData: data,
-                      date: _selectedDate,
-                      time: _timeSlots[_selectedTimeSlot],
-                      service: selectedService['name'] as String,
-                      total: total,
+                      bookingDetails: {
+                        'date': _selectedDate,
+                        'time': _timeSlots[_selectedTimeSlot],
+                        'service': selectedService['name'] as String,
+                        'duration': selectedService['duration'] as String,
+                        'total': total,
+                      },
                     ),
                   ),
                 ),
@@ -415,7 +487,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                 ),
                 child: Text(
-                  'Confirm Booking',
+                  'Continue to Payment',
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -444,8 +516,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final now = DateTime.now();
     final firstDay = now;
     final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
-    final firstWeekday =
-        DateTime(now.year, now.month, 1).weekday % 7; // 0=Sun
+    final firstWeekday = DateTime(now.year, now.month, 1).weekday % 7; // 0=Sun
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -476,11 +547,15 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
               Row(
                 children: [
-                  const Icon(Icons.chevron_left_rounded,
-                      color: Color(0xFF9E9E9E)),
+                  const Icon(
+                    Icons.chevron_left_rounded,
+                    color: Color(0xFF9E9E9E),
+                  ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.chevron_right_rounded,
-                      color: Color(0xFF9E9E9E)),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF9E9E9E),
+                  ),
                 ],
               ),
             ],
@@ -490,18 +565,20 @@ class _BookingScreenState extends State<BookingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-                .map((d) => SizedBox(
-                      width: 32,
-                      child: Text(
-                        d,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF9E9E9E),
-                        ),
+                .map(
+                  (d) => SizedBox(
+                    width: 32,
+                    child: Text(
+                      d,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF9E9E9E),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
           const SizedBox(height: 8),
@@ -509,8 +586,7 @@ class _BookingScreenState extends State<BookingScreen> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               mainAxisSpacing: 4,
             ),
@@ -519,8 +595,8 @@ class _BookingScreenState extends State<BookingScreen> {
               if (index < firstWeekday) return const SizedBox();
               final day = index - firstWeekday + 1;
               final date = DateTime(now.year, now.month, day);
-              final isSelected = _selectedDate.day == day &&
-                  _selectedDate.month == now.month;
+              final isSelected =
+                  _selectedDate.day == day && _selectedDate.month == now.month;
               final isPast = date.isBefore(firstDay) && date.day < now.day;
               final isToday = date.day == now.day;
 
@@ -534,8 +610,8 @@ class _BookingScreenState extends State<BookingScreen> {
                     color: isSelected
                         ? const Color(0xFFC62828)
                         : isToday
-                            ? const Color(0xFFFFEBEE)
-                            : Colors.transparent,
+                        ? const Color(0xFFFFEBEE)
+                        : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -549,10 +625,10 @@ class _BookingScreenState extends State<BookingScreen> {
                         color: isSelected
                             ? Colors.white
                             : isPast
-                                ? const Color(0xFFE0E0E0)
-                                : isToday
-                                    ? const Color(0xFFC62828)
-                                    : const Color(0xFF374151),
+                            ? const Color(0xFFE0E0E0)
+                            : isToday
+                            ? const Color(0xFFC62828)
+                            : const Color(0xFF374151),
                       ),
                     ),
                   ),
@@ -567,8 +643,18 @@ class _BookingScreenState extends State<BookingScreen> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }

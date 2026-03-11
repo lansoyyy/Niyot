@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'booking_actions_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -157,17 +158,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
-                    unselectedLabelStyle:
-                        GoogleFonts.poppins(fontSize: 13),
+                    unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
                     indicatorColor: const Color(0xFFC62828),
                     indicatorWeight: 2.5,
                     tabs: [
-                      Tab(
-                          text:
-                              'Upcoming (${_upcoming.length})'),
-                      Tab(
-                          text:
-                              'Requested (${_requested.length})'),
+                      Tab(text: 'Upcoming (${_upcoming.length})'),
+                      Tab(text: 'Requested (${_requested.length})'),
                       Tab(text: 'Past (${_past.length})'),
                     ],
                   ),
@@ -218,8 +214,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       itemCount: bookings.length,
-      itemBuilder: (context, index) =>
-          _BookingCard(booking: bookings[index]),
+      itemBuilder: (context, index) => _BookingCard(booking: bookings[index]),
     );
   }
 }
@@ -277,8 +272,7 @@ class _BookingCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors:
-                    List<Color>.from(booking['gradient'] as List),
+                colors: List<Color>.from(booking['gradient'] as List),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -296,8 +290,9 @@ class _BookingCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(alpha: 0.2),
                     border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        width: 2),
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
                   ),
                   child: Center(
                     child: Text(
@@ -335,7 +330,9 @@ class _BookingCard extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _statusBg(status),
                     borderRadius: BorderRadius.circular(8),
@@ -391,46 +388,63 @@ class _BookingCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => BookingActionsScreen(
+                                  bookingData: booking,
+                                  actionType: 'reschedule',
+                                ),
+                              ),
+                            );
+                          },
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                                color: Colors.grey.shade300),
-                            foregroundColor:
-                                const Color(0xFF7A7A7A),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 10),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            foregroundColor: const Color(0xFF7A7A7A),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: Text(
                             'Message',
                             style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => BookingActionsScreen(
+                                  bookingData: booking,
+                                  actionType: status == 'Pending'
+                                      ? 'cancel'
+                                      : 'reschedule',
+                                ),
+                              ),
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFFC62828),
+                            backgroundColor: const Color(0xFFC62828),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: Text(
-                            status == 'Pending'
-                                ? 'Cancel'
-                                : 'View Details',
+                            status == 'Pending' ? 'Cancel' : 'View Details',
                             style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -444,20 +458,20 @@ class _BookingCard extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {},
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: Color(0xFFC62828)),
+                        side: const BorderSide(color: Color(0xFFC62828)),
                         foregroundColor: const Color(0xFFC62828),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      icon: const Icon(Icons.star_outline_rounded,
-                          size: 16),
+                      icon: const Icon(Icons.star_outline_rounded, size: 16),
                       label: Text(
                         'Leave a Review',
                         style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
