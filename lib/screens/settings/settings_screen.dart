@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../auth/login_screen.dart';
 import '../profile/edit_profile_screen.dart';
+import 'change_password_screen.dart';
+import 'verification_screen.dart';
+import 'payment_methods_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -167,7 +170,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.lock_outline_rounded,
                 title: 'Change Password',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ChangePasswordScreen(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.badge_outlined,
@@ -208,7 +217,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.payment_outlined,
                 title: 'Payment Methods',
-                onTap: () {},
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PaymentMethodsScreen(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               // Notifications section
