@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../services/auth_service.dart';
 import '../main/main_screen.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -12,10 +15,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
+
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -47,19 +54,62 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _login() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const MainScreen(),
-          transitionDuration: const Duration(milliseconds: 500),
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        ),
+    try {
+      await _authService.signInWithEmail(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
+      _navigateToHome();
+    } catch (e) {
+      _showError(AuthService.parseError(e));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _isGoogleLoading = true);
+    try {
+      await _authService.signInWithGoogle();
+      _navigateToHome();
+    } catch (e) {
+      final msg = AuthService.parseError(e);
+      if (msg != 'Google sign-in was cancelled.') _showError(msg);
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFFB71C1C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _navigateToHome() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const MainScreen(),
+        transitionDuration: const Duration(milliseconds: 500),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
   }
 
   @override
@@ -72,10 +122,12 @@ class _LoginScreenState extends State<LoginScreen>
           position: _slideAnim,
           child: SafeArea(
             child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Header
-                  Container(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Header
+                    Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(28, 48, 28, 40),
                     decoration: const BoxDecoration(
@@ -135,16 +187,22 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 8),
                         _buildLabel('Email Address'),
                         const SizedBox(height: 8),
-                        _buildTextField(
+                        _buildFormField(
                           controller: _emailController,
                           hint: 'you@example.com',
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Email is required';
+                            final re = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            if (!re.hasMatch(v.trim())) return 'Enter a valid email';
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 20),
                         _buildLabel('Password'),
                         const SizedBox(height: 8),
-                        _buildTextField(
+                        _buildFormField(
                           controller: _passwordController,
                           hint: 'Enter your password',
                           icon: Icons.lock_outline_rounded,
@@ -160,12 +218,22 @@ class _LoginScreenState extends State<LoginScreen>
                               size: 20,
                             ),
                           ),
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Password is required';
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ForgotPasswordScreen(),
+                                ),
+                              );
+                            },
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,
@@ -242,31 +310,40 @@ class _LoginScreenState extends State<LoginScreen>
                           width: double.infinity,
                           height: 52,
                           child: OutlinedButton.icon(
-                            onPressed: () {},
+                            onPressed: _isGoogleLoading ? null : _loginWithGoogle,
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.grey.shade300),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            icon: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'G',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: Color(0xFFDB4437),
+                            icon: _isGoogleLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFFDB4437),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        'G',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: Color(0xFFDB4437),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
                             label: Text(
                               'Continue with Google',
                               style: GoogleFonts.poppins(
@@ -317,6 +394,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -331,13 +409,14 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildFormField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
     bool obscure = false,
     TextInputType? keyboardType,
     Widget? suffixIcon,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -345,10 +424,12 @@ class _LoginScreenState extends State<LoginScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
+        validator: validator,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1F2937)),
         decoration: InputDecoration(
           hintText: hint,
@@ -359,9 +440,15 @@ class _LoginScreenState extends State<LoginScreen>
           prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
           suffixIcon: suffixIcon,
           border: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,
+          ),
+          errorStyle: GoogleFonts.poppins(
+            fontSize: 11,
+            color: const Color(0xFFB71C1C),
           ),
         ),
       ),

@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../services/auth_service.dart';
 import '../main/main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -11,12 +16,19 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
+
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  bool _acceptedTerms = false;
   int _selectedRole = 0; // 0 = Photographer/Videographer, 1 = Client
+  File? _profileImage;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -39,23 +51,71 @@ class _RegisterScreenState extends State<RegisterScreen>
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _animController.dispose();
     super.dispose();
   }
 
-  void _register() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1400));
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const MainScreen(),
-          transitionDuration: const Duration(milliseconds: 500),
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
+    if (picked != null && mounted) {
+      setState(() => _profileImage = File(picked.path));
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
         ),
+        backgroundColor: const Color(0xFFB71C1C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _register() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
+      _showError('Please accept the Terms of Service and Privacy Policy.');
+      return;
+    }
+    FocusScope.of(context).unfocus();
+
+    setState(() => _isLoading = true);
+    try {
+      await _authService.registerWithEmail(
+        email: _emailController.text,
+        password: _passwordController.text,
+        name: _nameController.text,
+        role: _selectedRole == 0 ? 'photographer' : 'client',
+        profileImage: _profileImage,
       );
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const MainScreen(),
+            transitionDuration: const Duration(milliseconds: 500),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+      }
+    } catch (e) {
+      _showError(AuthService.parseError(e));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -88,105 +148,203 @@ class _RegisterScreenState extends State<RegisterScreen>
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(28, 8, 28, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Create Account',
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A1A1A),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Create Account',
+                    style: GoogleFonts.poppins(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1A1A1A),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Join thousands of creatives on Niyot',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: const Color(0xFF7A7A7A),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Join thousands of creatives on Niyot',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: const Color(0xFF7A7A7A),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 28),
-                // Role selector
-                Text(
-                  'I am a...',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF374151),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _RoleCard(
-                        icon: Icons.camera_alt_rounded,
-                        label: 'Photographer /\nVideographer',
-                        isSelected: _selectedRole == 0,
-                        onTap: () => setState(() => _selectedRole = 0),
+                  const SizedBox(height: 28),
+                  // Profile image picker
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 48,
+                            backgroundColor: const Color(0xFFFFEBEE),
+                            backgroundImage: _profileImage != null
+                                ? FileImage(_profileImage!)
+                                : null,
+                            child: _profileImage == null
+                                ? const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 44,
+                                    color: Color(0xFFC62828),
+                                  )
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFC62828),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _RoleCard(
-                        icon: Icons.person_search_rounded,
-                        label: 'Client /\nBusiness',
-                        isSelected: _selectedRole == 1,
-                        onTap: () => setState(() => _selectedRole = 1),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Tap to add profile photo (optional)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF9E9E9E),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildLabel('Full Name'),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _nameController,
-                  hint: 'John Doe',
-                  icon: Icons.person_outline_rounded,
-                ),
-                const SizedBox(height: 18),
-                _buildLabel('Email Address'),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _emailController,
-                  hint: 'you@example.com',
-                  icon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 18),
-                _buildLabel('Password'),
-                const SizedBox(height: 8),
-                _buildTextField(
-                  controller: _passwordController,
-                  hint: 'Min. 8 characters',
-                  icon: Icons.lock_outline_rounded,
-                  obscure: _obscurePassword,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: const Color(0xFF9E9E9E),
-                      size: 20,
+                  ),
+                  const SizedBox(height: 24),
+                  // Role selector
+                  Text(
+                    'I am a...',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF374151),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _RoleCard(
+                          icon: Icons.camera_alt_rounded,
+                          label: 'Photographer /\nVideographer',
+                          isSelected: _selectedRole == 0,
+                          onTap: () => setState(() => _selectedRole = 0),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _RoleCard(
+                          icon: Icons.person_search_rounded,
+                          label: 'Client /\nBusiness',
+                          isSelected: _selectedRole == 1,
+                          onTap: () => setState(() => _selectedRole = 1),
+                        ),
+                      ),
+                    ],
                 ),
-                const SizedBox(height: 20),
-                // Terms
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: Checkbox(
-                        value: true,
-                        onChanged: (_) {},
+                  const SizedBox(height: 24),
+                  _buildLabel('Full Name'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _nameController,
+                    hint: 'John Doe',
+                    icon: Icons.person_outline_rounded,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Name is required';
+                      if (v.trim().length < 2) return 'Name is too short';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel('Email Address'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _emailController,
+                    hint: 'you@example.com',
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Email is required';
+                      final re = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                      if (!re.hasMatch(v.trim())) return 'Enter a valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel('Password'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _passwordController,
+                    hint: 'Min. 8 characters',
+                    icon: Icons.lock_outline_rounded,
+                    obscure: _obscurePassword,
+                    suffixIcon: IconButton(
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: const Color(0xFF9E9E9E),
+                        size: 20,
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Password is required';
+                      if (v.length < 8) return 'Password must be at least 8 characters';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel('Confirm Password'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _confirmPasswordController,
+                    hint: 'Re-enter your password',
+                    icon: Icons.lock_outline_rounded,
+                    obscure: _obscureConfirmPassword,
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() =>
+                          _obscureConfirmPassword = !_obscureConfirmPassword),
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: const Color(0xFF9E9E9E),
+                        size: 20,
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Please confirm your password';
+                      if (v != _passwordController.text) return 'Passwords do not match';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Terms
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Checkbox(
+                          value: _acceptedTerms,
+                          onChanged: (v) =>
+                              setState(() => _acceptedTerms = v ?? false),
                         activeColor: const Color(0xFFC62828),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(4),
@@ -291,6 +449,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -305,13 +464,14 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildFormField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
     bool obscure = false,
     TextInputType? keyboardType,
     Widget? suffixIcon,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -319,10 +479,12 @@ class _RegisterScreenState extends State<RegisterScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
+        validator: validator,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         style:
             GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1F2937)),
         decoration: InputDecoration(
@@ -334,9 +496,15 @@ class _RegisterScreenState extends State<RegisterScreen>
           prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
           suffixIcon: suffixIcon,
           border: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,
+          ),
+          errorStyle: GoogleFonts.poppins(
+            fontSize: 11,
+            color: const Color(0xFFB71C1C),
           ),
         ),
       ),

@@ -10,7 +10,6 @@ void main() async {
   // Firebase must be initialized before any Firebase services.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-    name: 'niyot-17d88',
   );
   AppConfig.init(debugMode: true);
   runApp(const MyApp());

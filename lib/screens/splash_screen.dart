@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'main/main_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -72,9 +74,11 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineController.forward();
     await Future.delayed(const Duration(milliseconds: 1400));
     if (mounted) {
+      final user = FirebaseAuth.instance.currentUser;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const OnboardingScreen(),
+          pageBuilder: (_, __, ___) =>
+              user != null ? const MainScreen() : const OnboardingScreen(),
           transitionDuration: const Duration(milliseconds: 600),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(opacity: animation, child: child);
