@@ -1,4 +1,4 @@
-package com.example.niyot
+package com.algovision.niyot
 
 import io.flutter.embedding.android.FlutterActivity
 

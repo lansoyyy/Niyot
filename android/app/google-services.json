@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "695060063758",
+    "project_id": "niyot-17d88",
+    "storage_bucket": "niyot-17d88.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:695060063758:android:3fa15d18529501c010be5f",
+        "android_client_info": {
+          "package_name": "com.algovision.niyot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "695060063758-pdtd0pa9acm8joljkn0k350i7aa9h92s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfuoYUjc8GnTwIfq7FGJaaAjLFaFVBdmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "695060063758-pdtd0pa9acm8joljkn0k350i7aa9h92s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
