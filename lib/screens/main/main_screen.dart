@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/messaging_service.dart';
 import '../home/home_screen.dart';
 import '../explore/explore_screen.dart';
 import '../bookings/my_bookings_screen.dart';
@@ -16,6 +18,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -77,7 +80,9 @@ class _MainScreenState extends State<MainScreen> {
                     icon: Icons.chat_bubble_rounded,
                     label: 'Messages',
                     isSelected: _currentIndex == 3,
-                    badge: 3,
+                    badgeStream: _currentUid.isEmpty
+                        ? null
+                        : MessagingService().totalUnreadStream(_currentUid),
                     onTap: () => setState(() => _currentIndex = 3),
                   ),
                   _NavItem(
@@ -102,14 +107,14 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
-    this.badge,
+    this.badgeStream,
   });
 
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-  final int? badge;
+  final Stream<int>? badgeStream;
 
   @override
   Widget build(BuildContext context) {
@@ -137,28 +142,35 @@ class _NavItem extends StatelessWidget {
                       ? const Color(0xFFC62828)
                       : const Color(0xFFBDBDBD),
                 ),
-                if (badge != null && badge! > 0)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFC62828),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$badge',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
+                if (badgeStream != null)
+                  StreamBuilder<int>(
+                    stream: badgeStream,
+                    builder: (context, snapshot) {
+                      final badge = snapshot.data ?? 0;
+                      if (badge <= 0) return const SizedBox.shrink();
+                      return Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFC62828),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$badge',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
               ],
             ),

@@ -1,13 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/booking_model.dart';
+import '../../models/photographer_model.dart';
+import '../../services/booking_service.dart';
+import '../../services/user_service.dart';
 import 'booking_confirmation_screen.dart';
 import '../calendar/calendar_screen.dart';
-import '../payment/payment_screen.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key, required this.photographerData});
+  const BookingScreen({super.key, required this.photographer});
 
-  final Map<String, dynamic> photographerData;
+  final PhotographerModel photographer;
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -16,7 +20,8 @@ class BookingScreen extends StatefulWidget {
 class _BookingScreenState extends State<BookingScreen> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
   int _selectedTimeSlot = 2;
-  int _selectedService = 1;
+  int _selectedService = 0;
+  bool _isSubmitting = false;
   final _notesController = TextEditingController();
 
   final List<String> _timeSlots = [
@@ -31,12 +36,6 @@ class _BookingScreenState extends State<BookingScreen> {
     '4:00 PM',
   ];
 
-  final List<Map<String, dynamic>> _services = [
-    {'name': 'Starter', 'duration': '2 hours', 'price': 280},
-    {'name': 'Standard', 'duration': '4 hours', 'price': 450},
-    {'name': 'Premium', 'duration': 'Full day', 'price': 750},
-  ];
-
   @override
   void dispose() {
     _notesController.dispose();
@@ -45,9 +44,36 @@ class _BookingScreenState extends State<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.photographerData;
-    final selectedService = _services[_selectedService];
-    final total = selectedService['price'] as int;
+    final photographer = widget.photographer;
+    final packages = photographer.packages.isNotEmpty
+        ? photographer.packages
+        : [
+            // Fallback if no packages loaded
+          ];
+    if (packages.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F8F8),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                color: Color(0xFF374151)),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text('Book a Session',
+              style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1A1A))),
+        ),
+        body: const Center(
+            child: Text('No packages available for this photographer.')),
+      );
+    }
+    final selectedPkg =
+        packages[_selectedService.clamp(0, packages.length - 1)];
+    final total = selectedPkg.price;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -105,7 +131,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: List<Color>.from(data['gradient'] as List),
+                        colors: photographer.gradientColors,
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -113,7 +139,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        data['initials'] as String,
+                        photographer.initials,
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -128,7 +154,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          data['name'] as String,
+                          photographer.name,
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -136,7 +162,11 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                         ),
                         Text(
-                          data['specialty'] as String,
+                          photographer.primarySpecialty.isNotEmpty
+                              ? photographer.primarySpecialty
+                              : photographer.specialties.isNotEmpty
+                                  ? photographer.specialties.first
+                                  : '',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: const Color(0xFF9E9E9E),
@@ -154,7 +184,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${data['rating']}',
+                        photographer.rating.toStringAsFixed(1),
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -177,7 +207,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     final result = await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => CalendarScreen(
-                          photographerData: widget.photographerData,
+                          photographer: widget.photographer,
                         ),
                       ),
                     );
@@ -213,7 +243,7 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
             const SizedBox(height: 12),
             ...List.generate(
-              _services.length,
+              packages.length,
               (index) => GestureDetector(
                 onTap: () => setState(() => _selectedService = index),
                 child: AnimatedContainer(
@@ -264,7 +294,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _services[index]['name'] as String,
+                              packages[index].name,
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -272,7 +302,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                             ),
                             Text(
-                              _services[index]['duration'] as String,
+                              packages[index].duration,
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: const Color(0xFF9E9E9E),
@@ -282,7 +312,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ),
                       Text(
-                        '\$${_services[index]['price']}',
+                        '\$${packages[index].price}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -463,20 +493,7 @@ class _BookingScreenState extends State<BookingScreen> {
             Expanded(
               flex: 2,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PaymentScreen(
-                      photographerData: data,
-                      bookingDetails: {
-                        'date': _selectedDate,
-                        'time': _timeSlots[_selectedTimeSlot],
-                        'service': selectedService['name'] as String,
-                        'duration': selectedService['duration'] as String,
-                        'total': total,
-                      },
-                    ),
-                  ),
-                ),
+                onPressed: _isSubmitting ? null : _submitBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFC62828),
                   foregroundColor: Colors.white,
@@ -486,19 +503,87 @@ class _BookingScreenState extends State<BookingScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: Text(
-                  'Continue to Payment',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        'Confirm Booking',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _submitBooking() async {
+    final photographer = widget.photographer;
+    final packages = photographer.packages;
+    if (packages.isEmpty) return;
+    final pkg = packages[_selectedService.clamp(0, packages.length - 1)];
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final user = await UserService().fetchCurrentUser();
+      final booking = BookingModel(
+        id: '',
+        clientId: currentUser.uid,
+        clientName: user?.name ?? currentUser.displayName ?? 'Client',
+        clientPhotoUrl: user?.photoUrl,
+        photographerId: photographer.uid,
+        photographerName: photographer.name,
+        photographerPhotoUrl: photographer.photoUrl,
+        packageName: pkg.name,
+        packagePrice: pkg.price,
+        packageDuration: pkg.duration,
+        scheduledDate: _selectedDate,
+        scheduledTime: _timeSlots[_selectedTimeSlot],
+        location: photographer.locationText,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        status: BookingStatus.requested,
+        createdAt: DateTime.now(),
+      );
+      final bookingId = await BookingService().createBooking(booking);
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BookingConfirmationScreen(
+              bookingId: bookingId,
+              photographerName: photographer.name,
+              photographerLocation: photographer.locationText,
+              date: _selectedDate,
+              time: _timeSlots[_selectedTimeSlot],
+              service: pkg.name,
+              total: pkg.price,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to create booking: $e'),
+              backgroundColor: const Color(0xFFC62828)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Widget _sectionTitle(String title) {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/user_service.dart';
+import '../../services/notification_service.dart';
 import '../main/main_screen.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
@@ -63,6 +65,8 @@ class _LoginScreenState extends State<LoginScreen>
         email: _emailController.text,
         password: _passwordController.text,
       );
+      await UserService().fetchCurrentUser();
+      await NotificationService().initFCM();
       _navigateToHome();
     } catch (e) {
       _showError(AuthService.parseError(e));

@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../main/main_screen.dart';
+import '../payment/payment_screen.dart';
 
 class BookingConfirmationScreen extends StatefulWidget {
   const BookingConfirmationScreen({
     super.key,
-    required this.photographerData,
+    required this.bookingId,
+    required this.photographerName,
+    required this.photographerLocation,
     required this.date,
     required this.time,
     required this.service,
     required this.total,
   });
 
-  final Map<String, dynamic> photographerData;
+  final String bookingId;
+  final String photographerName;
+  final String photographerLocation;
   final DateTime date;
   final String time;
   final String service;
@@ -63,8 +68,6 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.photographerData;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -122,7 +125,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your session has been requested.\n${data['name']} will confirm shortly.',
+                      'Your session has been requested.\n${widget.photographerName} will confirm shortly.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
@@ -145,7 +148,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           _DetailRow(
                             icon: Icons.person_rounded,
                             label: 'Photographer',
-                            value: data['name'] as String,
+                            value: widget.photographerName,
                           ),
                           _divider(),
                           _DetailRow(
@@ -169,7 +172,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           _DetailRow(
                             icon: Icons.location_on_rounded,
                             label: 'Location',
-                            value: data['location'] as String,
+                            value: widget.photographerLocation,
                           ),
                           _divider(),
                           _DetailRow(
@@ -201,7 +204,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Booking ID: #NYT-2026-0847',
+                            'Booking ID: ${widget.bookingId.isNotEmpty ? '#${widget.bookingId.substring(0, widget.bookingId.length.clamp(0, 8)).toUpperCase()}' : 'Pending'}',
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -224,10 +227,15 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const MainScreen()),
-                          (route) => false,
-                        ),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PaymentScreen(
+                                bookingId: widget.bookingId,
+                              ),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFC62828),
                           foregroundColor: Colors.white,
@@ -237,7 +245,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           ),
                         ),
                         child: Text(
-                          'View My Bookings',
+                          'Continue to Payment',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/photographer_model.dart';
+import '../../services/photographer_service.dart';
 import '../photographer/photographer_profile_screen.dart';
 import 'map_view_screen.dart';
 
@@ -15,6 +18,10 @@ class _ExploreScreenState extends State<ExploreScreen>
   final _searchController = TextEditingController();
   int _selectedFilter = 0;
   bool _isGridView = true;
+  List<PhotographerModel> _results = [];
+  bool _isLoading = true;
+  String? _error;
+  Timer? _debounceTimer;
 
   final List<String> _filters = [
     'All',
@@ -27,99 +34,46 @@ class _ExploreScreenState extends State<ExploreScreen>
     'Newborn',
   ];
 
-  static const List<Map<String, dynamic>> _results = [
-    {
-      'name': 'Sofia Reyes',
-      'specialty': 'Wedding',
-      'rating': 4.9,
-      'reviews': 142,
-      'price': '\$350/hr',
-      'location': 'New York, NY',
-      'gradient': [Color(0xFF8E0000), Color(0xFFC62828)],
-      'initials': 'SR',
-      'available': true,
-    },
-    {
-      'name': 'Marcus Chen',
-      'specialty': 'Commercial',
-      'rating': 4.8,
-      'reviews': 98,
-      'price': '\$420/hr',
-      'location': 'Los Angeles, CA',
-      'gradient': [Color(0xFF4A0000), Color(0xFF880E0E)],
-      'initials': 'MC',
-      'available': true,
-    },
-    {
-      'name': 'Ava Thompson',
-      'specialty': 'Portrait',
-      'rating': 5.0,
-      'reviews': 211,
-      'price': '\$280/hr',
-      'location': 'Chicago, IL',
-      'gradient': [Color(0xFF880E4F), Color(0xFFAD1457)],
-      'initials': 'AT',
-      'available': false,
-    },
-    {
-      'name': 'Liam Park',
-      'specialty': 'Event',
-      'rating': 4.7,
-      'reviews': 67,
-      'price': '\$200/hr',
-      'location': 'Miami, FL',
-      'gradient': [Color(0xFFC62828), Color(0xFF6B0000)],
-      'initials': 'LP',
-      'available': true,
-    },
-    {
-      'name': 'Isabella Cruz',
-      'specialty': 'Portrait',
-      'rating': 4.9,
-      'reviews': 189,
-      'price': '\$320/hr',
-      'location': 'Austin, TX',
-      'gradient': [Color(0xFFAD1457), Color(0xFF560027)],
-      'initials': 'IC',
-      'available': true,
-    },
-    {
-      'name': 'Noah Williams',
-      'specialty': 'Wedding',
-      'rating': 4.8,
-      'reviews': 133,
-      'price': '\$500/hr',
-      'location': 'Seattle, WA',
-      'gradient': [Color(0xFF880E0E), Color(0xFF3D0000)],
-      'initials': 'NW',
-      'available': false,
-    },
-    {
-      'name': 'Mia Johnson',
-      'specialty': 'Fashion',
-      'rating': 4.6,
-      'reviews': 74,
-      'price': '\$380/hr',
-      'location': 'Boston, MA',
-      'gradient': [Color(0xFFB71C1C), Color(0xFF7F0000)],
-      'initials': 'MJ',
-      'available': true,
-    },
-    {
-      'name': 'Ethan Brown',
-      'specialty': 'Commercial',
-      'rating': 4.9,
-      'reviews': 156,
-      'price': '\$450/hr',
-      'location': 'Denver, CO',
-      'gradient': [Color(0xFF6D2533), Color(0xFFC2185B)],
-      'initials': 'EB',
-      'available': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _searchController.addListener(() {
+      if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+      _debounceTimer =
+          Timer(const Duration(milliseconds: 600), _loadData);
+    });
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final category = _selectedFilter == 0
+          ? null
+          : _filters[_selectedFilter];
+      final query = _searchController.text.trim().isEmpty
+          ? null
+          : _searchController.text.trim();
+      final results = await PhotographerService()
+          .getPhotographers(category: category, searchQuery: query);
+      if (mounted) setState(() {
+        _results = results;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() {
+        _error = 'Failed to load. Please try again.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -211,8 +165,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                             itemBuilder: (context, index) {
                               final selected = _selectedFilter == index;
                               return GestureDetector(
-                                onTap: () =>
-                                    setState(() => _selectedFilter = index),
+                                onTap: () {
+                                  setState(() => _selectedFilter = index);
+                                  _loadData();
+                                },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
                                   margin: const EdgeInsets.only(right: 8),
@@ -303,7 +259,9 @@ class _ExploreScreenState extends State<ExploreScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${_results.length} photographers found',
+                    _isLoading
+                        ? 'Searching...'
+                        : '${_results.length} photographers found',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -335,7 +293,54 @@ class _ExploreScreenState extends State<ExploreScreen>
               ),
             ),
             // Results
-            Expanded(child: _isGridView ? _buildGrid() : _buildList()),
+            if (_isLoading)
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFFC62828)),
+                ),
+              )
+            else if (_error != null)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Color(0xFFBDBDBD), size: 48),
+                      const SizedBox(height: 8),
+                      Text(_error!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadData,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFC62828),
+                            foregroundColor: Colors.white),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_results.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.search_off_rounded,
+                          color: Color(0xFFBDBDBD), size: 48),
+                      const SizedBox(height: 8),
+                      Text('No photographers found.',
+                          style: GoogleFonts.poppins(
+                              color: const Color(0xFF9E9E9E))),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Expanded(child: _isGridView ? _buildGrid() : _buildList()),
           ],
         ),
       ),
@@ -357,7 +362,7 @@ class _ExploreScreenState extends State<ExploreScreen>
         return GestureDetector(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PhotographerProfileScreen(data: item),
+              builder: (_) => PhotographerProfileScreen(photographer: item),
             ),
           ),
           child: Container(
@@ -379,7 +384,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   height: 130,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: List<Color>.from(item['gradient'] as List),
+                      colors: item.gradientColors,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -391,9 +396,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                   child: Stack(
                     children: [
                       Center(
-                        child: _initalsAvatar(item['initials'] as String, 56),
+                        child: _initialsAvatar(
+                            item.initials, 56, item.photoUrl),
                       ),
-                      if (item['available'] as bool)
+                      if (item.isAvailable)
                         Positioned(
                           top: 10,
                           left: 10,
@@ -438,7 +444,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                               ),
                               const SizedBox(width: 2),
                               Text(
-                                '${item['rating']}',
+                                item.rating.toStringAsFixed(1),
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -458,7 +464,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item['name'] as String,
+                        item.name,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -468,7 +474,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        item['specialty'] as String,
+                        item.primarySpecialty.isNotEmpty
+                            ? item.primarySpecialty
+                            : item.specialties.isNotEmpty
+                                ? item.specialties.first
+                                : '',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: const Color(0xFF9E9E9E),
@@ -476,7 +486,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        item['price'] as String,
+                        item.startingPrice,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -503,7 +513,7 @@ class _ExploreScreenState extends State<ExploreScreen>
         return GestureDetector(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PhotographerProfileScreen(data: item),
+              builder: (_) => PhotographerProfileScreen(photographer: item),
             ),
           ),
           child: Container(
@@ -528,14 +538,14 @@ class _ExploreScreenState extends State<ExploreScreen>
                   height: 64,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: List<Color>.from(item['gradient'] as List),
+                      colors: item.gradientColors,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
-                    child: _initalsAvatar(item['initials'] as String, 36),
+                    child: _initialsAvatar(item.initials, 36, item.photoUrl),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -548,7 +558,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            item['name'] as String,
+                            item.name,
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -556,7 +566,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                             ),
                           ),
                           Text(
-                            item['price'] as String,
+                            item.startingPrice,
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -567,7 +577,11 @@ class _ExploreScreenState extends State<ExploreScreen>
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        item['specialty'] as String,
+                        item.primarySpecialty.isNotEmpty
+                            ? item.primarySpecialty
+                            : item.specialties.isNotEmpty
+                                ? item.specialties.first
+                                : '',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: const Color(0xFF9E9E9E),
@@ -583,7 +597,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${item['rating']} (${item['reviews']})',
+                            '${item.rating.toStringAsFixed(1)} (${item.reviewCount})',
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               color: const Color(0xFF7A7A7A),
@@ -598,7 +612,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
-                              item['location'] as String,
+                              item.locationText,
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
                                 color: const Color(0xFFBDBDBD),
@@ -607,7 +621,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (item['available'] as bool)
+                          if (item.isAvailable)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -639,7 +653,7 @@ class _ExploreScreenState extends State<ExploreScreen>
     );
   }
 
-  Widget _initalsAvatar(String initials, double size) {
+  Widget _initialsAvatar(String initials, double size, String? photoUrl) {
     return Container(
       width: size,
       height: size,
@@ -650,17 +664,25 @@ class _ExploreScreenState extends State<ExploreScreen>
           color: Colors.white.withValues(alpha: 0.5),
           width: 2,
         ),
+        image: photoUrl != null
+            ? DecorationImage(
+                image: NetworkImage(photoUrl),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            fontSize: size * 0.3,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
+      child: photoUrl == null
+          ? Center(
+              child: Text(
+                initials,
+                style: GoogleFonts.poppins(
+                  fontSize: size * 0.3,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

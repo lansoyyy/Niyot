@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../models/booking_model.dart';
+import '../../models/payment_record_model.dart';
+import '../../services/booking_service.dart';
+import '../../services/payment_service.dart';
 
 class PhotographerBookingsScreen extends StatefulWidget {
   const PhotographerBookingsScreen({super.key});
@@ -12,103 +17,16 @@ class PhotographerBookingsScreen extends StatefulWidget {
 class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  // Sample booking requests (in real app, fetch from API)
-  static const List<Map<String, dynamic>> _newRequests = [
-    {
-      'id': '1',
-      'client': 'Emily Watson',
-      'initials': 'EW',
-      'avatarColor': [Color(0xFF8E0000), Color(0xFFC62828)],
-      'service': 'Standard Package',
-      'date': 'Mar 18, 2026',
-      'time': '10:00 AM',
-      'location': 'Central Park, New York',
-      'price': '\$450',
-      'message':
-          'Hi! I would like to book a session for my engagement photos. Looking for something romantic and natural.',
-      'status': 'pending',
-      'requestedAt': '2 hours ago',
-    },
-    {
-      'id': '2',
-      'client': 'James Rodriguez',
-      'initials': 'JR',
-      'avatarColor': [Color(0xFF880E4F), Color(0xFFAD1457)],
-      'service': 'Premium Package',
-      'date': 'Mar 25, 2026',
-      'time': '9:00 AM',
-      'location': 'Brooklyn Bridge, NY',
-      'price': '\$750',
-      'message':
-          'Need a full-day shoot for our wedding. Will be about 150 guests.',
-      'status': 'pending',
-      'requestedAt': '5 hours ago',
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _upcoming = [
-    {
-      'id': '3',
-      'client': 'Sarah Kim',
-      'initials': 'SK',
-      'avatarColor': [Color(0xFF4A0000), Color(0xFF880E0E)],
-      'service': 'Starter Package',
-      'date': 'Mar 15, 2026',
-      'time': '2:00 PM',
-      'location': 'SoHo, New York',
-      'price': '\$280',
-      'status': 'confirmed',
-      'paid': true,
-    },
-    {
-      'id': '4',
-      'client': 'Michael Brown',
-      'initials': 'MB',
-      'avatarColor': [Color(0xFF6B0000), Color(0xFFC62828)],
-      'service': 'Standard Package',
-      'date': 'Mar 20, 2026',
-      'time': '11:00 AM',
-      'location': 'Times Square, NY',
-      'price': '\$450',
-      'status': 'confirmed',
-      'paid': false,
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _completed = [
-    {
-      'id': '5',
-      'client': 'Lisa Chen',
-      'initials': 'LC',
-      'avatarColor': [Color(0xFFAD1457), Color(0xFF560027)],
-      'service': 'Premium Package',
-      'date': 'Feb 28, 2026',
-      'time': '9:00 AM',
-      'location': 'Manhattan, NY',
-      'price': '\$750',
-      'status': 'completed',
-      'paid': true,
-    },
-    {
-      'id': '6',
-      'client': 'David Lee',
-      'initials': 'DL',
-      'avatarColor': [Color(0xFFB71C1C), Color(0xFF7F0000)],
-      'service': 'Standard Package',
-      'date': 'Feb 15, 2026',
-      'time': '3:00 PM',
-      'location': 'Queens, NY',
-      'price': '\$450',
-      'status': 'completed',
-      'paid': true,
-    },
-  ];
+  Stream<List<BookingModel>>? _bookingsStream;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _bookingsStream = BookingService().photographerBookingsStream(uid);
+    }
   }
 
   @override
@@ -119,101 +37,120 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Booking Requests',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Stats row
-                  Row(
+    return StreamBuilder<List<BookingModel>>(
+      stream: _bookingsStream,
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? [];
+        final newRequests =
+            all.where((b) => b.status == BookingStatus.requested).toList();
+        final upcoming = all.where((b) => b.isUpcoming).toList();
+        final completed =
+            all.where((b) => b.status == BookingStatus.completed).toList();
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F8F8),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatCard(
-                        value: '${_newRequests.length}',
-                        label: 'New',
-                        color: const Color(0xFFFF6D00),
-                        bgColor: const Color(0xFFFFF3E0),
+                      Text(
+                        'Booking Requests',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A1A),
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      _StatCard(
-                        value: '${_upcoming.length}',
-                        label: 'Upcoming',
-                        color: const Color(0xFFC62828),
-                        bgColor: const Color(0xFFFFEBEE),
+                      const SizedBox(height: 16),
+                      // Stats row
+                      Row(
+                        children: [
+                          _StatCard(
+                            value: '${newRequests.length}',
+                            label: 'New',
+                            color: const Color(0xFFFF6D00),
+                            bgColor: const Color(0xFFFFF3E0),
+                          ),
+                          const SizedBox(width: 10),
+                          _StatCard(
+                            value: '${upcoming.length}',
+                            label: 'Upcoming',
+                            color: const Color(0xFFC62828),
+                            bgColor: const Color(0xFFFFEBEE),
+                          ),
+                          const SizedBox(width: 10),
+                          _StatCard(
+                            value: '${completed.length}',
+                            label: 'Completed',
+                            color: const Color(0xFF2E7D32),
+                            bgColor: const Color(0xFFE8F5E9),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      _StatCard(
-                        value: '${_completed.length}',
-                        label: 'Completed',
-                        color: const Color(0xFF2E7D32),
-                        bgColor: const Color(0xFFE8F5E9),
+                      const SizedBox(height: 16),
+                      // Tab bar
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFFC62828),
+                        unselectedLabelColor: const Color(0xFF9E9E9E),
+                        labelStyle: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle:
+                            GoogleFonts.poppins(fontSize: 13),
+                        indicatorColor: const Color(0xFFC62828),
+                        indicatorWeight: 2.5,
+                        tabs: [
+                          Tab(text: 'New Requests (${newRequests.length})'),
+                          Tab(text: 'Upcoming (${upcoming.length})'),
+                          Tab(text: 'Completed (${completed.length})'),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Tab bar
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: const Color(0xFFC62828),
-                    unselectedLabelColor: const Color(0xFF9E9E9E),
-                    labelStyle: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
-                    indicatorColor: const Color(0xFFC62828),
-                    indicatorWeight: 2.5,
-                    tabs: [
-                      Tab(text: 'New Requests (${_newRequests.length})'),
-                      Tab(text: 'Upcoming (${_upcoming.length})'),
-                      Tab(text: 'Completed (${_completed.length})'),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                // Tab content
+                Expanded(
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFC62828),
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildNewRequestsList(newRequests),
+                            _buildUpcomingList(upcoming),
+                            _buildCompletedList(completed),
+                          ],
+                        ),
+                ),
+              ],
             ),
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildNewRequestsList(),
-                  _buildUpcomingList(),
-                  _buildCompletedList(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildNewRequestsList() {
-    if (_newRequests.isEmpty) {
+  Widget _buildNewRequestsList(List<BookingModel> newRequests) {
+    if (newRequests.isEmpty) {
       return _buildEmptyState('No new requests');
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: _newRequests.length,
+      itemCount: newRequests.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final request = _newRequests[index];
+        final request = newRequests[index];
         return _NewRequestCard(
           request: request,
           onAccept: () => _showAcceptDialog(request),
@@ -223,32 +160,30 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
     );
   }
 
-  Widget _buildUpcomingList() {
-    if (_upcoming.isEmpty) {
+  Widget _buildUpcomingList(List<BookingModel> upcoming) {
+    if (upcoming.isEmpty) {
       return _buildEmptyState('No upcoming bookings');
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: _upcoming.length,
+      itemCount: upcoming.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final booking = _upcoming[index];
-        return _BookingCard(booking: booking);
+        return _BookingCard(booking: upcoming[index]);
       },
     );
   }
 
-  Widget _buildCompletedList() {
-    if (_completed.isEmpty) {
+  Widget _buildCompletedList(List<BookingModel> completed) {
+    if (completed.isEmpty) {
       return _buildEmptyState('No completed bookings');
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: _completed.length,
+      itemCount: completed.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final booking = _completed[index];
-        return _BookingCard(booking: booking);
+        return _BookingCard(booking: completed[index]);
       },
     );
   }
@@ -272,10 +207,10 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
     );
   }
 
-  void _showAcceptDialog(Map<String, dynamic> request) {
+  void _showAcceptDialog(BookingModel request) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Accept Booking Request?',
@@ -286,69 +221,57 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           ),
         ),
         content: Text(
-          'You are about to accept the booking request from ${request['client']} for ${request['service']} on ${request['date']} at ${request['time']}.',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: const Color(0xFF6B7280),
-          ),
+          'You are about to accept the booking request from ${request.clientName} for ${request.packageName} on ${_formatDate(request.scheduledDate)} at ${request.scheduledTime}.',
+          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF9E9E9E),
-              ),
-            ),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF9E9E9E))),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Booking request accepted!',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  backgroundColor: const Color(0xFF2E7D32),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              try {
+                await BookingService().updateStatus(
+                    request.id, BookingStatus.confirmed);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Booking request accepted!',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
+                    backgroundColor: const Color(0xFF2E7D32),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ));
+                }
+              } catch (_) {}
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFC62828),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(
-              'Accept',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text('Accept',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
   }
 
-  void _showDeclineDialog(Map<String, dynamic> request) {
+  void _showDeclineDialog(BookingModel request) {
+    final reasonController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Decline Booking Request?',
@@ -364,20 +287,17 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           children: [
             Text(
               'Are you sure you want to decline this booking request?',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xFF6B7280),
-              ),
+              style:
+                  GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: reasonController,
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: 'Optional: Add a reason...',
                 hintStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: const Color(0xFFBDBDBD),
-                ),
+                    fontSize: 13, color: const Color(0xFFBDBDBD)),
                 filled: true,
                 fillColor: const Color(0xFFF5F5F5),
                 border: OutlineInputBorder(
@@ -386,63 +306,64 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
                 ),
               ),
               style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xFF1A1A1A),
-              ),
+                  fontSize: 14, color: const Color(0xFF1A1A1A)),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF9E9E9E),
-              ),
-            ),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF9E9E9E))),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Booking request declined',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  backgroundColor: const Color(0xFF9E9E9E),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              try {
+                await BookingService().updateStatus(
+                  request.id,
+                  BookingStatus.declined,
+                  notes: reasonController.text.isNotEmpty
+                      ? reasonController.text
+                      : null,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Booking request declined',
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
+                    backgroundColor: const Color(0xFF9E9E9E),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ));
+                }
+              } catch (_) {}
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF9E9E9E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(
-              'Decline',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text('Decline',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }
 
@@ -501,9 +422,40 @@ class _NewRequestCard extends StatelessWidget {
     required this.onDecline,
   });
 
-  final Map<String, dynamic> request;
+  final BookingModel request;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+
+  static const _gradients = [
+    [Color(0xFF6B0000), Color(0xFFC62828)],
+    [Color(0xFF4A0000), Color(0xFF880E0E)],
+    [Color(0xFF1A237E), Color(0xFF3949AB)],
+    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF004D40), Color(0xFF00897B)],
+    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
+  ];
+
+  List<Color> _clientGradient(String clientId) {
+    final index =
+        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
+    return _gradients[index].cast<Color>();
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -531,7 +483,7 @@ class _NewRequestCard extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: List<Color>.from(request['avatarColor'] as List),
+                    colors: _clientGradient(request.clientId),
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -539,7 +491,7 @@ class _NewRequestCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    request['initials'] as String,
+                    request.clientInitials,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -556,7 +508,7 @@ class _NewRequestCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          request['client'] as String,
+                          request.clientName,
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -585,7 +537,7 @@ class _NewRequestCard extends StatelessWidget {
                       ],
                     ),
                     Text(
-                      request['requestedAt'] as String,
+                      _timeAgo(request.createdAt),
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: const Color(0xFF9E9E9E),
@@ -595,7 +547,7 @@ class _NewRequestCard extends StatelessWidget {
                 ),
               ),
               Text(
-                request['price'] as String,
+                '\$${request.packagePrice}',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -609,37 +561,39 @@ class _NewRequestCard extends StatelessWidget {
           _DetailRow(
             icon: Icons.calendar_today_rounded,
             label: 'Date & Time',
-            value: '${request['date']} at ${request['time']}',
+            value: '${_formatDate(request.scheduledDate)} at ${request.scheduledTime}',
           ),
           const SizedBox(height: 8),
           _DetailRow(
             icon: Icons.location_on_rounded,
             label: 'Location',
-            value: request['location'] as String,
+            value: request.location,
           ),
           const SizedBox(height: 8),
           _DetailRow(
             icon: Icons.workspace_premium_rounded,
             label: 'Package',
-            value: request['service'] as String,
+            value: request.packageName,
           ),
-          const SizedBox(height: 12),
-          // Message
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '"${request['message']}"',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: const Color(0xFF6B7280),
-                fontStyle: FontStyle.italic,
+          if (request.notes != null && request.notes!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            // Message
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '"${request.notes}"',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 16),
           // Action buttons
           Row(
@@ -655,13 +609,9 @@ class _NewRequestCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(
-                    'Decline',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Decline',
+                      style: GoogleFonts.poppins(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -676,13 +626,9 @@ class _NewRequestCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(
-                    'Accept',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: Text('Accept',
+                      style: GoogleFonts.poppins(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -692,31 +638,40 @@ class _NewRequestCard extends StatelessWidget {
     );
   }
 }
-
 class _BookingCard extends StatelessWidget {
   const _BookingCard({required this.booking});
 
-  final Map<String, dynamic> booking;
+  final BookingModel booking;
+
+  static const _gradients = [
+    [Color(0xFF6B0000), Color(0xFFC62828)],
+    [Color(0xFF4A0000), Color(0xFF880E0E)],
+    [Color(0xFF1A237E), Color(0xFF3949AB)],
+    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF004D40), Color(0xFF00897B)],
+    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
+  ];
+
+  List<Color> _clientGradient(String clientId) {
+    final index =
+        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
+    return _gradients[index].cast<Color>();
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final status = booking['status'] as String;
-    Color statusColor;
-    String statusText;
-
-    switch (status) {
-      case 'confirmed':
-        statusColor = const Color(0xFF2E7D32);
-        statusText = 'Confirmed';
-        break;
-      case 'completed':
-        statusColor = const Color(0xFF1976D2);
-        statusText = 'Completed';
-        break;
-      default:
-        statusColor = const Color(0xFF9E9E9E);
-        statusText = status;
-    }
+    final statusColor = booking.status == BookingStatus.completed
+        ? const Color(0xFF1976D2)
+        : const Color(0xFF2E7D32);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -742,7 +697,7 @@ class _BookingCard extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: List<Color>.from(booking['avatarColor'] as List),
+                    colors: _clientGradient(booking.clientId),
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -750,7 +705,7 @@ class _BookingCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    booking['initials'] as String,
+                    booking.clientInitials,
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -765,7 +720,7 @@ class _BookingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      booking['client'] as String,
+                      booking.clientName,
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -773,7 +728,7 @@ class _BookingCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      booking['service'] as String,
+                      booking.packageName,
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: const Color(0xFF9E9E9E),
@@ -783,16 +738,13 @@ class _BookingCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  statusText,
+                  booking.status.displayName,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -807,88 +759,68 @@ class _BookingCard extends StatelessWidget {
           _DetailRow(
             icon: Icons.calendar_today_rounded,
             label: 'Date & Time',
-            value: '${booking['date']} at ${booking['time']}',
+            value: '${_formatDate(booking.scheduledDate)} at ${booking.scheduledTime}',
           ),
           const SizedBox(height: 8),
           _DetailRow(
             icon: Icons.location_on_rounded,
             label: 'Location',
-            value: booking['location'] as String,
+            value: booking.location,
           ),
           const SizedBox(height: 12),
           // Footer
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                booking['price'] as String,
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2E7D32),
-                ),
-              ),
-              if (booking['paid'] == true)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+          FutureBuilder<PaymentRecordModel?>(
+            future: PaymentService().getPaymentForBooking(booking.id),
+            builder: (context, snapshot) {
+              final payment = snapshot.data;
+              final isPaid = payment?.status == PaymentStatus.completed;
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '\$${booking.packagePrice}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2E7D32),
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        size: 12,
-                        color: Color(0xFF2E7D32),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Paid',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2E7D32),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isPaid
+                          ? const Color(0xFFE8F5E9)
+                          : const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPaid ? Icons.check_circle_rounded : Icons.pending_rounded,
+                          size: 12,
+                          color: isPaid
+                              ? const Color(0xFF2E7D32)
+                              : const Color(0xFFFF6D00),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.pending_rounded,
-                        size: 12,
-                        color: Color(0xFFFF6D00),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Payment Pending',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFFF6D00),
+                        const SizedBox(width: 4),
+                        Text(
+                          isPaid ? 'Paid' : 'Payment Pending',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isPaid
+                                ? const Color(0xFF2E7D32)
+                                : const Color(0xFFFF6D00),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),

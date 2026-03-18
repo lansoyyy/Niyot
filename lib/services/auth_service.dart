@@ -5,7 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../core/firebase_constants.dart';
 import '../models/user_model.dart';
+import '../models/photographer_model.dart';
+import '../models/service_package_model.dart';
+import 'user_service.dart';
+import 'notification_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -49,7 +54,7 @@ class AuthService {
 
     String? photoUrl;
     if (profileImage != null) {
-      final ref = _storage.ref('profile_images/${user.uid}.jpg');
+      final ref = _storage.ref(FirebaseStoragePaths.profileImage(user.uid));
       await ref.putFile(
         profileImage,
         SettableMetadata(contentType: 'image/jpeg'),
@@ -70,10 +75,77 @@ class AuthService {
     );
 
     await _firestore
-        .collection('users')
+        .collection(FirebaseCollections.users)
         .doc(user.uid)
         .set(userModel.toMap());
+
+    // For photographers, create the discovery profile document
+    if (role == 'photographer') {
+      final photographerModel = PhotographerModel(
+        uid: user.uid,
+        name: name.trim(),
+        photoUrl: photoUrl,
+        bio: '',
+        locationText: '',
+        specialties: const [],
+        primarySpecialty: '',
+        rating: 0.0,
+        reviewCount: 0,
+        bookingCount: 0,
+        profileViewCount: 0,
+        photoCount: 0,
+        isAvailable: true,
+        isFeatured: false,
+        isVerified: false,
+        packages: _defaultPackages(),
+        createdAt: DateTime.now(),
+      );
+      await _firestore
+          .collection(FirebaseCollections.photographers)
+          .doc(user.uid)
+          .set(photographerModel.toMap());
+    }
+
+    // Seed user profile into cache and start FCM
+    await UserService().fetchCurrentUser();
+    await NotificationService().initFCM();
   }
+
+  static List<ServicePackageModel> _defaultPackages() => [
+        const ServicePackageModel(
+          id: 'starter',
+          name: 'Starter',
+          duration: '2 hours',
+          price: 150,
+          features: ['30 edited photos', 'Online gallery', '1 location'],
+        ),
+        const ServicePackageModel(
+          id: 'standard',
+          name: 'Standard',
+          duration: '4 hours',
+          price: 300,
+          features: [
+            '80 edited photos',
+            'Online gallery',
+            '2 locations',
+            'Prints included',
+          ],
+        ),
+        const ServicePackageModel(
+          id: 'premium',
+          name: 'Premium',
+          duration: 'Full day',
+          price: 600,
+          features: [
+            '200+ edited photos',
+            'Online gallery',
+            'Unlimited locations',
+            'Prints + album',
+            'Rush delivery',
+          ],
+          isPopular: true,
+        ),
+      ];
 
   // ─── Google Sign-In ───────────────────────────────────────────────────────
 
@@ -91,7 +163,10 @@ class AuthService {
     final user = userCredential.user!;
 
     // Only create Firestore document for brand-new Google users
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final doc = await _firestore
+        .collection(FirebaseCollections.users)
+        .doc(user.uid)
+        .get();
     if (!doc.exists) {
       final userModel = UserModel(
         uid: user.uid,
@@ -102,10 +177,13 @@ class AuthService {
         createdAt: DateTime.now(),
       );
       await _firestore
-          .collection('users')
+          .collection(FirebaseCollections.users)
           .doc(user.uid)
           .set(userModel.toMap());
     }
+
+    await UserService().fetchCurrentUser();
+    await NotificationService().initFCM();
   }
 
   // ─── Forgot Password ──────────────────────────────────────────────────────
@@ -117,6 +195,11 @@ class AuthService {
   // ─── Sign Out ─────────────────────────────────────────────────────────────
 
   Future<void> signOut() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      await NotificationService().removeFCMToken(uid);
+    }
+    UserService().clearCache();
     await _googleSignIn.signOut();
     await _auth.signOut();
   }

@@ -1,7 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
+import '../../models/photographer_model.dart';
+import '../../services/photographer_service.dart';
+import '../photographer/photographer_profile_screen.dart';
 
 class MapViewScreen extends StatefulWidget {
   const MapViewScreen({super.key});
@@ -14,6 +18,9 @@ class _MapViewScreenState extends State<MapViewScreen> {
   final MapController _mapController = MapController();
   double _currentZoom = 13.0;
   String _selectedCategory = 'All';
+  List<PhotographerModel> _photographers = [];
+  PhotographerModel? _selectedPhotographer;
+  bool _isLoading = true;
 
   final List<String> _categories = [
     'All',
@@ -24,71 +31,25 @@ class _MapViewScreenState extends State<MapViewScreen> {
     'Fashion',
   ];
 
-  // Sample photographer locations
-  final List<Map<String, dynamic>> _photographers = [
-    {
-      'id': '1',
-      'name': 'Sofia Reyes',
-      'specialty': 'Wedding',
-      'rating': 4.9,
-      'reviews': 142,
-      'price': '\$350/hr',
-      'initials': 'SR',
-      'gradient': [const Color(0xFF8E0000), const Color(0xFFC62828)],
-      'position': const LatLng(40.7128, -74.0060), // New York
-      'available': true,
-    },
-    {
-      'id': '2',
-      'name': 'Marcus Chen',
-      'specialty': 'Commercial',
-      'rating': 4.8,
-      'reviews': 98,
-      'price': '\$420/hr',
-      'initials': 'MC',
-      'gradient': [const Color(0xFF4A0000), const Color(0xFF880E0E)],
-      'position': const LatLng(40.7589, -73.9851), // Manhattan
-      'available': true,
-    },
-    {
-      'id': '3',
-      'name': 'Ava Thompson',
-      'specialty': 'Portrait',
-      'rating': 5.0,
-      'reviews': 211,
-      'price': '\$280/hr',
-      'initials': 'AT',
-      'gradient': [const Color(0xFF880E4F), const Color(0xFFAD1457)],
-      'position': const LatLng(40.7484, -73.9857), // Midtown
-      'available': false,
-    },
-    {
-      'id': '4',
-      'name': 'Liam Park',
-      'specialty': 'Event',
-      'rating': 4.7,
-      'reviews': 67,
-      'price': '\$200/hr',
-      'initials': 'LP',
-      'gradient': [const Color(0xFFC62828), const Color(0xFF6B0000)],
-      'position': const LatLng(40.7282, -73.7949), // Queens
-      'available': true,
-    },
-    {
-      'id': '5',
-      'name': 'Isabella Cruz',
-      'specialty': 'Portrait',
-      'rating': 4.9,
-      'reviews': 189,
-      'price': '\$320/hr',
-      'initials': 'IC',
-      'gradient': [const Color(0xFFAD1457), const Color(0xFF560027)],
-      'position': const LatLng(40.6892, -74.0445), // Brooklyn
-      'available': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotographers();
+  }
 
-  Map<String, dynamic>? _selectedPhotographer;
+  Future<void> _loadPhotographers() async {
+    try {
+      final results = await PhotographerService().getPhotographers();
+      if (mounted) {
+        setState(() {
+          _photographers = results.where((p) => p.geoPoint != null).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -96,10 +57,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredPhotographers {
+  List<PhotographerModel> get _filteredPhotographers {
     if (_selectedCategory == 'All') return _photographers;
     return _photographers
-        .where((p) => p['specialty'] == _selectedCategory)
+        .where((p) =>
+            p.specialties.any((s) =>
+                s.toLowerCase() == _selectedCategory.toLowerCase()) ||
+            p.primarySpecialty.toLowerCase() ==
+                _selectedCategory.toLowerCase())
         .toList();
   }
 
@@ -126,22 +91,25 @@ class _MapViewScreenState extends State<MapViewScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.algovision.niyot',
               ),
+              if (_isLoading)
+                const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFC62828)),
+                ),
               // Markers
               MarkerLayer(
                 markers: _filteredPhotographers.map((photographer) {
+                  final gp = photographer.geoPoint!;
+                  final position = LatLng(gp.latitude, gp.longitude);
                   final isSelected =
-                      _selectedPhotographer?['id'] == photographer['id'];
+                      _selectedPhotographer?.uid == photographer.uid;
                   return Marker(
-                    point: photographer['position'] as LatLng,
+                    point: position,
                     width: isSelected ? 60 : 45,
                     height: isSelected ? 60 : 45,
                     child: GestureDetector(
                       onTap: () {
                         setState(() => _selectedPhotographer = photographer);
-                        _mapController.move(
-                          photographer['position'] as LatLng,
-                          14,
-                        );
+                        _mapController.move(position, 14);
                       },
                       child: _buildMarker(photographer, isSelected),
                     ),
@@ -379,12 +347,10 @@ class _MapViewScreenState extends State<MapViewScreen> {
     );
   }
 
-  Widget _buildMarker(Map<String, dynamic> photographer, bool isSelected) {
-    final available = photographer['available'] as bool;
+  Widget _buildMarker(PhotographerModel photographer, bool isSelected) {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Outer glow
         if (isSelected)
           Container(
             width: 60,
@@ -394,13 +360,12 @@ class _MapViewScreenState extends State<MapViewScreen> {
               color: const Color(0xFFC62828).withValues(alpha: 0.2),
             ),
           ),
-        // Marker background
         Container(
           width: isSelected ? 50 : 38,
           height: isSelected ? 50 : 38,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: List<Color>.from(photographer['gradient'] as List),
+              colors: photographer.gradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -415,17 +380,15 @@ class _MapViewScreenState extends State<MapViewScreen> {
             ],
           ),
         ),
-        // Initials
         Text(
-          photographer['initials'] as String,
+          photographer.initials,
           style: GoogleFonts.poppins(
             fontSize: isSelected ? 14 : 11,
             fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
         ),
-        // Availability indicator
-        if (!available)
+        if (!photographer.isAvailable)
           Positioned(
             bottom: 0,
             right: 0,
@@ -457,7 +420,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
     );
   }
 
-  Widget _buildBottomSheet(Map<String, dynamic> photographer) {
+  Widget _buildBottomSheet(PhotographerModel photographer) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -476,7 +439,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           Container(
             margin: const EdgeInsets.only(top: 8),
             width: 40,
@@ -497,9 +459,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                       height: 56,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: List<Color>.from(
-                            photographer['gradient'] as List,
-                          ),
+                          colors: photographer.gradientColors,
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -507,7 +467,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          photographer['initials'] as String,
+                          photographer.initials,
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -522,7 +482,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            photographer['name'] as String,
+                            photographer.name,
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -542,7 +502,11 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  photographer['specialty'] as String,
+                                  photographer.primarySpecialty.isNotEmpty
+                                      ? photographer.primarySpecialty
+                                      : photographer.specialties.isNotEmpty
+                                          ? photographer.specialties.first
+                                          : '',
                                   style: GoogleFonts.poppins(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
@@ -560,7 +524,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    '${photographer['rating']} (${photographer['reviews']})',
+                                    '${photographer.rating.toStringAsFixed(1)} (${photographer.reviewCount})',
                                     style: GoogleFonts.poppins(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -581,18 +545,25 @@ class _MapViewScreenState extends State<MapViewScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PhotographerProfileScreen(
+                              photographer: photographer,
+                            ),
+                          ),
+                        ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                           foregroundColor: const Color(0xFF374151),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: const Icon(Icons.message_rounded, size: 18),
+                        icon: const Icon(Icons.person_rounded, size: 18),
                         label: Text(
-                          'Message',
+                          'View Profile',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -603,11 +574,18 @@ class _MapViewScreenState extends State<MapViewScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PhotographerProfileScreen(
+                              photographer: photographer,
+                            ),
+                          ),
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFC62828),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),

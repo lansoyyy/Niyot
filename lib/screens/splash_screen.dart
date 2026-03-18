@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/user_service.dart';
+import '../../services/notification_service.dart';
 import 'main/main_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
@@ -73,12 +75,23 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 400));
     _taglineController.forward();
     await Future.delayed(const Duration(milliseconds: 1400));
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    Widget destination;
+    if (user != null) {
+      // Eagerly load profile and start FCM so MainScreen is immediately useful
+      await UserService().fetchCurrentUser();
+      await NotificationService().initFCM();
+      destination = const MainScreen();
+    } else {
+      destination = const OnboardingScreen();
+    }
+
     if (mounted) {
-      final user = FirebaseAuth.instance.currentUser;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) =>
-              user != null ? const MainScreen() : const OnboardingScreen(),
+          pageBuilder: (_, __, ___) => destination,
           transitionDuration: const Duration(milliseconds: 600),
           transitionsBuilder: (_, animation, __, child) {
             return FadeTransition(opacity: animation, child: child);

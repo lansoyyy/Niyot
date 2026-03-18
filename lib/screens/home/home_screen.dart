@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/photographer_model.dart';
+import '../../services/photographer_service.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../notifications/notifications_screen.dart';
 
@@ -13,6 +15,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedCategory = 0;
+  List<PhotographerModel> _featured = [];
+  List<PhotographerModel> _photographers = [];
+  bool _isLoading = true;
+  String? _error;
 
   final List<String> _categories = [
     'All',
@@ -24,95 +30,41 @@ class _HomeScreenState extends State<HomeScreen> {
     'Travel',
   ];
 
-  static const List<Map<String, dynamic>> _featured = [
-    {
-      'name': 'Sofia Reyes',
-      'specialty': 'Wedding Photography',
-      'rating': 4.9,
-      'reviews': 142,
-      'price': '\$350',
-      'location': 'New York, NY',
-      'gradient': [Color(0xFF8E0000), Color(0xFFC62828)],
-      'initials': 'SR',
-    },
-    {
-      'name': 'Marcus Chen',
-      'specialty': 'Commercial & Fashion',
-      'rating': 4.8,
-      'reviews': 98,
-      'price': '\$420',
-      'location': 'Los Angeles, CA',
-      'gradient': [Color(0xFF4A0000), Color(0xFF880E0E)],
-      'initials': 'MC',
-    },
-    {
-      'name': 'Ava Thompson',
-      'specialty': 'Portrait & Lifestyle',
-      'rating': 5.0,
-      'reviews': 211,
-      'price': '\$280',
-      'location': 'Chicago, IL',
-      'gradient': [Color(0xFF880E4F), Color(0xFFAD1457)],
-      'initials': 'AT',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  static const List<Map<String, dynamic>> _photographers = [
-    {
-      'name': 'Liam Park',
-      'specialty': 'Event',
-      'rating': 4.7,
-      'price': '\$200',
-      'location': 'Miami, FL',
-      'gradient': [Color(0xFFC62828), Color(0xFF6B0000)],
-      'initials': 'LP',
-    },
-    {
-      'name': 'Isabella Cruz',
-      'specialty': 'Portrait',
-      'rating': 4.9,
-      'price': '\$320',
-      'location': 'Austin, TX',
-      'gradient': [Color(0xFFAD1457), Color(0xFF560027)],
-      'initials': 'IC',
-    },
-    {
-      'name': 'Noah Williams',
-      'specialty': 'Wedding',
-      'rating': 4.8,
-      'price': '\$500',
-      'location': 'Seattle, WA',
-      'gradient': [Color(0xFF880E0E), Color(0xFF3D0000)],
-      'initials': 'NW',
-    },
-    {
-      'name': 'Mia Johnson',
-      'specialty': 'Fashion',
-      'rating': 4.6,
-      'price': '\$380',
-      'location': 'Boston, MA',
-      'gradient': [Color(0xFFB71C1C), Color(0xFF7F0000)],
-      'initials': 'MJ',
-    },
-    {
-      'name': 'Ethan Brown',
-      'specialty': 'Commercial',
-      'rating': 4.9,
-      'price': '\$450',
-      'location': 'Denver, CO',
-      'gradient': [Color(0xFF6D2533), Color(0xFFC2185B)],
-      'initials': 'EB',
-    },
-    {
-      'name': 'Olivia Davis',
-      'specialty': 'Travel',
-      'rating': 5.0,
-      'price': '\$290',
-      'location': 'Portland, OR',
-      'gradient': [Color(0xFF7B1FA2), Color(0xFFC62828)],
-      'initials': 'OD',
-    },
-  ];
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final category = _selectedCategory == 0
+          ? null
+          : _categories[_selectedCategory];
+      final results = await Future.wait([
+        PhotographerService().getFeaturedPhotographers(),
+        PhotographerService().getPhotographers(category: category),
+      ]);
+      if (mounted) {
+        setState(() {
+          _featured = results[0] as List<PhotographerModel>;
+          _photographers = results[1] as List<PhotographerModel>;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load photographers. Please try again.';
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +143,36 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Grid of photographers
-            SliverPadding(
+            if (_isLoading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator(
+                    color: Color(0xFFC62828),
+                  )),
+                ),
+              )
+            else if (_error != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center),
+                ),
+              )
+            else if (_photographers.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Text('No photographers found.',
+                        style: TextStyle(color: Color(0xFF9E9E9E))),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -202,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) => _PhotographerCard(
-                    data: _photographers[index],
+                    photographer: _photographers[index],
                     onTap: () => _openProfile(context, _photographers[index]),
                   ),
                   childCount: _photographers.length,
@@ -368,7 +349,10 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final selected = _selectedCategory == index;
           return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = index),
+            onTap: () {
+                setState(() => _selectedCategory = index);
+                _loadData();
+              },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
@@ -407,6 +391,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturedCarousel() {
+    if (_isLoading) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator(color: Color(0xFFC62828))),
+      );
+    }
+    if (_featured.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(
+          child: Text('No featured photographers yet.',
+              style: TextStyle(color: Color(0xFF9E9E9E))),
+        ),
+      );
+    }
     return SizedBox(
       height: 200,
       child: ListView.builder(
@@ -422,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
               margin: const EdgeInsets.only(right: 14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: List<Color>.from(item['gradient'] as List),
+                  colors: item.gradientColors,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -430,7 +429,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Stack(
                 children: [
-                  // Background pattern
                   Positioned(
                     top: -20,
                     right: -20,
@@ -455,7 +453,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  // Content
                   Padding(
                     padding: const EdgeInsets.all(18),
                     child: Column(
@@ -464,8 +461,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         Row(
                           children: [
                             _Avatar(
-                              initials: item['initials'] as String,
+                              initials: item.initials,
                               size: 48,
+                              photoUrl: item.photoUrl,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -473,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item['name'] as String,
+                                    item.name,
                                     style: GoogleFonts.poppins(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
@@ -481,34 +479,40 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   Text(
-                                    item['specialty'] as String,
+                                    item.primarySpecialty.isNotEmpty
+                                        ? item.primarySpecialty
+                                        : item.specialties.isNotEmpty
+                                            ? item.specialties.first
+                                            : '',
                                     style: GoogleFonts.poppins(
                                       fontSize: 12,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.8),
+                                      color: Colors.white
+                                          .withValues(alpha: 0.8),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                item['price'] as String,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                            if (item.startingPrice.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  item.startingPrice,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                         const Spacer(),
@@ -521,10 +525,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${item['rating']} (${item['reviews']} reviews)',
+                              '${item.rating.toStringAsFixed(1)} (${item.reviewCount} reviews)',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.9),
+                                color:
+                                    Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                           ],
@@ -539,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              item['location'] as String,
+                              item.locationText,
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: Colors.white70,
@@ -559,20 +564,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openProfile(
-      BuildContext context, Map<String, dynamic> data) {
+  void _openProfile(BuildContext context, PhotographerModel photographer) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PhotographerProfileScreen(data: data),
+        builder: (_) => PhotographerProfileScreen(photographer: photographer),
       ),
     );
   }
 }
 
 class _PhotographerCard extends StatelessWidget {
-  const _PhotographerCard({required this.data, required this.onTap});
+  const _PhotographerCard({required this.photographer, required this.onTap});
 
-  final Map<String, dynamic> data;
+  final PhotographerModel photographer;
   final VoidCallback onTap;
 
   @override
@@ -599,7 +603,7 @@ class _PhotographerCard extends StatelessWidget {
               height: 130,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: List<Color>.from(data['gradient'] as List),
+                  colors: photographer.gradientColors,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -610,7 +614,11 @@ class _PhotographerCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Center(child: _Avatar(initials: data['initials'] as String, size: 60)),
+                  Center(child: _Avatar(
+                    initials: photographer.initials,
+                    size: 60,
+                    photoUrl: photographer.photoUrl,
+                  )),
                   Positioned(
                     top: 10,
                     right: 10,
@@ -628,7 +636,7 @@ class _PhotographerCard extends StatelessWidget {
                               color: Colors.yellowAccent, size: 12),
                           const SizedBox(width: 3),
                           Text(
-                            '${data['rating']}',
+                            photographer.rating.toStringAsFixed(1),
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -649,7 +657,7 @@ class _PhotographerCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    data['name'] as String,
+                    photographer.name,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -660,7 +668,11 @@ class _PhotographerCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    data['specialty'] as String,
+                    photographer.primarySpecialty.isNotEmpty
+                        ? photographer.primarySpecialty
+                        : photographer.specialties.isNotEmpty
+                            ? photographer.specialties.first
+                            : '',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: const Color(0xFF9E9E9E),
@@ -673,7 +685,7 @@ class _PhotographerCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        data['price'] as String,
+                        photographer.startingPrice,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -689,7 +701,11 @@ class _PhotographerCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 2),
                           Text(
-                            (data['location'] as String).split(',')[1].trim(),
+                            photographer.locationText.contains(',')
+                                ? photographer.locationText
+                                    .split(',')[1]
+                                    .trim()
+                                : photographer.locationText,
                             style: GoogleFonts.poppins(
                               fontSize: 10,
                               color: const Color(0xFFBDBDBD),
@@ -710,10 +726,11 @@ class _PhotographerCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initials, required this.size});
+  const _Avatar({required this.initials, required this.size, this.photoUrl});
 
   final String initials;
   final double size;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -724,17 +741,25 @@ class _Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.2),
         border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+        image: photoUrl != null
+            ? DecorationImage(
+                image: NetworkImage(photoUrl!),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            fontSize: size * 0.3,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
+      child: photoUrl == null
+          ? Center(
+              child: Text(
+                initials,
+                style: GoogleFonts.poppins(
+                  fontSize: size * 0.3,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

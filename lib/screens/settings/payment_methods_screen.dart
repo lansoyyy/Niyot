@@ -1,5 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../models/payment_method_model.dart';
+import '../../services/payment_method_service.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -9,176 +13,28 @@ class PaymentMethodsScreen extends StatefulWidget {
 }
 
 class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
-  int _selectedMethod = 0;
+  final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  String? _selectedMethodId;
 
-  // Sample payment methods
-  final List<Map<String, dynamic>> _paymentMethods = [
-    {
-      'id': '1',
-      'type': 'Visa',
-      'last4': '4242',
-      'expiry': '12/26',
-      'isDefault': true,
-    },
-    {
-      'id': '2',
-      'type': 'Mastercard',
-      'last4': '5555',
-      'expiry': '08/27',
-      'isDefault': false,
-    },
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 16,
-              color: Color(0xFF374151),
-            ),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Payment Methods',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF1A1A1A),
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              // Add new payment method
-              _showAddPaymentDialog();
-            },
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(
-              'Add New',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFC62828),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Default payment method
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
-                    color: Color(0xFF1976D2),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Your default payment method will be used for all bookings unless you choose otherwise.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: const Color(0xFF1A1A1A),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Saved Cards',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Payment methods list
-            ...List.generate(_paymentMethods.length, (index) {
-              final method = _paymentMethods[index];
-              final isSelected = _selectedMethod == index;
-              return _PaymentMethodCard(
-                method: method,
-                isSelected: isSelected,
-                onTap: () => setState(() => _selectedMethod = index),
-                onSetDefault: () {
-                  setState(() {
-                    for (var m in _paymentMethods) {
-                      m['isDefault'] = false;
-                    }
-                    method['isDefault'] = true;
-                  });
-                },
-                onDelete: () => _showDeleteDialog(method),
-              );
-            }),
-            const SizedBox(height: 24),
-            // Other payment options
-            Text(
-              'Other Payment Options',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _PaymentOptionCard(
-              icon: Icons.account_balance_wallet_rounded,
-              title: 'PayPal',
-              subtitle: 'Connect your PayPal account',
-              color: const Color(0xFF0070BA),
-              onTap: () {},
-            ),
-            const SizedBox(height: 12),
-            _PaymentOptionCard(
-              icon: Icons.apple_rounded,
-              title: 'Apple Pay',
-              subtitle: 'Fast and secure payments',
-              color: const Color(0xFF000000),
-              onTap: () {},
-            ),
-            const SizedBox(height: 12),
-            _PaymentOptionCard(
-              icon: Icons.g_mobiledata_rounded,
-              title: 'Google Pay',
-              subtitle: 'Use your Google account',
-              color: const Color(0xFF4285F4),
-              onTap: () {},
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
+  Future<void> _addWalletMethod(String provider, String label) async {
+    await PaymentMethodService().addWalletMethod(
+      userId: _currentUid,
+      provider: provider,
+      label: label,
     );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$label added successfully',
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          backgroundColor: const Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   void _showAddPaymentDialog() {
@@ -208,31 +64,36 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
               title: 'Credit/Debit Card',
               onTap: () {
                 Navigator.of(context).pop();
-                _showCardForm();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AddCardScreen()),
+                );
               },
             ),
             const SizedBox(height: 12),
             _AddPaymentOption(
               icon: Icons.account_balance_wallet_rounded,
               title: 'PayPal',
-              onTap: () {
+              onTap: () async {
                 Navigator.of(context).pop();
+                await _addWalletMethod('paypal', 'PayPal');
               },
             ),
             const SizedBox(height: 12),
             _AddPaymentOption(
               icon: Icons.apple_rounded,
               title: 'Apple Pay',
-              onTap: () {
+              onTap: () async {
                 Navigator.of(context).pop();
+                await _addWalletMethod('apple_pay', 'Apple Pay');
               },
             ),
             const SizedBox(height: 12),
             _AddPaymentOption(
               icon: Icons.g_mobiledata_rounded,
               title: 'Google Pay',
-              onTap: () {
+              onTap: () async {
                 Navigator.of(context).pop();
+                await _addWalletMethod('google_pay', 'Google Pay');
               },
             ),
             const SizedBox(height: 20),
@@ -242,13 +103,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
     );
   }
 
-  void _showCardForm() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const AddCardScreen()));
-  }
-
-  void _showDeleteDialog(Map<String, dynamic> method) {
+  void _showDeleteDialog(PaymentMethodModel method) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -262,7 +117,9 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
           ),
         ),
         content: Text(
-          'Are you sure you want to remove ${method['type']} ending in ${method['last4']}?',
+          method.isCard
+              ? 'Are you sure you want to remove ${method.label} ending in ${method.last4}?'
+              : 'Are you sure you want to remove ${method.label}?',
           style: GoogleFonts.poppins(
             fontSize: 14,
             color: const Color(0xFF6B7280),
@@ -281,30 +138,27 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              setState(() {
-                _paymentMethods.remove(method);
-                if (_selectedMethod >= _paymentMethods.length) {
-                  _selectedMethod = _paymentMethods.length - 1;
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Payment method removed',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+              await PaymentMethodService().deleteMethod(_currentUid, method.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Payment method removed',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    backgroundColor: const Color(0xFF2E7D32),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  backgroundColor: const Color(0xFF2E7D32),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE53935),
@@ -325,6 +179,178 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<PaymentMethodModel>>(
+      stream: PaymentMethodService().paymentMethodsStream(_currentUid),
+      builder: (context, snapshot) {
+        final paymentMethods = snapshot.data ?? const <PaymentMethodModel>[];
+        if (_selectedMethodId == null && paymentMethods.isNotEmpty) {
+          _selectedMethodId = paymentMethods.first.id;
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F8F8),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 16,
+                  color: Color(0xFF374151),
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              'Payment Methods',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A1A1A),
+              ),
+            ),
+            actions: [
+              TextButton.icon(
+                onPressed: _showAddPaymentDialog,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: Text(
+                  'Add New',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFC62828),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFF1976D2),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Your default payment method will be used for all bookings unless you choose otherwise.',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF1A1A1A),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Saved Methods',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (snapshot.connectionState == ConnectionState.waiting && paymentMethods.isEmpty)
+                  const Center(
+                    child: CircularProgressIndicator(color: Color(0xFFC62828)),
+                  )
+                else if (paymentMethods.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Text(
+                      'No saved payment methods yet.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  )
+                else
+                  ...paymentMethods.map((method) {
+                    return _PaymentMethodCard(
+                      method: method,
+                      isSelected: _selectedMethodId == method.id,
+                      onTap: () => setState(() => _selectedMethodId = method.id),
+                      onSetDefault: () => PaymentMethodService().setDefaultMethod(
+                        _currentUid,
+                        method.id,
+                      ),
+                      onDelete: () => _showDeleteDialog(method),
+                    );
+                  }),
+                const SizedBox(height: 24),
+                Text(
+                  'Other Payment Options',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _PaymentOptionCard(
+                  icon: Icons.account_balance_wallet_rounded,
+                  title: 'PayPal',
+                  subtitle: 'Connect your PayPal account',
+                  color: const Color(0xFF0070BA),
+                  onTap: () => _addWalletMethod('paypal', 'PayPal'),
+                ),
+                const SizedBox(height: 12),
+                _PaymentOptionCard(
+                  icon: Icons.apple_rounded,
+                  title: 'Apple Pay',
+                  subtitle: 'Fast and secure payments',
+                  color: const Color(0xFF000000),
+                  onTap: () => _addWalletMethod('apple_pay', 'Apple Pay'),
+                ),
+                const SizedBox(height: 12),
+                _PaymentOptionCard(
+                  icon: Icons.g_mobiledata_rounded,
+                  title: 'Google Pay',
+                  subtitle: 'Use your Google account',
+                  color: const Color(0xFF4285F4),
+                  onTap: () => _addWalletMethod('google_pay', 'Google Pay'),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _PaymentMethodCard extends StatelessWidget {
@@ -336,7 +362,7 @@ class _PaymentMethodCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final Map<String, dynamic> method;
+  final PaymentMethodModel method;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onSetDefault;
@@ -344,9 +370,6 @@ class _PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDefault = method['isDefault'] as bool;
-    final type = method['type'] as String;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -369,122 +392,119 @@ class _PaymentMethodCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                _getCardIcon(type),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            _getMethodIcon(method),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            type,
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                          if (isDefault)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE8F5E9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'Default',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
                       Text(
-                        '••••• ${method['last4']}',
+                        method.label,
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: const Color(0xFF6B7280),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A1A),
                         ),
                       ),
+                      if (method.isDefault)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Default',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (method.isCard) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '••••• ${method.last4}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                    Text(
+                      'Expires ${method.expiry}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF9E9E9E),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            PopupMenuButton(
+              onSelected: (value) {
+                if (value == 'default') {
+                  onSetDefault();
+                } else if (value == 'delete') {
+                  onDelete();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'default',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: Color(0xFF1976D2),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        'Expires ${method['expiry']}',
+                        method.isDefault ? 'Already Default' : 'Set as Default',
                         style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: const Color(0xFF9E9E9E),
+                          fontSize: 14,
+                          color: method.isDefault
+                              ? const Color(0xFF9E9E9E)
+                              : const Color(0xFF1A1A1A),
                         ),
                       ),
                     ],
                   ),
                 ),
-                PopupMenuButton(
-                  onSelected: (value) {
-                    if (value == 'default') {
-                      onSetDefault();
-                    } else if (value == 'delete') {
-                      onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'default',
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 18,
-                            color: const Color(0xFF1976D2),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            isDefault ? 'Already Default' : 'Set as Default',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: isDefault
-                                  ? const Color(0xFF9E9E9E)
-                                  : const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                        ],
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.delete_rounded,
+                        size: 18,
+                        color: Color(0xFFE53935),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.delete_rounded,
-                            size: 18,
-                            color: const Color(0xFFE53935),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Remove',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: const Color(0xFFE53935),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      Text(
+                        'Remove',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: const Color(0xFFE53935),
+                        ),
                       ),
-                    ),
-                  ],
-                  icon: const Icon(Icons.more_vert_rounded),
+                    ],
+                  ),
                 ),
               ],
+              icon: const Icon(Icons.more_vert_rounded),
             ),
           ],
         ),
@@ -492,22 +512,52 @@ class _PaymentMethodCard extends StatelessWidget {
     );
   }
 
-  Widget _getCardIcon(String type) {
-    Color color;
-    IconData icon;
+  Widget _getMethodIcon(PaymentMethodModel method) {
+    if (!method.isCard) {
+      IconData icon;
+      Color color;
+      switch (method.provider) {
+        case 'paypal':
+          icon = Icons.account_balance_wallet_rounded;
+          color = const Color(0xFF0070BA);
+          break;
+        case 'apple_pay':
+          icon = Icons.apple_rounded;
+          color = const Color(0xFF000000);
+          break;
+        case 'google_pay':
+          icon = Icons.g_mobiledata_rounded;
+          color = const Color(0xFF4285F4);
+          break;
+        default:
+          icon = Icons.account_balance_wallet_rounded;
+          color = const Color(0xFF6B7280);
+      }
 
-    switch (type.toLowerCase()) {
+      return Container(
+        width: 44,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      );
+    }
+
+    Color color;
+    switch (method.label.toLowerCase()) {
       case 'visa':
         color = const Color(0xFF1A1F71);
-        icon = Icons.credit_card_rounded;
         break;
       case 'mastercard':
         color = const Color(0xFFEB001B);
-        icon = Icons.credit_card_rounded;
+        break;
+      case 'american express':
+        color = const Color(0xFF2E77BC);
         break;
       default:
         color = const Color(0xFF6B7280);
-        icon = Icons.credit_card_rounded;
     }
 
     return Container(
@@ -517,7 +567,7 @@ class _PaymentMethodCard extends StatelessWidget {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(icon, color: color, size: 20),
+      child: Icon(Icons.credit_card_rounded, color: color, size: 20),
     );
   }
 }
@@ -591,7 +641,7 @@ class _PaymentOptionCard extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: const Color(0xFFBDBDBD),
+              color: Color(0xFFBDBDBD),
               size: 20,
             ),
           ],
@@ -655,6 +705,8 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final _cardHolderController = TextEditingController();
   final _expiryController = TextEditingController();
   final _cvvController = TextEditingController();
+  final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
   bool _isDefault = true;
   bool _isLoading = false;
 
@@ -706,7 +758,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Card number
               Text(
                 'Card Number',
                 style: GoogleFonts.poppins(
@@ -723,46 +774,15 @@ class _AddCardScreenState extends State<AddCardScreen> {
                   fontSize: 14,
                   color: const Color(0xFF1A1A1A),
                 ),
-                decoration: InputDecoration(
-                  hintText: '1234 5678 9012 3456',
-                  hintStyle: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: const Color(0xFFBDBDBD),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFC62828),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                ),
+                decoration: _inputDecoration('1234 5678 9012 3456'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter card number';
-                  }
-                  if (value!.length < 16) {
-                    return 'Please enter a valid card number';
-                  }
+                  final normalized = value?.replaceAll(RegExp(r'\s+'), '') ?? '';
+                  if (normalized.isEmpty) return 'Please enter card number';
+                  if (normalized.length < 12) return 'Please enter a valid card number';
                   return null;
                 },
               ),
               const SizedBox(height: 24),
-              // Card holder
               Text(
                 'Cardholder Name',
                 style: GoogleFonts.poppins(
@@ -778,43 +798,15 @@ class _AddCardScreenState extends State<AddCardScreen> {
                   fontSize: 14,
                   color: const Color(0xFF1A1A1A),
                 ),
-                decoration: InputDecoration(
-                  hintText: 'Name on card',
-                  hintStyle: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: const Color(0xFFBDBDBD),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFC62828),
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                ),
+                decoration: _inputDecoration('Name on card'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter cardholder name';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
-              // Expiry and CVV
               Row(
                 children: [
                   Expanded(
@@ -837,41 +829,10 @@ class _AddCardScreenState extends State<AddCardScreen> {
                             fontSize: 14,
                             color: const Color(0xFF1A1A1A),
                           ),
-                          decoration: InputDecoration(
-                            hintText: 'MM/YY',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: const Color(0xFFBDBDBD),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFC62828),
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
+                          decoration: _inputDecoration('MM/YY'),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter expiry date';
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter expiry';
                             }
                             return null;
                           },
@@ -896,46 +857,15 @@ class _AddCardScreenState extends State<AddCardScreen> {
                         TextFormField(
                           controller: _cvvController,
                           keyboardType: TextInputType.number,
-                          maxLength: 3,
+                          maxLength: 4,
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: const Color(0xFF1A1A1A),
                           ),
-                          decoration: InputDecoration(
-                            hintText: '123',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: const Color(0xFFBDBDBD),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFC62828),
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                          ),
+                          decoration: _inputDecoration('123').copyWith(counterText: ''),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter CVV';
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter CVV';
                             }
                             return null;
                           },
@@ -946,14 +876,11 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              // Set as default checkbox
               Row(
                 children: [
                   Checkbox(
                     value: _isDefault,
-                    onChanged: (value) {
-                      setState(() => _isDefault = value ?? false);
-                    },
+                    onChanged: (value) => setState(() => _isDefault = value ?? false),
                     activeColor: const Color(0xFFC62828),
                   ),
                   const SizedBox(width: 8),
@@ -969,7 +896,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 ],
               ),
               const SizedBox(height: 32),
-              // Security info
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -998,7 +924,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Submit button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -1018,9 +943,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : Text(
@@ -1040,32 +963,65 @@ class _AddCardScreenState extends State<AddCardScreen> {
     );
   }
 
-  void _saveCard() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+  InputDecoration _inputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: GoogleFonts.poppins(
+        fontSize: 13,
+        color: const Color(0xFFBDBDBD),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFC62828), width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+  Future<void> _saveCard() async {
+    if (!_formKey.currentState!.validate()) return;
 
+    final normalized = _cardNumberController.text.replaceAll(RegExp(r'\s+'), '');
+    final last4 = normalized.substring(normalized.length - 4);
+    final brand = PaymentMethodService().inferCardBrand(normalized);
+
+    setState(() => _isLoading = true);
+    try {
+      await PaymentMethodService().addCardMethod(
+        userId: _currentUid,
+        brand: brand,
+        last4: last4,
+        expiry: _expiryController.text.trim(),
+        holderName: _cardHolderController.text.trim(),
+        isDefault: _isDefault,
+      );
       if (mounted) {
-        setState(() => _isLoading = false);
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Card added successfully!',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }

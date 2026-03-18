@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/photographer_model.dart';
+import '../../models/portfolio_item_model.dart';
+import '../../models/review_model.dart';
+import '../../services/photographer_service.dart';
 import '../booking/booking_screen.dart';
 
 class PhotographerProfileScreen extends StatefulWidget {
-  const PhotographerProfileScreen({super.key, required this.data});
+  const PhotographerProfileScreen({super.key, required this.photographer});
 
-  final Map<String, dynamic> data;
+  final PhotographerModel photographer;
 
   @override
   State<PhotographerProfileScreen> createState() =>
@@ -16,69 +20,34 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isFavorite = false;
-
-  static const List<Map<String, dynamic>> _portfolioItems = [
-    {'gradient': [Color(0xFF8E0000), Color(0xFFC62828)]},
-    {'gradient': [Color(0xFF880E4F), Color(0xFFAD1457)]},
-    {'gradient': [Color(0xFF4A0000), Color(0xFFBF360C)]},
-    {'gradient': [Color(0xFF1A237E), Color(0xFFC62828)]},
-    {'gradient': [Color(0xFF6B0000), Color(0xFF880E4F)]},
-    {'gradient': [Color(0xFF3D0000), Color(0xFF8E0000)]},
-    {'gradient': [Color(0xFF560027), Color(0xFFC62828)]},
-    {'gradient': [Color(0xFFBF360C), Color(0xFF6B0000)]},
-    {'gradient': [Color(0xFF880E0E), Color(0xFF4A0000)]},
-  ];
-
-  static const List<Map<String, dynamic>> _packages = [
-    {
-      'name': 'Starter',
-      'duration': '2 hours',
-      'price': '\$280',
-      'features': ['50 edited photos', 'Online gallery', '1 location'],
-    },
-    {
-      'name': 'Standard',
-      'duration': '4 hours',
-      'price': '\$450',
-      'features': ['120 edited photos', 'Online gallery', '2 locations', 'Prints included'],
-    },
-    {
-      'name': 'Premium',
-      'duration': 'Full day',
-      'price': '\$750',
-      'features': ['250+ edited photos', 'Online gallery', 'Unlimited locations', 'Prints + album', 'Rush delivery'],
-      'popular': true,
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _reviews = [
-    {
-      'name': 'Emily Watson',
-      'initials': 'EW',
-      'rating': 5,
-      'date': 'Jan 2026',
-      'comment': 'Absolutely stunning photos! Professional, punctual, and creative. Would hire again without hesitation.',
-    },
-    {
-      'name': 'James Rodriguez',
-      'initials': 'JR',
-      'rating': 5,
-      'date': 'Dec 2025',
-      'comment': 'Captured our wedding day beautifully. Every shot felt natural and emotional. Truly talented.',
-    },
-    {
-      'name': 'Sarah Kim',
-      'initials': 'SK',
-      'rating': 4,
-      'date': 'Nov 2025',
-      'comment': 'Great work overall! Very responsive and easy to work with. Photos came out gorgeous.',
-    },
-  ];
+  List<PortfolioItemModel> _portfolioItems = [];
+  List<ReviewModel> _reviews = [];
+  bool _isLoadingTabs = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    PhotographerService().incrementProfileView(widget.photographer.uid);
+    _loadTabData();
+  }
+
+  Future<void> _loadTabData() async {
+    try {
+      final results = await Future.wait([
+        PhotographerService().getPortfolio(widget.photographer.uid),
+        PhotographerService().getReviews(widget.photographer.uid),
+      ]);
+      if (mounted) {
+        setState(() {
+          _portfolioItems = results[0] as List<PortfolioItemModel>;
+          _reviews = results[1] as List<ReviewModel>;
+          _isLoadingTabs = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingTabs = false);
+    }
   }
 
   @override
@@ -89,8 +58,8 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.data;
-    final List<Color> gradient = List<Color>.from(data['gradient'] as List);
+    final photographer = widget.photographer;
+    final gradient = photographer.gradientColors;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -102,7 +71,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: gradient[0],
+                backgroundColor: gradient[0] as Color,
                 leading: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
@@ -212,14 +181,16 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                   ),
                                 ),
                                 child: Center(
-                                  child: Text(
-                                    data['initials'] as String,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                                  child: photographer.photoUrl != null
+                                      ? null
+                                      : Text(
+                                          photographer.initials,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -229,7 +200,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      data['name'] as String,
+                                      photographer.name,
                                       style: GoogleFonts.poppins(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
@@ -237,7 +208,11 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                       ),
                                     ),
                                     Text(
-                                      data['specialty'] as String,
+                                      photographer.primarySpecialty.isNotEmpty
+                                          ? photographer.primarySpecialty
+                                          : photographer.specialties.isNotEmpty
+                                              ? photographer.specialties.first
+                                              : '',
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         color: Colors.white
@@ -254,7 +229,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                         ),
                                         const SizedBox(width: 3),
                                         Text(
-                                          data['location'] as String,
+                                          photographer.locationText,
                                           style: GoogleFonts.poppins(
                                             fontSize: 12,
                                             color: Colors.white70,
@@ -285,17 +260,17 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                   child: Row(
                     children: [
-                      _StatItem(value: '420+', label: 'Photos'),
+                      _StatItem(value: '${photographer.photoCount}', label: 'Photos'),
                       _divider(),
                       _StatItem(
-                        value: '${data['rating']}',
+                        value: photographer.rating.toStringAsFixed(1),
                         label: 'Rating',
                         valueColor: const Color(0xFFC62828),
                       ),
                       _divider(),
-                      _StatItem(value: '180+', label: 'Bookings'),
+                      _StatItem(value: '${photographer.bookingCount}', label: 'Bookings'),
                       _divider(),
-                      _StatItem(value: '5yr', label: 'Experience'),
+                      _StatItem(value: '${photographer.reviewCount}', label: 'Reviews'),
                     ],
                   ),
                 ),
@@ -317,7 +292,9 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'I\'m a professional photographer with over 5 years of experience specializing in ${data['specialty']}. I believe every moment tells a story, and my mission is to capture yours with authenticity and artistry. Based in ${data['location']}, I\'m available for travel worldwide.',
+                        photographer.bio.isNotEmpty
+                            ? photographer.bio
+                            : 'Professional photographer specializing in ${photographer.primarySpecialty.isNotEmpty ? photographer.primarySpecialty : 'photography'}. Based in ${photographer.locationText}, available for bookings worldwide.',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           color: const Color(0xFF7A7A7A),
@@ -330,11 +307,8 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          data['specialty'] as String,
-                          'Portrait',
-                          'Editorial',
-                          'Natural Light',
-                          'Studio'
+                          ...photographer.specialties.take(5),
+                          if (photographer.specialties.isEmpty) 'Photography',
                         ].map((tag) => Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
@@ -386,7 +360,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   controller: _tabController,
                   children: [
                     _buildPortfolio(),
-                    _buildPackages(data),
+                    _buildPackages(),
                     _buildReviews(),
                   ],
                 ),
@@ -425,9 +399,9 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                           ),
                         ),
                         Text(
-                          data['price'] != null
-                              ? '${data['price']}/hr'
-                              : '\$280/hr',
+                          photographer.startingPrice.isNotEmpty
+                              ? photographer.startingPrice
+                              : 'See packages',
                           style: GoogleFonts.poppins(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -444,7 +418,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) =>
-                              BookingScreen(photographerData: data),
+                              BookingScreen(photographer: photographer),
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -475,6 +449,26 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   }
 
   Widget _buildPortfolio() {
+    if (_isLoadingTabs) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFC62828)),
+      );
+    }
+    if (_portfolioItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.photo_library_outlined,
+                size: 48, color: Color(0xFFBDBDBD)),
+            const SizedBox(height: 8),
+            Text('No portfolio items yet.',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+          ],
+        ),
+      );
+    }
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -484,34 +478,74 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
       ),
       itemCount: _portfolioItems.length,
       itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: List<Color>.from(_portfolioItems[index]['gradient'] as List),
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.photo_camera_rounded,
-              color: Colors.white.withValues(alpha: 0.35),
-              size: 24,
-            ),
-          ),
+        final item = _portfolioItems[index];
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: item.imageUrl.isNotEmpty
+              ? Image.network(
+                  item.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      _portfolioPlaceholder(index),
+                )
+              : _portfolioPlaceholder(index),
         );
       },
     );
   }
 
-  Widget _buildPackages(Map<String, dynamic> data) {
+  Widget _portfolioPlaceholder(int index) {
+    const pairs = [
+      [Color(0xFF8E0000), Color(0xFFC62828)],
+      [Color(0xFF880E4F), Color(0xFFAD1457)],
+      [Color(0xFF4A0000), Color(0xFFBF360C)],
+      [Color(0xFF1A237E), Color(0xFFC62828)],
+      [Color(0xFF6B0000), Color(0xFF880E4F)],
+      [Color(0xFF3D0000), Color(0xFF8E0000)],
+      [Color(0xFF560027), Color(0xFFC62828)],
+    ];
+    final pair = pairs[index % pairs.length];
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [pair[0], pair[1]],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.photo_camera_rounded,
+          color: Colors.white.withValues(alpha: 0.35),
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPackages() {
+    final packages = widget.photographer.packages;
+    if (packages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.photo_camera_outlined,
+                size: 48, color: Color(0xFFBDBDBD)),
+            const SizedBox(height: 8),
+            Text('No packages available.',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+          ],
+        ),
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-      itemCount: _packages.length,
+      itemCount: packages.length,
       itemBuilder: (context, index) {
-        final pkg = _packages[index];
-        final isPopular = pkg['popular'] == true;
+        final pkg = packages[index];
+        final isPopular = pkg.isPopular;
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
@@ -568,7 +602,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              pkg['name'] as String,
+                              pkg.name,
                               style: GoogleFonts.poppins(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -576,7 +610,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                               ),
                             ),
                             Text(
-                              pkg['duration'] as String,
+                              pkg.duration,
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: const Color(0xFF9E9E9E),
@@ -585,7 +619,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                           ],
                         ),
                         Text(
-                          pkg['price'] as String,
+                          '\$${pkg.price}',
                           style: GoogleFonts.poppins(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
@@ -595,34 +629,35 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    ...(pkg['features'] as List<String>).map((f) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle_rounded,
-                            color: Color(0xFFC62828),
-                            size: 16,
+                    ...pkg.features.map((f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFFC62828),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                f,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            f,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: const Color(0xFF374151),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
+                        )),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) =>
-                                BookingScreen(photographerData: data),
+                            builder: (_) => BookingScreen(
+                              photographer: widget.photographer,
+                            ),
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -663,6 +698,26 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   }
 
   Widget _buildReviews() {
+    if (_isLoadingTabs) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFC62828)),
+      );
+    }
+    if (_reviews.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.star_outline_rounded,
+                size: 48, color: Color(0xFFBDBDBD)),
+            const SizedBox(height: 8),
+            Text('No reviews yet.',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+          ],
+        ),
+      );
+    }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       itemCount: _reviews.length,
@@ -692,7 +747,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                     ),
                     child: Center(
                       child: Text(
-                        review['initials'] as String,
+                        review.clientInitials,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -707,7 +762,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          review['name'] as String,
+                          review.clientName,
                           style: GoogleFonts.poppins(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -715,7 +770,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                           ),
                         ),
                         Text(
-                          review['date'] as String,
+                          '${_monthName(review.createdAt.month)} ${review.createdAt.year}',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             color: const Color(0xFF9E9E9E),
@@ -726,7 +781,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                   Row(
                     children: List.generate(
-                      review['rating'] as int,
+                      review.rating.round(),
                       (i) => const Icon(Icons.star_rounded,
                           color: Color(0xFFFFB300), size: 14),
                     ),
@@ -735,7 +790,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                review['comment'] as String,
+                review.comment,
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   color: const Color(0xFF7A7A7A),
@@ -747,6 +802,11 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         );
       },
     );
+  }
+
+  String _monthName(int month) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return months[(month - 1).clamp(0, 11)];
   }
 
   Widget _divider() {

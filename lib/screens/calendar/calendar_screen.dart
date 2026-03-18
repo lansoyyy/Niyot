@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../models/availability_model.dart';
+import '../../models/photographer_model.dart';
+import '../../services/photographer_service.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key, required this.photographerData});
+  const CalendarScreen({super.key, required this.photographer});
 
-  final Map<String, dynamic> photographerData;
+  final PhotographerModel photographer;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -15,29 +18,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   CalendarFormat _calendarFormat = CalendarFormat.month;
+  Set<DateTime> _bookedDates = {};
+  List<TimeSlotModel> _timeSlots = [];
+  bool _isLoadingSlots = false;
 
-  // Sample booked dates (in real app, fetch from API)
-  final Set<DateTime> _bookedDates = {
-    DateTime(2026, 3, 15),
-    DateTime(2026, 3, 16),
-    DateTime(2026, 3, 20),
-    DateTime(2026, 3, 22),
-    DateTime(2026, 3, 25),
-    DateTime(2026, 3, 26),
-    DateTime(2026, 3, 27),
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadBookedDates(_focusedDay);
+  }
 
-  // Sample available time slots for selected day
-  final List<Map<String, dynamic>> _timeSlots = [
-    {'time': '9:00 AM', 'available': true},
-    {'time': '10:00 AM', 'available': true},
-    {'time': '11:00 AM', 'available': false},
-    {'time': '12:00 PM', 'available': false},
-    {'time': '1:00 PM', 'available': true},
-    {'time': '2:00 PM', 'available': true},
-    {'time': '3:00 PM', 'available': false},
-    {'time': '4:00 PM', 'available': true},
-  ];
+  Future<void> _loadBookedDates(DateTime month) async {
+    try {
+      final booked = await PhotographerService()
+          .getBookedDatesInMonth(widget.photographer.uid, month);
+      if (mounted) setState(() => _bookedDates = booked.toSet());
+    } catch (_) {}
+  }
+
+  Future<void> _loadSlotsForDay(DateTime day) async {
+    setState(() => _isLoadingSlots = true);
+    try {
+      final availability = await PhotographerService()
+          .getAvailability(widget.photographer.uid, day);
+      if (mounted) {
+        setState(() {
+          _timeSlots = availability?.slots ?? AvailabilityModel.defaultSlots();
+          _isLoadingSlots = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingSlots = false);
+    }
+  }
 
   bool _isDayBooked(DateTime day) {
     return _bookedDates.any(
@@ -50,7 +63,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.photographerData;
+    final photographer = widget.photographer;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -95,7 +108,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: List<Color>.from(data['gradient'] as List),
+                      colors: photographer.gradientColors,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -103,7 +116,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      data['initials'] as String,
+                      photographer.initials,
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -118,7 +131,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        data['name'] as String,
+                        photographer.name,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -126,7 +139,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         ),
                       ),
                       Text(
-                        data['specialty'] as String,
+                        photographer.primarySpecialty.isNotEmpty
+                            ? photographer.primarySpecialty
+                            : photographer.specialties.isNotEmpty
+                                ? photographer.specialties.first
+                                : '',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: const Color(0xFF9E9E9E),
@@ -141,7 +158,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: photographer.isAvailable
+                      ? const Color(0xFFE8F5E9)
+                      : const Color(0xFFFFEBEE),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -157,11 +176,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Available',
+                        photographer.isAvailable ? 'Available' : 'Unavailable',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2E7D32),
+                          color: photographer.isAvailable
+                              ? const Color(0xFF2E7D32)
+                              : const Color(0xFFC62828),
                         ),
                       ),
                     ],
@@ -186,12 +207,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   _selectedDay = selectedDay;
                   _focusedDay = focusedDay;
                 });
+                _loadSlotsForDay(selectedDay);
               },
               onFormatChanged: (format) {
                 setState(() => _calendarFormat = format);
               },
               onPageChanged: (focusedDay) {
                 _focusedDay = focusedDay;
+                _loadBookedDates(focusedDay);
               },
               calendarStyle: CalendarStyle(
                 todayDecoration: BoxDecoration(
@@ -314,7 +337,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                   Expanded(
                     child: _selectedDay != null
-                        ? GridView.builder(
+                        ? (_isLoadingSlots
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFFC62828)))
+                            : _timeSlots.isEmpty
+                                ? Center(
+                                    child: Text('No slots available.',
+                                        style: GoogleFonts.poppins(
+                                            color:
+                                                const Color(0xFF9E9E9E))))
+                                : GridView.builder(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -326,14 +359,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             itemCount: _timeSlots.length,
                             itemBuilder: (context, index) {
                               final slot = _timeSlots[index];
-                              final isAvailable = slot['available'] as bool;
+                              final isAvailable = slot.isAvailable;
                               return GestureDetector(
                                 onTap: isAvailable
                                     ? () {
-                                        // Navigate to booking with selected time
                                         Navigator.of(context).pop({
                                           'date': _selectedDay,
-                                          'time': slot['time'],
+                                          'time': slot.time,
                                         });
                                       }
                                     : null,
@@ -369,7 +401,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           ),
                                         const SizedBox(width: 6),
                                         Text(
-                                          slot['time'] as String,
+                                          slot.time,
                                           style: GoogleFonts.poppins(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
@@ -384,7 +416,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                               );
                             },
-                          )
+                          ))
                         : Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,

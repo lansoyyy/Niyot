@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../models/booking_model.dart';
+import '../../services/booking_service.dart';
+import '../../services/messaging_service.dart';
+import '../../services/user_service.dart';
+import '../messages/chat_screen.dart';
 import 'booking_actions_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
@@ -13,85 +19,16 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const List<Map<String, dynamic>> _upcoming = [
-    {
-      'photographer': 'Sofia Reyes',
-      'initials': 'SR',
-      'service': 'Standard Package',
-      'date': 'Mar 18, 2026',
-      'time': '10:00 AM',
-      'location': 'New York, NY',
-      'price': '\$450',
-      'status': 'Confirmed',
-      'gradient': [Color(0xFF8E0000), Color(0xFFC62828)],
-    },
-    {
-      'photographer': 'Marcus Chen',
-      'initials': 'MC',
-      'service': 'Premium Package',
-      'date': 'Mar 25, 2026',
-      'time': '9:00 AM',
-      'location': 'Brooklyn, NY',
-      'price': '\$750',
-      'status': 'Confirmed',
-      'gradient': [Color(0xFF4A0000), Color(0xFF880E0E)],
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _requested = [
-    {
-      'photographer': 'Ava Thompson',
-      'initials': 'AT',
-      'service': 'Starter Package',
-      'date': 'Apr 5, 2026',
-      'time': '2:00 PM',
-      'location': 'Chicago, IL',
-      'price': '\$280',
-      'status': 'Pending',
-      'gradient': [Color(0xFF880E4F), Color(0xFFAD1457)],
-    },
-  ];
-
-  static const List<Map<String, dynamic>> _past = [
-    {
-      'photographer': 'Isabella Cruz',
-      'initials': 'IC',
-      'service': 'Standard Package',
-      'date': 'Feb 14, 2026',
-      'time': '11:00 AM',
-      'location': 'Austin, TX',
-      'price': '\$450',
-      'status': 'Completed',
-      'gradient': [Color(0xFFAD1457), Color(0xFF560027)],
-    },
-    {
-      'photographer': 'Liam Park',
-      'initials': 'LP',
-      'service': 'Starter Package',
-      'date': 'Jan 22, 2026',
-      'time': '3:00 PM',
-      'location': 'Miami, FL',
-      'price': '\$280',
-      'status': 'Completed',
-      'gradient': [Color(0xFFC62828), Color(0xFF6B0000)],
-    },
-    {
-      'photographer': 'Noah Williams',
-      'initials': 'NW',
-      'service': 'Premium Package',
-      'date': 'Dec 30, 2025',
-      'time': '9:00 AM',
-      'location': 'Seattle, WA',
-      'price': '\$750',
-      'status': 'Cancelled',
-      'gradient': [Color(0xFF880E0E), Color(0xFF3D0000)],
-    },
-  ];
+  Stream<List<BookingModel>>? _bookingsStream;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _bookingsStream = BookingService().clientBookingsStream(uid);
+    }
   }
 
   @override
@@ -102,92 +39,111 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'My Bookings',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Stats row
-                  Row(
+    return StreamBuilder<List<BookingModel>>(
+      stream: _bookingsStream,
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? [];
+        final upcoming = all.where((b) => b.isUpcoming).toList();
+        final requested = all
+          .where((b) => b.status == BookingStatus.requested)
+          .toList();
+        final past = all.where((b) => b.isPast).toList();
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F8F8),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatCard(
-                        value: '2',
-                        label: 'Upcoming',
-                        color: const Color(0xFFC62828),
-                        bgColor: const Color(0xFFFFEBEE),
+                      Text(
+                        'My Bookings',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A1A),
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      _StatCard(
-                        value: '1',
-                        label: 'Pending',
-                        color: const Color(0xFFFF6D00),
-                        bgColor: const Color(0xFFFFF3E0),
+                      const SizedBox(height: 16),
+                      // Stats row
+                      Row(
+                        children: [
+                          _StatCard(
+                            value: '${upcoming.length}',
+                            label: 'Upcoming',
+                            color: const Color(0xFFC62828),
+                            bgColor: const Color(0xFFFFEBEE),
+                          ),
+                          const SizedBox(width: 10),
+                          _StatCard(
+                            value: '${requested.length}',
+                            label: 'Pending',
+                            color: const Color(0xFFFF6D00),
+                            bgColor: const Color(0xFFFFF3E0),
+                          ),
+                          const SizedBox(width: 10),
+                          _StatCard(
+                            value: '${past.where((b) => b.status == BookingStatus.completed).length}',
+                            label: 'Completed',
+                            color: const Color(0xFF2E7D32),
+                            bgColor: const Color(0xFFE8F5E9),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      _StatCard(
-                        value: '8',
-                        label: 'Completed',
-                        color: const Color(0xFF2E7D32),
-                        bgColor: const Color(0xFFE8F5E9),
+                      const SizedBox(height: 16),
+                      // Tab bar
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFFC62828),
+                        unselectedLabelColor: const Color(0xFF9E9E9E),
+                        labelStyle: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle:
+                            GoogleFonts.poppins(fontSize: 13),
+                        indicatorColor: const Color(0xFFC62828),
+                        indicatorWeight: 2.5,
+                        tabs: [
+                          Tab(text: 'Upcoming (${upcoming.length})'),
+                          Tab(text: 'Requested (${requested.length})'),
+                          Tab(text: 'Past (${past.length})'),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Tab bar
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: const Color(0xFFC62828),
-                    unselectedLabelColor: const Color(0xFF9E9E9E),
-                    labelStyle: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
-                    indicatorColor: const Color(0xFFC62828),
-                    indicatorWeight: 2.5,
-                    tabs: [
-                      Tab(text: 'Upcoming (${_upcoming.length})'),
-                      Tab(text: 'Requested (${_requested.length})'),
-                      Tab(text: 'Past (${_past.length})'),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                // Tab content
+                Expanded(
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFFC62828),
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildBookingList(upcoming),
+                            _buildBookingList(requested),
+                            _buildBookingList(past),
+                          ],
+                        ),
+                ),
+              ],
             ),
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildBookingList(_upcoming),
-                  _buildBookingList(_requested),
-                  _buildBookingList(_past),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildBookingList(List<Map<String, dynamic>> bookings) {
+  Widget _buildBookingList(List<BookingModel> bookings) {
     if (bookings.isEmpty) {
       return Center(
         child: Column(
@@ -221,37 +177,62 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
 class _BookingCard extends StatelessWidget {
   const _BookingCard({required this.booking});
-  final Map<String, dynamic> booking;
+  final BookingModel booking;
 
-  Color _statusColor(String status) {
+  Color _statusColor(BookingStatus status) {
     switch (status) {
-      case 'Confirmed':
+      case BookingStatus.confirmed:
         return Colors.green;
-      case 'Pending':
+      case BookingStatus.requested:
         return const Color(0xFFFF6D00);
-      case 'Cancelled':
+      case BookingStatus.cancelled:
         return const Color(0xFFC62828);
       default:
         return Colors.grey;
     }
   }
 
-  Color _statusBg(String status) {
+  Color _statusBg(BookingStatus status) {
     switch (status) {
-      case 'Confirmed':
+      case BookingStatus.confirmed:
         return const Color(0xFFE8F5E9);
-      case 'Pending':
+      case BookingStatus.requested:
         return const Color(0xFFFFF3E0);
-      case 'Cancelled':
+      case BookingStatus.cancelled:
         return const Color(0xFFFFEBEE);
       default:
         return const Color(0xFFF5F5F5);
     }
   }
 
+  static const _gradients = [
+    [Color(0xFF6B0000), Color(0xFFC62828)],
+    [Color(0xFF4A0000), Color(0xFF880E0E)],
+    [Color(0xFF1A237E), Color(0xFF3949AB)],
+    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF004D40), Color(0xFF00897B)],
+    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
+  ];
+
+  List<Color> _photographerGradient(String photographerId) {
+    final index =
+        photographerId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
+            _gradients.length;
+    return _gradients[index].cast<Color>();
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final status = booking['status'] as String;
+    final status = booking.status;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -272,7 +253,7 @@ class _BookingCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: List<Color>.from(booking['gradient'] as List),
+                colors: _photographerGradient(booking.photographerId),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -296,7 +277,7 @@ class _BookingCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      booking['initials'] as String,
+                      booking.photographerInitials,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -311,7 +292,7 @@ class _BookingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        booking['photographer'] as String,
+                        booking.photographerName,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -319,7 +300,7 @@ class _BookingCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        booking['service'] as String,
+                        booking.packageName,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -338,7 +319,7 @@ class _BookingCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    status,
+                    booking.status.displayName,
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -358,12 +339,12 @@ class _BookingCard extends StatelessWidget {
                   children: [
                     _InfoChip(
                       icon: Icons.calendar_today_rounded,
-                      text: booking['date'] as String,
+                      text: _formatDate(booking.scheduledDate),
                     ),
                     const SizedBox(width: 10),
                     _InfoChip(
                       icon: Icons.access_time_rounded,
-                      text: booking['time'] as String,
+                      text: booking.scheduledTime,
                     ),
                   ],
                 ),
@@ -372,28 +353,48 @@ class _BookingCard extends StatelessWidget {
                   children: [
                     _InfoChip(
                       icon: Icons.location_on_rounded,
-                      text: booking['location'] as String,
+                      text: booking.location,
                     ),
                     const SizedBox(width: 10),
                     _InfoChip(
                       icon: Icons.attach_money_rounded,
-                      text: booking['price'] as String,
+                      text: '\$${booking.packagePrice}',
                       color: const Color(0xFFC62828),
                     ),
                   ],
                 ),
-                if (status == 'Confirmed' || status == 'Pending') ...[
+                if (booking.isUpcoming || booking.status == BookingStatus.requested) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            final currentUser = FirebaseAuth.instance.currentUser;
+                            if (currentUser == null) return;
+
+                            final currentProfile = UserService().cachedUser ??
+                                await UserService().fetchCurrentUser();
+                            final conversationId = await MessagingService()
+                                .getOrCreateConversation(
+                              myId: currentUser.uid,
+                              myName: currentProfile?.name ??
+                                  currentUser.displayName ??
+                                  'Client',
+                              myPhotoUrl: currentProfile?.photoUrl,
+                              otherUserId: booking.photographerId,
+                              otherUserName: booking.photographerName,
+                              otherUserPhotoUrl: booking.photographerPhotoUrl,
+                              bookingId: booking.id,
+                            );
+
+                            if (!context.mounted) return;
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => BookingActionsScreen(
-                                  bookingData: booking,
-                                  actionType: 'reschedule',
+                                builder: (_) => ChatScreen(
+                                  conversationId: conversationId,
+                                  otherUserId: booking.photographerId,
+                                  otherUserName: booking.photographerName,
                                 ),
                               ),
                             );
@@ -422,8 +423,8 @@ class _BookingCard extends StatelessWidget {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => BookingActionsScreen(
-                                  bookingData: booking,
-                                  actionType: status == 'Pending'
+                                  booking: booking,
+                                    actionType: booking.status == BookingStatus.requested
                                       ? 'cancel'
                                       : 'reschedule',
                                 ),
@@ -440,7 +441,7 @@ class _BookingCard extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            status == 'Pending' ? 'Cancel' : 'View Details',
+                            booking.status == BookingStatus.requested ? 'Cancel' : 'View Details',
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -451,7 +452,7 @@ class _BookingCard extends StatelessWidget {
                     ],
                   ),
                 ],
-                if (status == 'Completed') ...[
+                if (booking.status == BookingStatus.completed) ...[
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,

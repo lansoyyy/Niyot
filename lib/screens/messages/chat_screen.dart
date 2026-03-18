@@ -1,10 +1,22 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.chatData});
+import '../../models/message_model.dart';
+import '../../services/messaging_service.dart';
+import '../../services/user_service.dart';
 
-  final Map<String, dynamic> chatData;
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({
+    super.key,
+    required this.conversationId,
+    required this.otherUserId,
+    required this.otherUserName,
+  });
+
+  final String conversationId;
+  final String otherUserId;
+  final String otherUserName;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -13,64 +25,66 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _currentUser = FirebaseAuth.instance.currentUser;
 
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'text': 'Hi! I saw your portfolio and I\'m very interested in booking a session for my wedding.',
-      'isMe': false,
-      'time': '10:22 AM',
-    },
-    {
-      'text': 'Hello! Thank you so much, I\'d love to capture your special day! When is your wedding date?',
-      'isMe': true,
-      'time': '10:25 AM',
-    },
-    {
-      'text': 'It\'s on June 14th, 2026. We\'re planning a garden ceremony in Central Park.',
-      'isMe': false,
-      'time': '10:26 AM',
-    },
-    {
-      'text': 'That sounds absolutely beautiful! I have June 14th available. I\'d recommend the Premium Package for a full-day wedding shoot.',
-      'isMe': true,
-      'time': '10:30 AM',
-    },
-    {
-      'text': 'What exactly is included in the Premium Package?',
-      'isMe': false,
-      'time': '10:31 AM',
-    },
-    {
-      'text': 'The Premium Package includes:\n• 250+ edited photos\n• Full day coverage (up to 10 hours)\n• Online gallery access\n• Physical album\n• Rush delivery option (48hrs)\n\nAll for \$750.',
-      'isMe': true,
-      'time': '10:33 AM',
-    },
-    {
-      'text': 'That sounds perfect! Can I also add a videography package?',
-      'isMe': false,
-      'time': '10:35 AM',
-    },
-    {
-      'text': 'Absolutely! I work with a videographer partner and can put together a bundled package for you. I\'ll send you the details shortly.',
-      'isMe': true,
-      'time': '10:36 AM',
-    },
-    {
-      'text': 'Great! I\'ll confirm the location details tomorrow.',
-      'isMe': false,
-      'time': '10:40 AM',
-    },
+  bool _isSending = false;
+
+  static const _gradients = [
+    [Color(0xFF6B0000), Color(0xFFC62828)],
+    [Color(0xFF4A0000), Color(0xFF880E0E)],
+    [Color(0xFF1A237E), Color(0xFF3949AB)],
+    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF004D40), Color(0xFF00897B)],
+    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
   ];
+
+  List<Color> _otherGradient(String userId) {
+    final index =
+        userId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
+    return _gradients[index].cast<Color>();
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ').where((part) => part.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  String _formatTime(DateTime date) {
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
+  }
+
+  void _scrollToBottom({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final offset = _scrollController.position.maxScrollExtent;
+      if (animated) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(offset);
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(
-          _scrollController.position.maxScrollExtent,
-        );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final uid = _currentUser?.uid;
+      if (uid != null) {
+        await MessagingService().markConversationRead(widget.conversationId, uid);
       }
+      _scrollToBottom(animated: false);
     });
   }
 
@@ -81,41 +95,36 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    setState(() {
-      _messages.add({
-        'text': _messageController.text.trim(),
-        'isMe': true,
-        'time': _currentTime(),
-      });
-      _messageController.clear();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    final uid = _currentUser?.uid;
+    if (text.isEmpty || uid == null || _isSending) return;
 
-  String _currentTime() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '$displayHour:$minute $period';
+    final senderName = UserService().cachedUser?.name ??
+        _currentUser?.displayName ??
+        _currentUser?.email ??
+        'User';
+
+    setState(() => _isSending = true);
+    try {
+      await MessagingService().sendMessage(
+        conversationId: widget.conversationId,
+        senderId: uid,
+        senderName: senderName,
+        text: text,
+      );
+      _messageController.clear();
+      _scrollToBottom();
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.chatData;
-    final List<Color> gradient =
-        List<Color>.from(data['gradient'] as List);
+    final gradient = _otherGradient(widget.otherUserId);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -140,52 +149,34 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         title: Row(
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: gradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      data['initials'] as String,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  _initials(widget.otherUserName),
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
-                if (data['online'] as bool)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 11,
-                      height: 11,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  data['name'] as String,
+                  widget.otherUserName,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -193,12 +184,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 Text(
-                  data['online'] as bool ? 'Online' : 'Offline',
+                  'Conversation',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
-                    color: data['online'] as bool
-                        ? Colors.green
-                        : const Color(0xFFBDBDBD),
+                    color: const Color(0xFFBDBDBD),
                   ),
                 ),
               ],
@@ -224,41 +213,80 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // Messages
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding:
-                  const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isMe = msg['isMe'] as bool;
+            child: StreamBuilder<List<MessageModel>>(
+              stream: MessagingService().messagesStream(widget.conversationId),
+              builder: (context, snapshot) {
+                final messages = snapshot.data ?? const <MessageModel>[];
 
-                return Column(
-                  children: [
-                    if (index == 0)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          'Today',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: const Color(0xFFBDBDBD),
-                          ),
-                        ),
-                      ),
-                    _MessageBubble(
-                      message: msg,
-                      isMe: isMe,
-                      gradient: gradient,
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    messages.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFFC62828),
                     ),
-                  ],
+                  );
+                }
+
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No messages yet',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: const Color(0xFF9E9E9E),
+                      ),
+                    ),
+                  );
+                }
+
+                final uid = _currentUser?.uid ?? '';
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  _scrollToBottom();
+                  if (uid.isNotEmpty) {
+                    await MessagingService().markConversationRead(
+                      widget.conversationId,
+                      uid,
+                    );
+                  }
+                });
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isMe = message.isSentBy(uid);
+                    final showDayLabel = index == 0 ||
+                        !_isSameDay(message.timestamp, messages[index - 1].timestamp);
+
+                    return Column(
+                      children: [
+                        if (showDayLabel)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Text(
+                              _dayLabel(message.timestamp),
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: const Color(0xFFBDBDBD),
+                              ),
+                            ),
+                          ),
+                        _MessageBubble(
+                          text: message.text,
+                          time: _formatTime(message.timestamp),
+                          isMe: isMe,
+                          gradient: gradient,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             ),
           ),
-          // Input bar
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             color: Colors.white,
@@ -281,7 +309,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: _messageController,
                       style: GoogleFonts.poppins(
-                          fontSize: 14, color: const Color(0xFF1F2937)),
+                        fontSize: 14,
+                        color: const Color(0xFF1F2937),
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: GoogleFonts.poppins(
@@ -290,7 +320,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         isDense: true,
                       ),
                       maxLines: null,
@@ -305,16 +337,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Container(
                     width: 44,
                     height: 44,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF6B0000), Color(0xFFC62828)],
+                        colors: _isSending
+                            ? const [Color(0xFFBDBDBD), Color(0xFF9E9E9E)]
+                            : const [Color(0xFF6B0000), Color(0xFFC62828)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.send_rounded,
+                    child: Icon(
+                      _isSending ? Icons.hourglass_top_rounded : Icons.send_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -327,16 +361,46 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _dayLabel(DateTime date) {
+    final now = DateTime.now();
+    if (_isSameDay(date, now)) return 'Today';
+    if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
+      return 'Yesterday';
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 }
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
-    required this.message,
+    required this.text,
+    required this.time,
     required this.isMe,
     required this.gradient,
   });
 
-  final Map<String, dynamic> message;
+  final String text;
+  final String time;
   final bool isMe;
   final List<Color> gradient;
 
@@ -380,7 +444,7 @@ class _MessageBubble extends StatelessWidget {
               isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
-              message['text'] as String,
+              text,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: isMe ? Colors.white : const Color(0xFF374151),
@@ -389,7 +453,7 @@ class _MessageBubble extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              message['time'] as String,
+              time,
               style: GoogleFonts.poppins(
                 fontSize: 10,
                 color: isMe

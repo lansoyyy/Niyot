@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../models/booking_model.dart';
+import '../../services/booking_service.dart';
 
 class BookingActionsScreen extends StatefulWidget {
   const BookingActionsScreen({
     super.key,
-    required this.bookingData,
+    required this.booking,
     required this.actionType, // 'cancel' or 'reschedule'
   });
 
-  final Map<String, dynamic> bookingData;
+  final BookingModel booking;
   final String actionType;
 
   @override
@@ -20,6 +22,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
   int _selectedTimeSlot = 2;
   String? _selectedCancellationReason;
+  bool _isLoading = false;
   final _notesController = TextEditingController();
 
   final List<String> _timeSlots = [
@@ -50,7 +53,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final booking = widget.bookingData;
+    final booking = widget.booking;
     final isCancel = widget.actionType == 'cancel';
 
     return Scaffold(
@@ -109,7 +112,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: List<Color>.from(booking['gradient'] as List),
+                        colors: _bookingGradient(booking.photographerId),
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -117,7 +120,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        booking['initials'] as String,
+                        booking.photographerInitials,
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -132,7 +135,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          booking['photographer'] as String,
+                          booking.photographerName,
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -140,7 +143,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                           ),
                         ),
                         Text(
-                          booking['service'] as String,
+                          booking.packageName,
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: const Color(0xFF9E9E9E),
@@ -153,7 +156,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        booking['price'] as String,
+                        '\$${booking.packagePrice}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -170,7 +173,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          booking['status'] as String,
+                          booking.status.displayName,
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -207,19 +210,19 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                   _DetailRow(
                     icon: Icons.calendar_today_rounded,
                     label: 'Date',
-                    value: booking['date'] as String,
+                    value: _formatDate(booking.scheduledDate),
                   ),
                   const SizedBox(height: 8),
                   _DetailRow(
                     icon: Icons.access_time_rounded,
                     label: 'Time',
-                    value: booking['time'] as String,
+                    value: booking.scheduledTime,
                   ),
                   const SizedBox(height: 8),
                   _DetailRow(
                     icon: Icons.location_on_rounded,
                     label: 'Location',
-                    value: booking['location'] as String,
+                    value: booking.location,
                   ),
                 ],
               ),
@@ -306,7 +309,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _confirmAction,
+                      onPressed: _isLoading ? null : _confirmAction,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isCancel
                             ? const Color(0xFFE53935)
@@ -653,25 +656,19 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
         SnackBar(
           content: Text(
             'Please select a cancellation reason',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
           ),
           backgroundColor: const Color(0xFFE53935),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
       return;
     }
 
-    // Show confirmation dialog
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           isCancel ? 'Cancel Booking?' : 'Reschedule Booking?',
@@ -685,14 +682,11 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
           isCancel
               ? 'Are you sure you want to cancel this booking? This action cannot be undone.'
               : 'Are you sure you want to reschedule this booking to ${_formatDate(_selectedDate)} at ${_timeSlots[_selectedTimeSlot]}?',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: const Color(0xFF6B7280),
-          ),
+          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'No, Go Back',
               style: GoogleFonts.poppins(
@@ -703,33 +697,57 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-              // Show success message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    isCancel
-                        ? 'Booking cancelled successfully'
-                        : 'Reschedule request sent',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              setState(() => _isLoading = true);
+              try {
+                if (isCancel) {
+                  await BookingService().updateStatus(
+                    widget.booking.id,
+                    BookingStatus.cancelled,
+                  );
+                } else {
+                  // For reschedule: update status to requested (pending re-confirmation)
+                  // and update scheduled date/time. Use a note to communicate new slot.
+                  await BookingService().updateStatus(
+                    widget.booking.id,
+                    BookingStatus.requested,
+                    notes: 'Reschedule request to ${_formatDate(_selectedDate)}'
+                        ' at ${_timeSlots[_selectedTimeSlot]}.'
+                        '${_notesController.text.isNotEmpty ? ' Notes: ${_notesController.text}' : ''}',
+                  );
+                }
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isCancel ? 'Booking cancelled successfully' : 'Reschedule request sent',
+                        style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                      backgroundColor: const Color(0xFF2E7D32),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                  ),
-                  backgroundColor: const Color(0xFF2E7D32),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              );
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e',
+                          style: GoogleFonts.poppins(fontSize: 14)),
+                      backgroundColor: const Color(0xFFE53935),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isCancel
-                  ? const Color(0xFFE53935)
-                  : const Color(0xFFC62828),
+              backgroundColor:
+                  isCancel ? const Color(0xFFE53935) : const Color(0xFFC62828),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -737,15 +755,29 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
             ),
             child: Text(
               'Yes, Confirm',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],
       ),
     );
+  }
+
+  static const _gradients = [
+    [Color(0xFF6B0000), Color(0xFFC62828)],
+    [Color(0xFF4A0000), Color(0xFF880E0E)],
+    [Color(0xFF1A237E), Color(0xFF3949AB)],
+    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF004D40), Color(0xFF00897B)],
+    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
+  ];
+
+  List<Color> _bookingGradient(String photographerId) {
+    final index =
+        photographerId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
+            _gradients.length;
+    return _gradients[index].cast<Color>();
   }
 
   String _formatDate(DateTime date) {
