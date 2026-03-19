@@ -6,6 +6,7 @@ import '../../services/booking_service.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
 import '../messages/chat_screen.dart';
+import '../reviews/leave_review_screen.dart';
 import 'booking_actions_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
@@ -45,8 +46,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         final all = snapshot.data ?? [];
         final upcoming = all.where((b) => b.isUpcoming).toList();
         final requested = all
-          .where((b) => b.status == BookingStatus.requested)
-          .toList();
+            .where((b) => b.status == BookingStatus.requested)
+            .toList();
         final past = all.where((b) => b.isPast).toList();
 
         return Scaffold(
@@ -88,7 +89,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                           ),
                           const SizedBox(width: 10),
                           _StatCard(
-                            value: '${past.where((b) => b.status == BookingStatus.completed).length}',
+                            value:
+                                '${past.where((b) => b.status == BookingStatus.completed).length}',
                             label: 'Completed',
                             color: const Color(0xFF2E7D32),
                             bgColor: const Color(0xFFE8F5E9),
@@ -105,8 +107,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
-                        unselectedLabelStyle:
-                            GoogleFonts.poppins(fontSize: 13),
+                        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
                         indicatorColor: const Color(0xFFC62828),
                         indicatorWeight: 2.5,
                         tabs: [
@@ -218,14 +219,24 @@ class _BookingCard extends StatelessWidget {
   List<Color> _photographerGradient(String photographerId) {
     final index =
         photographerId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
-            _gradients.length;
+        _gradients.length;
     return _gradients[index].cast<Color>();
   }
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -363,30 +374,35 @@ class _BookingCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (booking.isUpcoming || booking.status == BookingStatus.requested) ...[
+                if (booking.isUpcoming ||
+                    booking.status == BookingStatus.requested) ...[
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () async {
-                            final currentUser = FirebaseAuth.instance.currentUser;
+                            final currentUser =
+                                FirebaseAuth.instance.currentUser;
                             if (currentUser == null) return;
 
-                            final currentProfile = UserService().cachedUser ??
+                            final currentProfile =
+                                UserService().cachedUser ??
                                 await UserService().fetchCurrentUser();
                             final conversationId = await MessagingService()
                                 .getOrCreateConversation(
-                              myId: currentUser.uid,
-                              myName: currentProfile?.name ??
-                                  currentUser.displayName ??
-                                  'Client',
-                              myPhotoUrl: currentProfile?.photoUrl,
-                              otherUserId: booking.photographerId,
-                              otherUserName: booking.photographerName,
-                              otherUserPhotoUrl: booking.photographerPhotoUrl,
-                              bookingId: booking.id,
-                            );
+                                  myId: currentUser.uid,
+                                  myName:
+                                      currentProfile?.name ??
+                                      currentUser.displayName ??
+                                      'Client',
+                                  myPhotoUrl: currentProfile?.photoUrl,
+                                  otherUserId: booking.photographerId,
+                                  otherUserName: booking.photographerName,
+                                  otherUserPhotoUrl:
+                                      booking.photographerPhotoUrl,
+                                  bookingId: booking.id,
+                                );
 
                             if (!context.mounted) return;
                             Navigator.of(context).push(
@@ -424,7 +440,8 @@ class _BookingCard extends StatelessWidget {
                               MaterialPageRoute(
                                 builder: (_) => BookingActionsScreen(
                                   booking: booking,
-                                    actionType: booking.status == BookingStatus.requested
+                                  actionType:
+                                      booking.status == BookingStatus.requested
                                       ? 'cancel'
                                       : 'reschedule',
                                 ),
@@ -441,7 +458,9 @@ class _BookingCard extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            booking.status == BookingStatus.requested ? 'Cancel' : 'View Details',
+                            booking.status == BookingStatus.requested
+                                ? 'Cancel'
+                                : 'View Details',
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -457,18 +476,53 @@ class _BookingCard extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {},
+                      onPressed: booking.hasReview
+                          ? null
+                          : () async {
+                              final created = await Navigator.of(context)
+                                  .push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          LeaveReviewScreen(booking: booking),
+                                    ),
+                                  );
+
+                              if (!context.mounted || created != true) {
+                                return;
+                              }
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Review submitted successfully.',
+                                  ),
+                                ),
+                              );
+                            },
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFC62828)),
-                        foregroundColor: const Color(0xFFC62828),
+                        side: BorderSide(
+                          color: booking.hasReview
+                              ? const Color(0xFFE0E0E0)
+                              : const Color(0xFFC62828),
+                        ),
+                        foregroundColor: booking.hasReview
+                            ? const Color(0xFF9E9E9E)
+                            : const Color(0xFFC62828),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      icon: const Icon(Icons.star_outline_rounded, size: 16),
+                      icon: Icon(
+                        booking.hasReview
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.star_outline_rounded,
+                        size: 16,
+                      ),
                       label: Text(
-                        'Leave a Review',
+                        booking.hasReview
+                            ? 'Review Submitted'
+                            : 'Leave a Review',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

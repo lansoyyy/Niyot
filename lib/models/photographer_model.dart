@@ -69,30 +69,30 @@ class PhotographerModel {
       [Color(0xFF6D2533), Color(0xFFC2185B)],
       [Color(0xFF7B1FA2), Color(0xFFC62828)],
     ];
-    final hash = uid.codeUnits.fold(0, (sum, c) => sum + c);
+    final hash = uid.codeUnits.fold(0, (total, c) => total + c);
     return List<Color>.from(pairs[hash % pairs.length]);
   }
 
   Map<String, dynamic> toMap() => {
-        'uid': uid,
-        'name': name,
-        'photoUrl': photoUrl,
-        'bio': bio,
-        'locationText': locationText,
-        'geoPoint': geoPoint,
-        'specialties': specialties,
-        'primarySpecialty': primarySpecialty,
-        'rating': rating,
-        'reviewCount': reviewCount,
-        'bookingCount': bookingCount,
-        'profileViewCount': profileViewCount,
-        'photoCount': photoCount,
-        'isAvailable': isAvailable,
-        'isFeatured': isFeatured,
-        'isVerified': isVerified,
-        'packages': packages.map((p) => p.toMap()).toList(),
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'uid': uid,
+    'name': name,
+    'photoUrl': photoUrl,
+    'bio': bio,
+    'locationText': locationText,
+    'geoPoint': geoPoint,
+    'specialties': specialties,
+    'primarySpecialty': primarySpecialty,
+    'rating': rating,
+    'reviewCount': reviewCount,
+    'bookingCount': bookingCount,
+    'profileViewCount': profileViewCount,
+    'photoCount': photoCount,
+    'isAvailable': isAvailable,
+    'isFeatured': isFeatured,
+    'isVerified': isVerified,
+    'packages': packages.map((p) => p.toMap()).toList(),
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   factory PhotographerModel.fromMap(String uid, Map<String, dynamic> map) =>
       PhotographerModel(
@@ -113,11 +113,13 @@ class PhotographerModel {
         isFeatured: map['isFeatured'] as bool? ?? false,
         isVerified: map['isVerified'] as bool? ?? false,
         packages: (map['packages'] as List<dynamic>? ?? [])
-            .map((p) =>
-                ServicePackageModel.fromMap(Map<String, dynamic>.from(p as Map)))
+            .map(
+              (p) => ServicePackageModel.fromMap(
+                Map<String, dynamic>.from(p as Map),
+              ),
+            )
             .toList(),
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
 
   PhotographerModel copyWith({
@@ -139,25 +141,24 @@ class PhotographerModel {
     bool? isVerified,
     List<ServicePackageModel>? packages,
     DateTime? createdAt,
-  }) =>
-      PhotographerModel(
-        uid: uid ?? this.uid,
-        name: name ?? this.name,
-        photoUrl: photoUrl ?? this.photoUrl,
-        bio: bio ?? this.bio,
-        locationText: locationText ?? this.locationText,
-        geoPoint: geoPoint ?? this.geoPoint,
-        specialties: specialties ?? this.specialties,
-        primarySpecialty: primarySpecialty ?? this.primarySpecialty,
-        rating: rating ?? this.rating,
-        reviewCount: reviewCount ?? this.reviewCount,
-        bookingCount: bookingCount ?? this.bookingCount,
-        profileViewCount: profileViewCount ?? this.profileViewCount,
-        photoCount: photoCount ?? this.photoCount,
-        isAvailable: isAvailable ?? this.isAvailable,
-        isFeatured: isFeatured ?? this.isFeatured,
-        isVerified: isVerified ?? this.isVerified,
-        packages: packages ?? this.packages,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => PhotographerModel(
+    uid: uid ?? this.uid,
+    name: name ?? this.name,
+    photoUrl: photoUrl ?? this.photoUrl,
+    bio: bio ?? this.bio,
+    locationText: locationText ?? this.locationText,
+    geoPoint: geoPoint ?? this.geoPoint,
+    specialties: specialties ?? this.specialties,
+    primarySpecialty: primarySpecialty ?? this.primarySpecialty,
+    rating: rating ?? this.rating,
+    reviewCount: reviewCount ?? this.reviewCount,
+    bookingCount: bookingCount ?? this.bookingCount,
+    profileViewCount: profileViewCount ?? this.profileViewCount,
+    photoCount: photoCount ?? this.photoCount,
+    isAvailable: isAvailable ?? this.isAvailable,
+    isFeatured: isFeatured ?? this.isFeatured,
+    isVerified: isVerified ?? this.isVerified,
+    packages: packages ?? this.packages,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }

@@ -27,11 +27,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         SnackBar(
           content: Text(
             '$label added successfully',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     }
@@ -61,7 +66,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
             const SizedBox(height: 20),
             _AddPaymentOption(
               icon: Icons.credit_card_rounded,
-              title: 'Credit/Debit Card',
+              title: 'Card Metadata',
               onTap: () {
                 Navigator.of(context).pop();
                 Navigator.of(context).push(
@@ -106,7 +111,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
   void _showDeleteDialog(PaymentMethodModel method) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Remove Payment Method?',
@@ -127,7 +132,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Cancel',
               style: GoogleFonts.poppins(
@@ -139,26 +144,25 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               await PaymentMethodService().deleteMethod(_currentUid, method.id);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Payment method removed',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    backgroundColor: const Color(0xFF2E7D32),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Payment method removed',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                );
-              }
+                  backgroundColor: const Color(0xFF2E7D32),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE53935),
@@ -255,7 +259,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Your default payment method will be used for all bookings unless you choose otherwise.',
+                          'Saved methods in this app are labels and metadata only. Real card charging is not processed in-app.',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: const Color(0xFF1A1A1A),
@@ -276,7 +280,8 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (snapshot.connectionState == ConnectionState.waiting && paymentMethods.isEmpty)
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    paymentMethods.isEmpty)
                   const Center(
                     child: CircularProgressIndicator(color: Color(0xFFC62828)),
                   )
@@ -302,17 +307,16 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                     return _PaymentMethodCard(
                       method: method,
                       isSelected: _selectedMethodId == method.id,
-                      onTap: () => setState(() => _selectedMethodId = method.id),
-                      onSetDefault: () => PaymentMethodService().setDefaultMethod(
-                        _currentUid,
-                        method.id,
-                      ),
+                      onTap: () =>
+                          setState(() => _selectedMethodId = method.id),
+                      onSetDefault: () => PaymentMethodService()
+                          .setDefaultMethod(_currentUid, method.id),
                       onDelete: () => _showDeleteDialog(method),
                     );
                   }),
                 const SizedBox(height: 24),
                 Text(
-                  'Other Payment Options',
+                  'Wallet Metadata',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -701,21 +705,28 @@ class AddCardScreen extends StatefulWidget {
 
 class _AddCardScreenState extends State<AddCardScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _cardNumberController = TextEditingController();
+  final _last4Controller = TextEditingController();
   final _cardHolderController = TextEditingController();
   final _expiryController = TextEditingController();
-  final _cvvController = TextEditingController();
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  static const _brands = [
+    'Visa',
+    'Mastercard',
+    'American Express',
+    'Discover',
+    'Other',
+  ];
 
   bool _isDefault = true;
   bool _isLoading = false;
+  String _selectedBrand = _brands.first;
 
   @override
   void dispose() {
-    _cardNumberController.dispose();
+    _last4Controller.dispose();
     _cardHolderController.dispose();
     _expiryController.dispose();
-    _cvvController.dispose();
     super.dispose();
   }
 
@@ -743,7 +754,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Add Card',
+          'Add Card Metadata',
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -759,7 +770,40 @@ class _AddCardScreenState extends State<AddCardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Card Number',
+                'Card Brand',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedBrand,
+                items: _brands
+                    .map(
+                      (brand) => DropdownMenuItem<String>(
+                        value: brand,
+                        child: Text(
+                          brand,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedBrand = value);
+                  }
+                },
+                decoration: _inputDecoration('Select brand'),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Last 4 Digits',
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -768,17 +812,19 @@ class _AddCardScreenState extends State<AddCardScreen> {
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _cardNumberController,
+                controller: _last4Controller,
                 keyboardType: TextInputType.number,
+                maxLength: 4,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: const Color(0xFF1A1A1A),
                 ),
-                decoration: _inputDecoration('1234 5678 9012 3456'),
+                decoration: _inputDecoration('1234').copyWith(counterText: ''),
                 validator: (value) {
-                  final normalized = value?.replaceAll(RegExp(r'\s+'), '') ?? '';
-                  if (normalized.isEmpty) return 'Please enter card number';
-                  if (normalized.length < 12) return 'Please enter a valid card number';
+                  final normalized = value?.trim() ?? '';
+                  if (normalized.length != 4) {
+                    return 'Enter the last 4 digits';
+                  }
                   return null;
                 },
               ),
@@ -807,80 +853,37 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Expiry Date',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _expiryController,
-                          keyboardType: TextInputType.number,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: const Color(0xFF1A1A1A),
-                          ),
-                          decoration: _inputDecoration('MM/YY'),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter expiry';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'CVV',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _cvvController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 4,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: const Color(0xFF1A1A1A),
-                          ),
-                          decoration: _inputDecoration('123').copyWith(counterText: ''),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter CVV';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              Text(
+                'Expiry Date',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _expiryController,
+                keyboardType: TextInputType.number,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF1A1A1A),
+                ),
+                decoration: _inputDecoration('MM/YY'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter expiry';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Checkbox(
                     value: _isDefault,
-                    onChanged: (value) => setState(() => _isDefault = value ?? false),
+                    onChanged: (value) =>
+                        setState(() => _isDefault = value ?? false),
                     activeColor: const Color(0xFFC62828),
                   ),
                   const SizedBox(width: 8),
@@ -912,7 +915,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Your payment information is encrypted and secure. We never store your full card number.',
+                        'Only safe card metadata is stored here: brand, last 4 digits, expiry, and cardholder name. No full card number or CVV is saved.',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: const Color(0xFF1A1A1A),
@@ -943,11 +946,13 @@ class _AddCardScreenState extends State<AddCardScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : Text(
-                          'Add Card',
+                          'Save Card Metadata',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -991,16 +996,12 @@ class _AddCardScreenState extends State<AddCardScreen> {
   Future<void> _saveCard() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final normalized = _cardNumberController.text.replaceAll(RegExp(r'\s+'), '');
-    final last4 = normalized.substring(normalized.length - 4);
-    final brand = PaymentMethodService().inferCardBrand(normalized);
-
     setState(() => _isLoading = true);
     try {
       await PaymentMethodService().addCardMethod(
         userId: _currentUid,
-        brand: brand,
-        last4: last4,
+        brand: _selectedBrand,
+        last4: _last4Controller.text.trim(),
         expiry: _expiryController.text.trim(),
         holderName: _cardHolderController.text.trim(),
         isDefault: _isDefault,
@@ -1011,11 +1012,16 @@ class _AddCardScreenState extends State<AddCardScreen> {
           SnackBar(
             content: Text(
               'Card added successfully!',
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }

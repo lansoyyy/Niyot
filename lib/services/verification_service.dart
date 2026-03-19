@@ -20,18 +20,23 @@ class VerificationService {
     required String userId,
     required String legalName,
     required String governmentIdNumber,
-    required List<_PendingDocument> documents,
+    required List<PendingDocument> documents,
   }) async {
     final uploaded = <VerificationDocumentModel>[];
 
     for (final doc in documents) {
-      final url = await StorageService()
-          .uploadVerificationDoc(userId, doc.type, doc.file);
-      uploaded.add(VerificationDocumentModel(
-        type: doc.type,
-        url: url,
-        uploadedAt: DateTime.now(),
-      ));
+      final url = await StorageService().uploadVerificationDoc(
+        userId,
+        doc.type,
+        doc.file,
+      );
+      uploaded.add(
+        VerificationDocumentModel(
+          type: doc.type,
+          url: url,
+          uploadedAt: DateTime.now(),
+        ),
+      );
     }
 
     final docRef = _firestore
@@ -60,8 +65,9 @@ class VerificationService {
         .doc(userId)
         .get();
     if (photoDoc.exists) {
-      await photoDoc.reference
-          .update({'isVerified': false}); // pending, not yet approved
+      await photoDoc.reference.update({
+        'isVerified': false,
+      }); // pending, not yet approved
     }
 
     return docRef.id;
@@ -70,7 +76,8 @@ class VerificationService {
   // ─── Read ─────────────────────────────────────────────────────────────────
 
   Future<VerificationSubmissionModel?> getCurrentSubmission(
-      String userId) async {
+    String userId,
+  ) async {
     final snap = await _firestore
         .collection(FirebaseCollections.verificationSubmissions)
         .where('userId', isEqualTo: userId)
@@ -79,7 +86,9 @@ class VerificationService {
         .get();
     if (snap.docs.isEmpty) return null;
     return VerificationSubmissionModel.fromMap(
-        snap.docs.first.id, snap.docs.first.data());
+      snap.docs.first.id,
+      snap.docs.first.data(),
+    );
   }
 
   Stream<VerificationSubmissionModel?> submissionStream(String userId) =>
@@ -89,22 +98,21 @@ class VerificationService {
           .orderBy('submittedAt', descending: true)
           .limit(1)
           .snapshots()
-          .map((snap) => snap.docs.isEmpty
-              ? null
-              : VerificationSubmissionModel.fromMap(
-                  snap.docs.first.id, snap.docs.first.data()));
+          .map(
+            (snap) => snap.docs.isEmpty
+                ? null
+                : VerificationSubmissionModel.fromMap(
+                    snap.docs.first.id,
+                    snap.docs.first.data(),
+                  ),
+          );
 
-  String get currentUserId =>
-      FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
 }
 
-class _PendingDocument {
+class PendingDocument {
   final String type;
   final File file;
-  const _PendingDocument({required this.type, required this.file});
-}
 
-/// Public factory for creating pending document upload entries.
-class PendingDocument extends _PendingDocument {
-  const PendingDocument({required super.type, required super.file});
+  const PendingDocument({required this.type, required this.file});
 }

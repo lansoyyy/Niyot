@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../models/booking_model.dart';
 import '../../models/payment_method_model.dart';
@@ -8,6 +11,7 @@ import '../../models/payment_record_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/payment_method_service.dart';
 import '../../services/payment_service.dart';
+import '../../services/storage_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key, required this.bookingId});
@@ -20,14 +24,17 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _picker = ImagePicker();
   final _cardNumberController = TextEditingController();
   final _cardHolderController = TextEditingController();
   final _expiryController = TextEditingController();
-  final _cvvController = TextEditingController();
+  final _paymentReferenceController = TextEditingController();
+  final _paymentNotesController = TextEditingController();
 
   bool _isProcessing = false;
   bool _saveCard = false;
   String _selectedMethodKey = 'new_card';
+  File? _paymentProofFile;
 
   static const _otherMethods = [
     _OtherMethodConfig(
@@ -61,7 +68,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _cardNumberController.dispose();
     _cardHolderController.dispose();
     _expiryController.dispose();
-    _cvvController.dispose();
+    _paymentReferenceController.dispose();
+    _paymentNotesController.dispose();
     super.dispose();
   }
 
@@ -71,6 +79,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
   ) async {
     if (_isProcessing) return;
 
+    final existingPayment = await PaymentService().getPaymentForBooking(
+      booking.id,
+    );
+    if (!mounted) return;
+    if (existingPayment != null &&
+        existingPayment.status != PaymentStatus.failed &&
+        existingPayment.status != PaymentStatus.refunded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'A payment record already exists for this booking.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          backgroundColor: const Color(0xFFE53935),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      return;
+    }
+
     PaymentMethodModel? selectedSavedMethod;
     for (final method in savedMethods) {
       if (method.id == _selectedMethodKey) {
@@ -79,16 +113,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
     }
 
+    String? normalizedCardNumber;
     if (selectedSavedMethod == null && _selectedMethodKey == 'new_card') {
-      final normalized = _cardNumberController.text.replaceAll(RegExp(r'\s+'), '');
-      if (normalized.length < 12 ||
+      normalizedCardNumber = _cardNumberController.text.replaceAll(
+        RegExp(r'\s+'),
+        '',
+      );
+      if (normalizedCardNumber.length < 12 ||
           _cardHolderController.text.trim().isEmpty ||
-          _expiryController.text.trim().isEmpty ||
-          _cvvController.text.trim().isEmpty) {
+          _expiryController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Please complete your card details',
+              'Please complete your card metadata',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -107,14 +144,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     final paymentLabel = selectedSavedMethod != null
         ? selectedSavedMethod.isCard
-            ? '${selectedSavedMethod.label} ending in ${selectedSavedMethod.last4}'
-            : selectedSavedMethod.label
+              ? '${selectedSavedMethod.label} ending in ${selectedSavedMethod.last4}'
+              : selectedSavedMethod.label
+        : _selectedMethodKey == 'new_card'
+        ? '${PaymentMethodService().inferCardBrand(normalizedCardNumber!)} ending in ${normalizedCardNumber.substring(normalizedCardNumber.length - 4)}'
         : _otherMethods
-            .firstWhere((method) => method.key == _selectedMethodKey)
-            .label;
+              .firstWhere((method) => method.key == _selectedMethodKey)
+              .label;
 
     setState(() => _isProcessing = true);
     try {
+      String? proofUrl;
+      if (_paymentProofFile != null) {
+        final paymentProofId =
+            '${booking.id}_${DateTime.now().millisecondsSinceEpoch}';
+        proofUrl = await StorageService().uploadPaymentProof(
+          paymentProofId,
+          _paymentProofFile!,
+        );
+      }
+
+      final noteParts = <String>[
+        'Submitted from the app for manual confirmation.',
+      ];
+      final reference = _paymentReferenceController.text.trim();
+      if (reference.isNotEmpty) {
+        noteParts.add('Reference: $reference');
+      }
+      final userNotes = _paymentNotesController.text.trim();
+      if (userNotes.isNotEmpty) {
+        noteParts.add(userNotes);
+      }
+
       final record = PaymentRecordModel(
         id: '',
         bookingId: booking.id,
@@ -122,23 +183,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
         payeeId: booking.photographerId,
         amount: booking.packagePrice,
         paymentMethodLabel: paymentLabel,
+        proofUrl: proofUrl,
         status: PaymentStatus.pending,
+        notes: noteParts.join(' '),
         createdAt: DateTime.now(),
       );
 
-      final paymentId = await PaymentService().createPaymentRecord(record);
-      await PaymentService().updateStatus(
-        paymentId,
-        PaymentStatus.completed,
-        notes: 'Simulated payment completed in-app.',
-      );
+      await PaymentService().createPaymentRecord(record);
 
-      if (_selectedMethodKey == 'new_card' && _saveCard) {
-        final normalized = _cardNumberController.text.replaceAll(RegExp(r'\s+'), '');
+      if (_selectedMethodKey == 'new_card' &&
+          _saveCard &&
+          normalizedCardNumber != null) {
         await PaymentMethodService().addCardMethod(
           userId: _currentUid,
-          brand: PaymentMethodService().inferCardBrand(normalized),
-          last4: normalized.substring(normalized.length - 4),
+          brand: PaymentMethodService().inferCardBrand(normalizedCardNumber),
+          last4: normalizedCardNumber.substring(
+            normalizedCardNumber.length - 4,
+          ),
           expiry: _expiryController.text.trim(),
           holderName: _cardHolderController.text.trim(),
           isDefault: savedMethods.isEmpty,
@@ -161,6 +222,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
         setState(() => _isProcessing = false);
       }
     }
+  }
+
+  Future<void> _pickPaymentProof() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (pickedFile == null || !mounted) return;
+    setState(() => _paymentProofFile = File(pickedFile.path));
   }
 
   String _formatDate(DateTime date) {
@@ -191,7 +261,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       [Color(0xFFBF360C), Color(0xFFE64A19)],
       [Color(0xFF4A148C), Color(0xFF7B1FA2)],
     ];
-    final index = id.codeUnits.fold<int>(0, (sum, code) => sum + code) % gradients.length;
+    final index =
+        id.codeUnits.fold<int>(0, (sum, code) => sum + code) % gradients.length;
     return gradients[index].cast<Color>();
   }
 
@@ -204,10 +275,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.poppins(
-        fontSize: 14,
-        color: const Color(0xFF1A1A1A),
-      ),
+      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1A1A1A)),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.poppins(
@@ -261,7 +329,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return StreamBuilder<List<PaymentMethodModel>>(
           stream: PaymentMethodService().paymentMethodsStream(_currentUid),
           builder: (context, methodsSnapshot) {
-            final savedMethods = methodsSnapshot.data ?? const <PaymentMethodModel>[];
+            final savedMethods =
+                methodsSnapshot.data ?? const <PaymentMethodModel>[];
 
             return Scaffold(
               backgroundColor: const Color(0xFFF8F8F8),
@@ -285,7 +354,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 title: Text(
-                  'Payment',
+                  'Submit Payment',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -318,7 +387,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 height: 48,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: _gradientForId(booking.photographerId),
+                                    colors: _gradientForId(
+                                      booking.photographerId,
+                                    ),
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
@@ -361,17 +432,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ],
                           ),
                           const Divider(height: 24),
-                          _SummaryRow(label: 'Service Package', value: booking.packageName),
+                          _SummaryRow(
+                            label: 'Service Package',
+                            value: booking.packageName,
+                          ),
                           const SizedBox(height: 12),
-                          _SummaryRow(label: 'Date', value: _formatDate(booking.scheduledDate)),
+                          _SummaryRow(
+                            label: 'Date',
+                            value: _formatDate(booking.scheduledDate),
+                          ),
                           const SizedBox(height: 12),
-                          _SummaryRow(label: 'Time', value: booking.scheduledTime),
+                          _SummaryRow(
+                            label: 'Time',
+                            value: booking.scheduledTime,
+                          ),
                           const SizedBox(height: 12),
-                          _SummaryRow(label: 'Duration', value: booking.packageDuration),
+                          _SummaryRow(
+                            label: 'Duration',
+                            value: booking.packageDuration,
+                          ),
                           const Divider(height: 24),
                           _SummaryRow(label: 'Subtotal', value: '\$$subtotal'),
                           const SizedBox(height: 8),
-                          _SummaryRow(label: 'Service Fee (10%)', value: '\$$serviceFee'),
+                          _SummaryRow(
+                            label: 'Service Fee (10%)',
+                            value: '\$$serviceFee',
+                          ),
                           const Divider(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -438,7 +524,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     ? const Color(0xFF1976D2)
                                     : _walletColor(method.provider),
                                 isSelected: _selectedMethodKey == method.id,
-                                onTap: () => setState(() => _selectedMethodKey = method.id),
+                                onTap: () => setState(
+                                  () => _selectedMethodKey = method.id,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -456,18 +544,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             (method) => _SelectablePaymentMethodCard(
                               label: method.label,
                               subtitle: method.key == 'new_card'
-                                  ? 'Enter new card details'
-                                  : 'Pay with ${method.label}',
+                                  ? 'Record a card payment method'
+                                  : 'Record a payment made via ${method.label}',
                               icon: method.icon,
                               color: method.color,
                               isSelected: _selectedMethodKey == method.key,
-                              onTap: () => setState(() => _selectedMethodKey = method.key),
+                              onTap: () => setState(
+                                () => _selectedMethodKey = method.key,
+                              ),
                             ),
                           ),
                           if (_selectedMethodKey == 'new_card') ...[
                             const SizedBox(height: 20),
                             Text(
-                              'Card Details',
+                              'Card Metadata',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -477,7 +567,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             const SizedBox(height: 12),
                             _buildTextField(
                               controller: _cardNumberController,
-                              hint: 'Card Number',
+                              hint: 'Card Number (last 4 used for records)',
                               icon: Icons.credit_card_rounded,
                               keyboardType: TextInputType.number,
                             ),
@@ -502,12 +592,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 SizedBox(
-                                  width: 90,
+                                  width: 140,
                                   child: _buildTextField(
-                                    controller: _cvvController,
-                                    hint: 'CVV',
-                                    icon: Icons.lock_rounded,
-                                    keyboardType: TextInputType.number,
+                                    controller: _paymentReferenceController,
+                                    hint: 'Reference',
+                                    icon: Icons.receipt_long_rounded,
                                   ),
                                 ),
                               ],
@@ -533,6 +622,115 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          Text(
+                            'Reference & Proof',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_selectedMethodKey != 'new_card')
+                            _buildTextField(
+                              controller: _paymentReferenceController,
+                              hint: 'Payment reference (optional)',
+                              icon: Icons.receipt_long_rounded,
+                            ),
+                          if (_selectedMethodKey != 'new_card')
+                            const SizedBox(height: 12),
+                          TextField(
+                            controller: _paymentNotesController,
+                            maxLines: 4,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: const Color(0xFF1A1A1A),
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Add payment notes for the photographer (optional)',
+                              hintStyle: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: const Color(0xFFBDBDBD),
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFF5F5F5),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.all(14),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _pickPaymentProof,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFC62828),
+                              side: const BorderSide(color: Color(0xFFC62828)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.upload_file_rounded),
+                            label: Text(
+                              _paymentProofFile == null
+                                  ? 'Attach Payment Proof'
+                                  : 'Proof Attached',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (_paymentProofFile != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      _paymentProofFile!,
+                                      width: 52,
+                                      height: 52,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Proof image ready to upload',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        color: const Color(0xFF374151),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => setState(
+                                      () => _paymentProofFile = null,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      color: Color(0xFF9E9E9E),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ],
@@ -563,7 +761,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Secure Payment',
+                                  'Firebase-backed Payment Record',
                                   style: GoogleFonts.poppins(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -571,7 +769,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Only non-sensitive metadata is stored in Firebase. Full card numbers and CVV are not saved.',
+                                  'This screen records payment details, references, and proof in Firebase. Real card charging is not processed in-app.',
                                   style: GoogleFonts.poppins(
                                     fontSize: 11,
                                     color: const Color(0xFF9E9E9E),
@@ -652,7 +850,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 )
                               : Text(
-                                  'Pay Now',
+                                  'Submit Payment Record',
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -799,7 +997,9 @@ class _SelectablePaymentMethodCard extends StatelessWidget {
               isSelected
                   ? Icons.check_circle_rounded
                   : Icons.radio_button_unchecked_rounded,
-              color: isSelected ? const Color(0xFFC62828) : const Color(0xFFBDBDBD),
+              color: isSelected
+                  ? const Color(0xFFC62828)
+                  : const Color(0xFFBDBDBD),
               size: 20,
             ),
           ],
@@ -854,24 +1054,28 @@ class PaymentSuccessScreen extends StatelessWidget {
                 height: 100,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF56AB2F), Color(0xFFA8E063)],
+                    colors: [Color(0xFFFF9800), Color(0xFFFFC107)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF56AB2F).withValues(alpha: 0.3),
+                      color: const Color(0xFFFF9800).withValues(alpha: 0.3),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 50),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Colors.white,
+                  size: 46,
+                ),
               ),
               const SizedBox(height: 28),
               Text(
-                'Payment Successful!',
+                'Payment Submitted',
                 style: GoogleFonts.poppins(
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
@@ -880,7 +1084,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Your payment record has been saved.\n${booking.photographerName} will be notified shortly.',
+                'Your payment record has been saved with pending status.\n${booking.photographerName} can review the payment details from bookings.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
@@ -929,11 +1133,18 @@ class PaymentSuccessScreen extends StatelessWidget {
                       value: paymentMethodLabel,
                     ),
                     const SizedBox(height: 12),
+                    const _SuccessDetailRow(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'Status',
+                      value: 'Pending Confirmation',
+                      valueColor: Color(0xFFFF9800),
+                    ),
+                    const SizedBox(height: 12),
                     _SuccessDetailRow(
                       icon: Icons.payments_rounded,
-                      label: 'Amount Paid',
+                      label: 'Recorded Amount',
                       value: '\$$amount',
-                      valueColor: const Color(0xFF2E7D32),
+                      valueColor: const Color(0xFFC62828),
                     ),
                   ],
                 ),
@@ -942,7 +1153,8 @@ class PaymentSuccessScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFC62828),
                     foregroundColor: Colors.white,

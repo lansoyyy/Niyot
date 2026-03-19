@@ -1,9 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
 import '../../models/review_model.dart';
 import '../../services/photographer_service.dart';
+import '../../services/user_service.dart';
 import '../booking/booking_screen.dart';
 
 class PhotographerProfileScreen extends StatefulWidget {
@@ -19,7 +21,6 @@ class PhotographerProfileScreen extends StatefulWidget {
 class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isFavorite = false;
   List<PortfolioItemModel> _portfolioItems = [];
   List<ReviewModel> _reviews = [];
   bool _isLoadingTabs = true;
@@ -71,7 +72,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: gradient[0] as Color,
+                backgroundColor: gradient[0],
                 leading: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
@@ -88,38 +89,85 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                 ),
                 actions: [
-                  GestureDetector(
-                    onTap: () => setState(() => _isFavorite = !_isFavorite),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        _isFavorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: _isFavorite ? Colors.pinkAccent : Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.share_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                      if (currentUid == null) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return StreamBuilder<bool>(
+                        stream: UserService().favoriteStatusStream(
+                          currentUid,
+                          widget.photographer.uid,
+                        ),
+                        builder: (context, snapshot) {
+                          final isFavorite = snapshot.data ?? false;
+
+                          return GestureDetector(
+                            onTap: () async {
+                              try {
+                                final added = await UserService()
+                                    .toggleFavoritePhotographer(
+                                      uid: currentUid,
+                                      photographer: widget.photographer,
+                                    );
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      added
+                                          ? 'Added to favorites.'
+                                          : 'Removed from favorites.',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              } catch (_) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Unable to update favorites right now.',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                right: 16,
+                                top: 8,
+                                bottom: 8,
+                              ),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: isFavorite
+                                    ? Colors.pinkAccent
+                                    : Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -142,8 +190,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                             height: 180,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color:
-                                  Colors.white.withValues(alpha: 0.07),
+                              color: Colors.white.withValues(alpha: 0.07),
                             ),
                           ),
                         ),
@@ -155,8 +202,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                             height: 200,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color:
-                                  Colors.white.withValues(alpha: 0.05),
+                              color: Colors.white.withValues(alpha: 0.05),
                             ),
                           ),
                         ),
@@ -173,8 +219,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                 height: 72,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   border: Border.all(
                                     color: Colors.white,
                                     width: 2.5,
@@ -196,8 +241,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       photographer.name,
@@ -211,12 +255,13 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                       photographer.primarySpecialty.isNotEmpty
                                           ? photographer.primarySpecialty
                                           : photographer.specialties.isNotEmpty
-                                              ? photographer.specialties.first
-                                              : '',
+                                          ? photographer.specialties.first
+                                          : '',
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
-                                        color: Colors.white
-                                            .withValues(alpha: 0.85),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.85,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -260,7 +305,10 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                   child: Row(
                     children: [
-                      _StatItem(value: '${photographer.photoCount}', label: 'Photos'),
+                      _StatItem(
+                        value: '${photographer.photoCount}',
+                        label: 'Photos',
+                      ),
                       _divider(),
                       _StatItem(
                         value: photographer.rating.toStringAsFixed(1),
@@ -268,9 +316,15 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                         valueColor: const Color(0xFFC62828),
                       ),
                       _divider(),
-                      _StatItem(value: '${photographer.bookingCount}', label: 'Bookings'),
+                      _StatItem(
+                        value: '${photographer.bookingCount}',
+                        label: 'Bookings',
+                      ),
                       _divider(),
-                      _StatItem(value: '${photographer.reviewCount}', label: 'Reviews'),
+                      _StatItem(
+                        value: '${photographer.reviewCount}',
+                        label: 'Reviews',
+                      ),
                     ],
                   ),
                 ),
@@ -306,25 +360,33 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          ...photographer.specialties.take(5),
-                          if (photographer.specialties.isEmpty) 'Photography',
-                        ].map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFEBEE),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            tag,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFFC62828),
-                            ),
-                          ),
-                        )).toList(),
+                        children:
+                            [
+                                  ...photographer.specialties.take(5),
+                                  if (photographer.specialties.isEmpty)
+                                    'Photography',
+                                ]
+                                .map(
+                                  (tag) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFEBEE),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFFC62828),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                       ),
                     ],
                   ),
@@ -342,8 +404,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
-                    unselectedLabelStyle:
-                        GoogleFonts.poppins(fontSize: 13),
+                    unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
                     indicatorColor: const Color(0xFFC62828),
                     indicatorWeight: 2.5,
                     tabs: const [
@@ -459,12 +520,19 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.photo_library_outlined,
-                size: 48, color: Color(0xFFBDBDBD)),
+            const Icon(
+              Icons.photo_library_outlined,
+              size: 48,
+              color: Color(0xFFBDBDBD),
+            ),
             const SizedBox(height: 8),
-            Text('No portfolio items yet.',
-                style: GoogleFonts.poppins(
-                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+            Text(
+              'No portfolio items yet.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
           ],
         ),
       );
@@ -485,8 +553,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               ? Image.network(
                   item.imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      _portfolioPlaceholder(index),
+                  errorBuilder: (_, __, ___) => _portfolioPlaceholder(index),
                 )
               : _portfolioPlaceholder(index),
         );
@@ -530,12 +597,19 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.photo_camera_outlined,
-                size: 48, color: Color(0xFFBDBDBD)),
+            const Icon(
+              Icons.photo_camera_outlined,
+              size: 48,
+              color: Color(0xFFBDBDBD),
+            ),
             const SizedBox(height: 8),
-            Text('No packages available.',
-                style: GoogleFonts.poppins(
-                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+            Text(
+              'No packages available.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
           ],
         ),
       );
@@ -629,26 +703,28 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    ...pkg.features.map((f) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFFC62828),
-                                size: 16,
+                    ...pkg.features.map(
+                      (f) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: Color(0xFFC62828),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              f,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: const Color(0xFF374151),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                f,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  color: const Color(0xFF374151),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
@@ -668,14 +744,12 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                               ? Colors.white
                               : const Color(0xFFC62828),
                           elevation: 0,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                             side: isPopular
                                 ? BorderSide.none
-                                : const BorderSide(
-                                    color: Color(0xFFC62828)),
+                                : const BorderSide(color: Color(0xFFC62828)),
                           ),
                         ),
                         child: Text(
@@ -708,12 +782,19 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.star_outline_rounded,
-                size: 48, color: Color(0xFFBDBDBD)),
+            const Icon(
+              Icons.star_outline_rounded,
+              size: 48,
+              color: Color(0xFFBDBDBD),
+            ),
             const SizedBox(height: 8),
-            Text('No reviews yet.',
-                style: GoogleFonts.poppins(
-                    fontSize: 13, color: const Color(0xFF9E9E9E))),
+            Text(
+              'No reviews yet.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
           ],
         ),
       );
@@ -782,8 +863,11 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   Row(
                     children: List.generate(
                       review.rating.round(),
-                      (i) => const Icon(Icons.star_rounded,
-                          color: Color(0xFFFFB300), size: 14),
+                      (i) => const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 14,
+                      ),
                     ),
                   ),
                 ],
@@ -805,7 +889,20 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   }
 
   String _monthName(int month) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return months[(month - 1).clamp(0, 11)];
   }
 
@@ -860,7 +957,10 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: Colors.white,
       child: Column(

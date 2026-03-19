@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../models/availability_model.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
+import '../../services/photographer_service.dart';
 
 class BookingActionsScreen extends StatefulWidget {
   const BookingActionsScreen({
@@ -19,23 +21,14 @@ class BookingActionsScreen extends StatefulWidget {
 }
 
 class _BookingActionsScreenState extends State<BookingActionsScreen> {
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
-  int _selectedTimeSlot = 2;
+  late DateTime _selectedDate;
+  String? _selectedTimeSlot;
   String? _selectedCancellationReason;
   bool _isLoading = false;
+  bool _isLoadingSlots = false;
+  String? _availabilityError;
+  List<TimeSlotModel> _availableSlots = const [];
   final _notesController = TextEditingController();
-
-  final List<String> _timeSlots = [
-    '8:00 AM',
-    '9:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '12:00 PM',
-    '1:00 PM',
-    '2:00 PM',
-    '3:00 PM',
-    '4:00 PM',
-  ];
 
   final List<String> _cancellationReasons = [
     'Schedule conflict',
@@ -46,9 +39,65 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime(
+      widget.booking.scheduledDate.year,
+      widget.booking.scheduledDate.month,
+      widget.booking.scheduledDate.day,
+    );
+    _selectedTimeSlot = widget.booking.scheduledTime;
+
+    if (widget.actionType != 'cancel') {
+      _loadAvailableSlots();
+    }
+  }
+
+  @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAvailableSlots() async {
+    setState(() {
+      _isLoadingSlots = true;
+      _availabilityError = null;
+    });
+
+    try {
+      final availability = await PhotographerService().getAvailability(
+        widget.booking.photographerId,
+        _selectedDate,
+      );
+
+      final slots = (availability?.slots ?? AvailabilityModel.defaultSlots())
+          .where(
+            (slot) =>
+                slot.isAvailable || slot.bookedByBookingId == widget.booking.id,
+          )
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _availableSlots = slots;
+        if (_selectedTimeSlot == null ||
+            !_availableSlots.any((slot) => slot.time == _selectedTimeSlot)) {
+          _selectedTimeSlot = _availableSlots.isNotEmpty
+              ? _availableSlots.first.time
+              : null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _availabilityError = 'Unable to load availability for this date.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingSlots = false);
+      }
+    }
   }
 
   @override
@@ -504,6 +553,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
               setState(() {
                 _selectedDate = selectedDay;
               });
+              _loadAvailableSlots();
             },
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
@@ -576,47 +626,89 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.5,
-          ),
-          itemCount: _timeSlots.length,
-          itemBuilder: (context, index) {
-            final isSelected = _selectedTimeSlot == index;
-            return GestureDetector(
-              onTap: () => setState(() => _selectedTimeSlot = index),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFFFEBEE) : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFC62828)
-                        : const Color(0xFFE5E7EB),
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    _timeSlots[index],
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+        if (_isLoadingSlots)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: CircularProgressIndicator(color: Color(0xFFC62828)),
+            ),
+          )
+        else if (_availabilityError != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _availabilityError!,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFFC62828),
+              ),
+            ),
+          )
+        else if (_availableSlots.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Text(
+              'No available time slots for this date.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.5,
+            ),
+            itemCount: _availableSlots.length,
+            itemBuilder: (context, index) {
+              final slot = _availableSlots[index];
+              final isSelected = _selectedTimeSlot == slot.time;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedTimeSlot = slot.time),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFFFEBEE) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
                       color: isSelected
                           ? const Color(0xFFC62828)
-                          : const Color(0xFF1A1A1A),
+                          : const Color(0xFFE5E7EB),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      slot.time,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? const Color(0xFFC62828)
+                            : const Color(0xFF1A1A1A),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),
@@ -644,6 +736,46 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        Text(
+          'Message to photographer (optional)',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _notesController,
+          maxLines: 4,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF1A1A1A),
+          ),
+          decoration: InputDecoration(
+            hintText: 'Share any scheduling details...',
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 13,
+              color: const Color(0xFFBDBDBD),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFC62828), width: 2),
+            ),
+            contentPadding: const EdgeInsets.all(14),
+          ),
+        ),
       ],
     );
   }
@@ -656,14 +788,67 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
         SnackBar(
           content: Text(
             'Please select a cancellation reason',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           backgroundColor: const Color(0xFFE53935),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       return;
+    }
+
+    if (!isCancel) {
+      if (_selectedTimeSlot == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please select an available time slot',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: const Color(0xFFE53935),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+
+      final currentDate = DateTime(
+        widget.booking.scheduledDate.year,
+        widget.booking.scheduledDate.month,
+        widget.booking.scheduledDate.day,
+      );
+      if (currentDate == _selectedDate &&
+          widget.booking.scheduledTime == _selectedTimeSlot) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Choose a different date or time to reschedule',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: const Color(0xFFE53935),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
     }
 
     showDialog(
@@ -681,8 +866,11 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
         content: Text(
           isCancel
               ? 'Are you sure you want to cancel this booking? This action cannot be undone.'
-              : 'Are you sure you want to reschedule this booking to ${_formatDate(_selectedDate)} at ${_timeSlots[_selectedTimeSlot]}?',
-          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
+              : 'Are you sure you want to reschedule this booking to ${_formatDate(_selectedDate)} at ${_selectedTimeSlot!}?',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF6B7280),
+          ),
         ),
         actions: [
           TextButton(
@@ -707,14 +895,11 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     BookingStatus.cancelled,
                   );
                 } else {
-                  // For reschedule: update status to requested (pending re-confirmation)
-                  // and update scheduled date/time. Use a note to communicate new slot.
-                  await BookingService().updateStatus(
-                    widget.booking.id,
-                    BookingStatus.requested,
-                    notes: 'Reschedule request to ${_formatDate(_selectedDate)}'
-                        ' at ${_timeSlots[_selectedTimeSlot]}.'
-                        '${_notesController.text.isNotEmpty ? ' Notes: ${_notesController.text}' : ''}',
+                  await BookingService().rescheduleBooking(
+                    bookingId: widget.booking.id,
+                    scheduledDate: _selectedDate,
+                    scheduledTime: _selectedTimeSlot!,
+                    rescheduleNotes: _notesController.text,
                   );
                 }
                 if (mounted) {
@@ -722,12 +907,19 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        isCancel ? 'Booking cancelled successfully' : 'Reschedule request sent',
-                        style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                        isCancel
+                            ? 'Booking cancelled successfully'
+                            : 'Reschedule request sent',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       backgroundColor: const Color(0xFF2E7D32),
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   );
                 }
@@ -736,8 +928,10 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                   setState(() => _isLoading = false);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error: $e',
-                          style: GoogleFonts.poppins(fontSize: 14)),
+                      content: Text(
+                        'Error: $e',
+                        style: GoogleFonts.poppins(fontSize: 14),
+                      ),
                       backgroundColor: const Color(0xFFE53935),
                       behavior: SnackBarBehavior.floating,
                     ),
@@ -746,8 +940,9 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isCancel ? const Color(0xFFE53935) : const Color(0xFFC62828),
+              backgroundColor: isCancel
+                  ? const Color(0xFFE53935)
+                  : const Color(0xFFC62828),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -755,7 +950,10 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
             ),
             child: Text(
               'Yes, Confirm',
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -776,7 +974,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   List<Color> _bookingGradient(String photographerId) {
     final index =
         photographerId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
-            _gradients.length;
+        _gradients.length;
     return _gradients[index].cast<Color>();
   }
 

@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../models/message_model.dart';
 import '../../services/messaging_service.dart';
+import '../../services/storage_service.dart';
 import '../../services/user_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -25,6 +29,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _picker = ImagePicker();
   final _currentUser = FirebaseAuth.instance.currentUser;
 
   bool _isSending = false;
@@ -46,7 +51,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(' ').where((part) => part.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
@@ -82,7 +91,10 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final uid = _currentUser?.uid;
       if (uid != null) {
-        await MessagingService().markConversationRead(widget.conversationId, uid);
+        await MessagingService().markConversationRead(
+          widget.conversationId,
+          uid,
+        );
       }
       _scrollToBottom(animated: false);
     });
@@ -100,7 +112,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final uid = _currentUser?.uid;
     if (text.isEmpty || uid == null || _isSending) return;
 
-    final senderName = UserService().cachedUser?.name ??
+    final senderName =
+        UserService().cachedUser?.name ??
         _currentUser?.displayName ??
         _currentUser?.email ??
         'User';
@@ -115,6 +128,66 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _messageController.clear();
       _scrollToBottom();
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final uid = _currentUser?.uid;
+    if (uid == null || _isSending) return;
+
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (pickedFile == null) return;
+
+    final senderName =
+        UserService().cachedUser?.name ??
+        _currentUser?.displayName ??
+        _currentUser?.email ??
+        'User';
+    final caption = _messageController.text.trim();
+    final extension = pickedFile.path.contains('.')
+        ? pickedFile.path.split('.').last
+        : 'jpg';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_$uid.$extension';
+
+    setState(() => _isSending = true);
+    try {
+      final imageUrl = await StorageService().uploadChatAttachment(
+        widget.conversationId,
+        fileName,
+        File(pickedFile.path),
+      );
+
+      await MessagingService().sendMessage(
+        conversationId: widget.conversationId,
+        senderId: uid,
+        senderName: senderName,
+        text: caption,
+        mediaUrl: imageUrl,
+        mediaType: 'image',
+      );
+
+      _messageController.clear();
+      _scrollToBottom();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to send image right now.',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -194,22 +267,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.videocam_rounded,
-              color: Color(0xFF7A7A7A),
-            ),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.more_vert_rounded,
-              color: Color(0xFF7A7A7A),
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: Column(
         children: [
@@ -222,9 +280,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     messages.isEmpty) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFFC62828),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFFC62828)),
                   );
                 }
 
@@ -258,8 +314,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message.isSentBy(uid);
-                    final showDayLabel = index == 0 ||
-                        !_isSameDay(message.timestamp, messages[index - 1].timestamp);
+                    final showDayLabel =
+                        index == 0 ||
+                        !_isSameDay(
+                          message.timestamp,
+                          messages[index - 1].timestamp,
+                        );
 
                     return Column(
                       children: [
@@ -276,6 +336,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         _MessageBubble(
                           text: message.text,
+                          mediaUrl: message.mediaUrl,
+                          mediaType: message.mediaType,
                           time: _formatTime(message.timestamp),
                           isMe: isMe,
                           gradient: gradient,
@@ -293,7 +355,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Row(
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: _pickAndSendImage,
                   icon: const Icon(
                     Icons.attach_file_rounded,
                     color: Color(0xFF9E9E9E),
@@ -348,7 +410,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _isSending ? Icons.hourglass_top_rounded : Icons.send_rounded,
+                      _isSending
+                          ? Icons.hourglass_top_rounded
+                          : Icons.send_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -394,12 +458,16 @@ class _ChatScreenState extends State<ChatScreen> {
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.text,
+    this.mediaUrl,
+    this.mediaType,
     required this.time,
     required this.isMe,
     required this.gradient,
   });
 
   final String text;
+  final String? mediaUrl;
+  final String? mediaType;
   final String time;
   final bool isMe;
   final List<Color> gradient;
@@ -426,10 +494,12 @@ class _MessageBubble extends StatelessWidget {
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
-            bottomLeft:
-                isMe ? const Radius.circular(18) : const Radius.circular(4),
-            bottomRight:
-                isMe ? const Radius.circular(4) : const Radius.circular(18),
+            bottomLeft: isMe
+                ? const Radius.circular(18)
+                : const Radius.circular(4),
+            bottomRight: isMe
+                ? const Radius.circular(4)
+                : const Radius.circular(18),
           ),
           boxShadow: [
             BoxShadow(
@@ -440,17 +510,43 @@ class _MessageBubble extends StatelessWidget {
           ],
         ),
         child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            Text(
-              text,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: isMe ? Colors.white : const Color(0xFF374151),
-                height: 1.4,
+            if (mediaType == 'image' && mediaUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  mediaUrl!,
+                  width: MediaQuery.of(context).size.width * 0.6,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    height: 180,
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : const Color(0xFFF1F5F9),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      color: isMe ? Colors.white : const Color(0xFF9E9E9E),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (text.isNotEmpty) const SizedBox(height: 8),
+            ],
+            if (text.isNotEmpty)
+              Text(
+                text,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: isMe ? Colors.white : const Color(0xFF374151),
+                  height: 1.4,
+                ),
+              ),
             const SizedBox(height: 4),
             Text(
               time,

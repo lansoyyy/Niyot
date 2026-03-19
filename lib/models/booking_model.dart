@@ -85,6 +85,10 @@ class BookingModel {
   final String scheduledTime;
   final String location;
   final String? notes;
+  final String? rescheduleNotes;
+  final DateTime? rescheduledAt;
+  final String? reviewId;
+  final DateTime? reviewedAt;
   final BookingStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -104,6 +108,10 @@ class BookingModel {
     required this.scheduledTime,
     required this.location,
     this.notes,
+    this.rescheduleNotes,
+    this.rescheduledAt,
+    this.reviewId,
+    this.reviewedAt,
     required this.status,
     required this.createdAt,
     this.updatedAt,
@@ -132,24 +140,32 @@ class BookingModel {
       status == BookingStatus.cancelled ||
       status == BookingStatus.declined;
 
+  bool get hasReview => reviewId != null && reviewId!.isNotEmpty;
+
   Map<String, dynamic> toMap() => {
-        'clientId': clientId,
-        'clientName': clientName,
-        'clientPhotoUrl': clientPhotoUrl,
-        'photographerId': photographerId,
-        'photographerName': photographerName,
-        'photographerPhotoUrl': photographerPhotoUrl,
-        'packageName': packageName,
-        'packagePrice': packagePrice,
-        'packageDuration': packageDuration,
-        'scheduledDate': Timestamp.fromDate(scheduledDate),
-        'scheduledTime': scheduledTime,
-        'location': location,
-        'notes': notes,
-        'status': status.value,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+    'clientId': clientId,
+    'clientName': clientName,
+    'clientPhotoUrl': clientPhotoUrl,
+    'photographerId': photographerId,
+    'photographerName': photographerName,
+    'photographerPhotoUrl': photographerPhotoUrl,
+    'packageName': packageName,
+    'packagePrice': packagePrice,
+    'packageDuration': packageDuration,
+    'scheduledDate': Timestamp.fromDate(scheduledDate),
+    'scheduledTime': scheduledTime,
+    'location': location,
+    'notes': notes,
+    'rescheduleNotes': rescheduleNotes,
+    'rescheduledAt': rescheduledAt != null
+        ? Timestamp.fromDate(rescheduledAt!)
+        : null,
+    'reviewId': reviewId,
+    'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
+    'status': status.value,
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
 
   factory BookingModel.fromMap(String id, Map<String, dynamic> map) =>
       BookingModel(
@@ -168,30 +184,44 @@ class BookingModel {
         scheduledTime: map['scheduledTime'] as String? ?? '',
         location: map['location'] as String? ?? '',
         notes: map['notes'] as String?,
+        rescheduleNotes: map['rescheduleNotes'] as String?,
+        rescheduledAt: (map['rescheduledAt'] as Timestamp?)?.toDate(),
+        reviewId: map['reviewId'] as String?,
+        reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
         status: BookingStatusX.fromValue(map['status'] as String? ?? ''),
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
       );
 
-  BookingModel copyWith({BookingStatus? status, DateTime? updatedAt}) =>
-      BookingModel(
-        id: id,
-        clientId: clientId,
-        clientName: clientName,
-        clientPhotoUrl: clientPhotoUrl,
-        photographerId: photographerId,
-        photographerName: photographerName,
-        photographerPhotoUrl: photographerPhotoUrl,
-        packageName: packageName,
-        packagePrice: packagePrice,
-        packageDuration: packageDuration,
-        scheduledDate: scheduledDate,
-        scheduledTime: scheduledTime,
-        location: location,
-        notes: notes,
-        status: status ?? this.status,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  BookingModel copyWith({
+    BookingStatus? status,
+    DateTime? updatedAt,
+    String? notes,
+    String? rescheduleNotes,
+    DateTime? rescheduledAt,
+    String? reviewId,
+    DateTime? reviewedAt,
+  }) => BookingModel(
+    id: id,
+    clientId: clientId,
+    clientName: clientName,
+    clientPhotoUrl: clientPhotoUrl,
+    photographerId: photographerId,
+    photographerName: photographerName,
+    photographerPhotoUrl: photographerPhotoUrl,
+    packageName: packageName,
+    packagePrice: packagePrice,
+    packageDuration: packageDuration,
+    scheduledDate: scheduledDate,
+    scheduledTime: scheduledTime,
+    location: location,
+    notes: notes ?? this.notes,
+    rescheduleNotes: rescheduleNotes ?? this.rescheduleNotes,
+    rescheduledAt: rescheduledAt ?? this.rescheduledAt,
+    reviewId: reviewId ?? this.reviewId,
+    reviewedAt: reviewedAt ?? this.reviewedAt,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 }

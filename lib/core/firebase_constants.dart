@@ -19,6 +19,7 @@ class FirebaseCollections {
   static const String portfolio = 'portfolio';
   static const String reviews = 'reviews';
   static const String availability = 'availability';
+  static const String favorites = 'favorites';
 }
 
 class FirebaseStoragePaths {
@@ -35,8 +36,7 @@ class FirebaseStoragePaths {
   static String verificationDoc(String uid, String docType) =>
       'verification/$uid/$docType';
 
-  static String paymentProof(String paymentId) =>
-      'payment_proofs/$paymentId';
+  static String paymentProof(String paymentId) => 'payment_proofs/$paymentId';
 }
 
 /// Booking state values stored in Firestore.

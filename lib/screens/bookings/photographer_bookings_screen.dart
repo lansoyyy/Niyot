@@ -41,11 +41,13 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
       stream: _bookingsStream,
       builder: (context, snapshot) {
         final all = snapshot.data ?? [];
-        final newRequests =
-            all.where((b) => b.status == BookingStatus.requested).toList();
+        final newRequests = all
+            .where((b) => b.status == BookingStatus.requested)
+            .toList();
         final upcoming = all.where((b) => b.isUpcoming).toList();
-        final completed =
-            all.where((b) => b.status == BookingStatus.completed).toList();
+        final completed = all
+            .where((b) => b.status == BookingStatus.completed)
+            .toList();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F8F8),
@@ -103,8 +105,7 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
-                        unselectedLabelStyle:
-                            GoogleFonts.poppins(fontSize: 13),
+                        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13),
                         indicatorColor: const Color(0xFFC62828),
                         indicatorWeight: 2.5,
                         tabs: [
@@ -222,33 +223,48 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
         ),
         content: Text(
           'You are about to accept the booking request from ${request.clientName} for ${request.packageName} on ${_formatDate(request.scheduledDate)} at ${request.scheduledTime}.',
-          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF6B7280),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Cancel',
-                style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF9E9E9E))),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               try {
                 await BookingService().updateStatus(
-                    request.id, BookingStatus.confirmed);
+                  request.id,
+                  BookingStatus.confirmed,
+                );
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Booking request accepted!',
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Booking request accepted!',
                         style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w500)),
-                    backgroundColor: const Color(0xFF2E7D32),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ));
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFF2E7D32),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
                 }
               } catch (_) {}
             },
@@ -256,11 +272,16 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
               backgroundColor: const Color(0xFFC62828),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Text('Accept',
-                style: GoogleFonts.poppins(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text(
+              'Accept',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -287,8 +308,10 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           children: [
             Text(
               'Are you sure you want to decline this booking request?',
-              style:
-                  GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: const Color(0xFF6B7280),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -297,7 +320,9 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
               decoration: InputDecoration(
                 hintText: 'Optional: Add a reason...',
                 hintStyle: GoogleFonts.poppins(
-                    fontSize: 13, color: const Color(0xFFBDBDBD)),
+                  fontSize: 13,
+                  color: const Color(0xFFBDBDBD),
+                ),
                 filled: true,
                 fillColor: const Color(0xFFF5F5F5),
                 border: OutlineInputBorder(
@@ -306,18 +331,23 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
                 ),
               ),
               style: GoogleFonts.poppins(
-                  fontSize: 14, color: const Color(0xFF1A1A1A)),
+                fontSize: 14,
+                color: const Color(0xFF1A1A1A),
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text('Cancel',
-                style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF9E9E9E))),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -331,15 +361,22 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
                       : null,
                 );
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Booking request declined',
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Booking request declined',
                         style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w500)),
-                    backgroundColor: const Color(0xFF9E9E9E),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ));
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFF9E9E9E),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
                 }
               } catch (_) {}
             },
@@ -347,11 +384,16 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
               backgroundColor: const Color(0xFF9E9E9E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Text('Decline',
-                style: GoogleFonts.poppins(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
+            child: Text(
+              'Decline',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -360,8 +402,18 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -438,7 +490,8 @@ class _NewRequestCard extends StatelessWidget {
 
   List<Color> _clientGradient(String clientId) {
     final index =
-        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
+        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
+        _gradients.length;
     return _gradients[index].cast<Color>();
   }
 
@@ -451,14 +504,32 @@ class _NewRequestCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasRescheduleNote =
+        request.rescheduleNotes != null && request.rescheduleNotes!.isNotEmpty;
+    final requestMessage = hasRescheduleNote
+        ? request.rescheduleNotes!
+        : (request.notes != null && request.notes!.isNotEmpty
+              ? request.notes!
+              : null);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -561,7 +632,8 @@ class _NewRequestCard extends StatelessWidget {
           _DetailRow(
             icon: Icons.calendar_today_rounded,
             label: 'Date & Time',
-            value: '${_formatDate(request.scheduledDate)} at ${request.scheduledTime}',
+            value:
+                '${_formatDate(request.scheduledDate)} at ${request.scheduledTime}',
           ),
           const SizedBox(height: 8),
           _DetailRow(
@@ -575,22 +647,66 @@ class _NewRequestCard extends StatelessWidget {
             label: 'Package',
             value: request.packageName,
           ),
-          if (request.notes != null && request.notes!.isNotEmpty) ...[
+          if (requestMessage != null) ...[
             const SizedBox(height: 12),
-            // Message
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                '"${request.notes}"',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: const Color(0xFF6B7280),
-                  fontStyle: FontStyle.italic,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasRescheduleNote) ...[
+                    Text(
+                      'Reschedule note',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF9E9E9E),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Text(
+                    '"$requestMessage"',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: const Color(0xFF6B7280),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (request.rescheduledAt != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.update_rounded,
+                    size: 16,
+                    color: Color(0xFF1976D2),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This booking was rescheduled and needs your confirmation.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF1565C0),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -609,9 +725,13 @@ class _NewRequestCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text('Decline',
-                      style: GoogleFonts.poppins(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Decline',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -626,9 +746,13 @@ class _NewRequestCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text('Accept',
-                      style: GoogleFonts.poppins(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Accept',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -638,6 +762,7 @@ class _NewRequestCard extends StatelessWidget {
     );
   }
 }
+
 class _BookingCard extends StatelessWidget {
   const _BookingCard({required this.booking});
 
@@ -655,14 +780,25 @@ class _BookingCard extends StatelessWidget {
 
   List<Color> _clientGradient(String clientId) {
     final index =
-        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
+        clientId.codeUnits.fold<int>(0, (sum, c) => sum + c) %
+        _gradients.length;
     return _gradients[index].cast<Color>();
   }
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -738,7 +874,10 @@ class _BookingCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -759,7 +898,8 @@ class _BookingCard extends StatelessWidget {
           _DetailRow(
             icon: Icons.calendar_today_rounded,
             label: 'Date & Time',
-            value: '${_formatDate(booking.scheduledDate)} at ${booking.scheduledTime}',
+            value:
+                '${_formatDate(booking.scheduledDate)} at ${booking.scheduledTime}',
           ),
           const SizedBox(height: 8),
           _DetailRow(
@@ -774,6 +914,26 @@ class _BookingCard extends StatelessWidget {
             builder: (context, snapshot) {
               final payment = snapshot.data;
               final isPaid = payment?.status == PaymentStatus.completed;
+              final isAwaitingConfirmation =
+                  payment?.status == PaymentStatus.pending;
+              final hasRecord = payment != null;
+              final badgeColor = isPaid
+                  ? const Color(0xFFE8F5E9)
+                  : isAwaitingConfirmation
+                  ? const Color(0xFFFFF3E0)
+                  : const Color(0xFFF5F5F5);
+              final iconColor = isPaid
+                  ? const Color(0xFF2E7D32)
+                  : isAwaitingConfirmation
+                  ? const Color(0xFFFF6D00)
+                  : const Color(0xFF9E9E9E);
+              final label = isPaid
+                  ? 'Paid'
+                  : isAwaitingConfirmation
+                  ? 'Awaiting Confirmation'
+                  : hasRecord
+                  ? payment.status.displayName
+                  : 'No Payment Record';
 
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -787,32 +947,33 @@ class _BookingCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: isPaid
-                          ? const Color(0xFFE8F5E9)
-                          : const Color(0xFFFFF3E0),
+                      color: badgeColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isPaid ? Icons.check_circle_rounded : Icons.pending_rounded,
+                          isPaid
+                              ? Icons.check_circle_rounded
+                              : isAwaitingConfirmation
+                              ? Icons.pending_rounded
+                              : Icons.receipt_long_rounded,
                           size: 12,
-                          color: isPaid
-                              ? const Color(0xFF2E7D32)
-                              : const Color(0xFFFF6D00),
+                          color: iconColor,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          isPaid ? 'Paid' : 'Payment Pending',
+                          label,
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: isPaid
-                                ? const Color(0xFF2E7D32)
-                                : const Color(0xFFFF6D00),
+                            color: iconColor,
                           ),
                         ),
                       ],

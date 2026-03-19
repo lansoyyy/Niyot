@@ -1,5 +1,5 @@
-/// App Export - Centralized export file for the application
-/// Import this file to access all commonly used classes and widgets
+// App Export - Centralized export file for the application.
+// Import this file to access all commonly used classes and widgets.
 
 // Constants
 export '../constants/app_colors.dart';

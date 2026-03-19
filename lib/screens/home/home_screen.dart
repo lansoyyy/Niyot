@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/photographer_model.dart';
+import '../../models/user_model.dart';
 import '../../services/photographer_service.dart';
+import '../../services/user_service.dart';
+import '../explore/explore_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../notifications/notifications_screen.dart';
 
@@ -19,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<PhotographerModel> _photographers = [];
   bool _isLoading = true;
   String? _error;
+  String _headerLocation = 'Discover nearby creators';
 
   final List<String> _categories = [
     'All',
@@ -45,14 +49,27 @@ class _HomeScreenState extends State<HomeScreen> {
       final category = _selectedCategory == 0
           ? null
           : _categories[_selectedCategory];
-      final results = await Future.wait([
+      final results = await Future.wait<Object?>([
         PhotographerService().getFeaturedPhotographers(),
         PhotographerService().getPhotographers(category: category),
+        UserService().fetchCurrentUser(),
       ]);
+      final featured = results[0]! as List<PhotographerModel>;
+      final photographers = results[1]! as List<PhotographerModel>;
+      final user = results[2] as UserModel?;
+      final userLocation = user?.location;
+      final prioritizedPhotographers = _prioritizeNearbyPhotographers(
+        photographers,
+        userLocation,
+      );
       if (mounted) {
         setState(() {
-          _featured = results[0] as List<PhotographerModel>;
-          _photographers = results[1] as List<PhotographerModel>;
+          _featured = featured;
+          _photographers = prioritizedPhotographers;
+          _headerLocation = _resolveHeaderLocation(
+            userLocation,
+            prioritizedPhotographers,
+          );
           _isLoading = false;
         });
       }
@@ -123,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: _openExplore,
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -147,18 +164,20 @@ class _HomeScreenState extends State<HomeScreen> {
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator(
-                    color: Color(0xFFC62828),
-                  )),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFFC62828)),
+                  ),
                 ),
               )
             else if (_error != null)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text(_error!,
-                      style: const TextStyle(color: Colors.red),
-                      textAlign: TextAlign.center),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               )
             else if (_photographers.isEmpty)
@@ -166,30 +185,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(
-                    child: Text('No photographers found.',
-                        style: TextStyle(color: Color(0xFF9E9E9E))),
+                    child: Text(
+                      'No photographers found.',
+                      style: TextStyle(color: Color(0xFF9E9E9E)),
+                    ),
                   ),
                 ),
               )
             else
               SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.72,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _PhotographerCard(
-                    photographer: _photographers[index],
-                    onTap: () => _openProfile(context, _photographers[index]),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 0.72,
                   ),
-                  childCount: _photographers.length,
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _PhotographerCard(
+                      photographer: _photographers[index],
+                      onTap: () => _openProfile(context, _photographers[index]),
+                    ),
+                    childCount: _photographers.length,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -225,16 +246,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'New York, NY',
+                      _headerLocation,
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         color: Colors.white70,
                       ),
-                    ),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white70,
-                      size: 18,
                     ),
                   ],
                 ),
@@ -253,8 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           GestureDetector(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const NotificationsScreen()),
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
             ),
             child: Stack(
               children: [
@@ -293,48 +308,137 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          const Icon(Icons.search_rounded, color: Color(0xFFBDBDBD), size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Search photographers, videographers...',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: const Color(0xFFBDBDBD),
+        onTap: _openExplore,
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 10,
+                offset: Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          Container(
-            margin: const EdgeInsets.all(6),
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEBEE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.tune_rounded,
-              color: Color(0xFFC62828),
-              size: 18,
-            ),
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              const Icon(
+                Icons.search_rounded,
+                color: Color(0xFFBDBDBD),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Search photographers, videographers...',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: const Color(0xFFBDBDBD),
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.all(6),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: Color(0xFFC62828),
+                  size: 18,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  List<PhotographerModel> _prioritizeNearbyPhotographers(
+    List<PhotographerModel> photographers,
+    String? userLocation,
+  ) {
+    if (!_hasMeaningfulLocation(userLocation)) {
+      return photographers;
+    }
+
+    final sorted = List<PhotographerModel>.from(photographers)
+      ..sort((a, b) {
+        final aMatches = _locationsMatch(a.locationText, userLocation!);
+        final bMatches = _locationsMatch(b.locationText, userLocation);
+        if (aMatches == bMatches) {
+          return 0;
+        }
+        return aMatches ? -1 : 1;
+      });
+    return sorted;
+  }
+
+  String _resolveHeaderLocation(
+    String? userLocation,
+    List<PhotographerModel> photographers,
+  ) {
+    if (_hasMeaningfulLocation(userLocation)) {
+      return userLocation!.trim();
+    }
+    if (photographers.isNotEmpty &&
+        photographers.first.locationText.isNotEmpty) {
+      return photographers.first.locationText;
+    }
+    return 'Discover nearby creators';
+  }
+
+  bool _hasMeaningfulLocation(String? value) =>
+      value != null && value.trim().isNotEmpty;
+
+  bool _locationsMatch(String left, String right) {
+    final normalizedLeft = _normalizeLocation(left);
+    final normalizedRight = _normalizeLocation(right);
+    if (normalizedLeft == null || normalizedRight == null) {
+      return false;
+    }
+
+    final leftParts = normalizedLeft.split(',').map((part) => part.trim());
+    final rightParts = normalizedRight.split(',').map((part) => part.trim());
+    return leftParts.any(
+          (part) => part.isNotEmpty && normalizedRight.contains(part),
+        ) ||
+        rightParts.any(
+          (part) => part.isNotEmpty && normalizedLeft.contains(part),
+        );
+  }
+
+  String? _normalizeLocation(String? value) {
+    if (value == null) {
+      return null;
+    }
+    final normalized = value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9,\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  void _openExplore() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExploreScreen(
+          initialCategory: _selectedCategory == 0
+              ? null
+              : _categories[_selectedCategory],
+        ),
       ),
     );
   }
@@ -350,9 +454,9 @@ class _HomeScreenState extends State<HomeScreen> {
           final selected = _selectedCategory == index;
           return GestureDetector(
             onTap: () {
-                setState(() => _selectedCategory = index);
-                _loadData();
-              },
+              setState(() => _selectedCategory = index);
+              _loadData();
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.only(right: 10),
@@ -394,15 +498,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_isLoading) {
       return const SizedBox(
         height: 200,
-        child: Center(child: CircularProgressIndicator(color: Color(0xFFC62828))),
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFFC62828)),
+        ),
       );
     }
     if (_featured.isEmpty) {
       return const SizedBox(
         height: 200,
         child: Center(
-          child: Text('No featured photographers yet.',
-              style: TextStyle(color: Color(0xFF9E9E9E))),
+          child: Text(
+            'No featured photographers yet.',
+            style: TextStyle(color: Color(0xFF9E9E9E)),
+          ),
         ),
       );
     }
@@ -482,12 +590,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     item.primarySpecialty.isNotEmpty
                                         ? item.primarySpecialty
                                         : item.specialties.isNotEmpty
-                                            ? item.specialties.first
-                                            : '',
+                                        ? item.specialties.first
+                                        : '',
                                     style: GoogleFonts.poppins(
                                       fontSize: 12,
-                                      color: Colors.white
-                                          .withValues(alpha: 0.8),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.8,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -500,8 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color:
-                                      Colors.white.withValues(alpha: 0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -528,8 +636,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               '${item.rating.toStringAsFixed(1)} (${item.reviewCount} reviews)',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
-                                color:
-                                    Colors.white.withValues(alpha: 0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                           ],
@@ -614,17 +721,21 @@ class _PhotographerCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Center(child: _Avatar(
-                    initials: photographer.initials,
-                    size: 60,
-                    photoUrl: photographer.photoUrl,
-                  )),
+                  Center(
+                    child: _Avatar(
+                      initials: photographer.initials,
+                      size: 60,
+                      photoUrl: photographer.photoUrl,
+                    ),
+                  ),
                   Positioned(
                     top: 10,
                     right: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -632,8 +743,11 @@ class _PhotographerCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star_rounded,
-                              color: Colors.yellowAccent, size: 12),
+                          const Icon(
+                            Icons.star_rounded,
+                            color: Colors.yellowAccent,
+                            size: 12,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             photographer.rating.toStringAsFixed(1),
@@ -671,8 +785,8 @@ class _PhotographerCard extends StatelessWidget {
                     photographer.primarySpecialty.isNotEmpty
                         ? photographer.primarySpecialty
                         : photographer.specialties.isNotEmpty
-                            ? photographer.specialties.first
-                            : '',
+                        ? photographer.specialties.first
+                        : '',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: const Color(0xFF9E9E9E),
@@ -702,9 +816,7 @@ class _PhotographerCard extends StatelessWidget {
                           const SizedBox(width: 2),
                           Text(
                             photographer.locationText.contains(',')
-                                ? photographer.locationText
-                                    .split(',')[1]
-                                    .trim()
+                                ? photographer.locationText.split(',')[1].trim()
                                 : photographer.locationText,
                             style: GoogleFonts.poppins(
                               fontSize: 10,
@@ -740,12 +852,12 @@ class _Avatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.2),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.5),
+          width: 2,
+        ),
         image: photoUrl != null
-            ? DecorationImage(
-                image: NetworkImage(photoUrl!),
-                fit: BoxFit.cover,
-              )
+            ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
             : null,
       ),
       child: photoUrl == null

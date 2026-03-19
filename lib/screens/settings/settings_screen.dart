@@ -12,6 +12,7 @@ import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'change_password_screen.dart';
+import 'favorites_screen.dart';
 import 'payment_methods_screen.dart';
 import 'verification_screen.dart';
 
@@ -228,7 +229,9 @@ class _SettingsContent extends StatelessWidget {
     final clientCompleted = clientBookings
         .where((booking) => booking.status == BookingStatus.completed)
         .length;
-    final clientUpcoming = clientBookings.where((booking) => booking.isUpcoming).length;
+    final clientUpcoming = clientBookings
+        .where((booking) => booking.isUpcoming)
+        .length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -253,8 +256,8 @@ class _SettingsContent extends StatelessWidget {
                       backgroundColor: Colors.white.withValues(alpha: 0.2),
                       backgroundImage:
                           user.photoUrl != null && user.photoUrl!.isNotEmpty
-                              ? NetworkImage(user.photoUrl!)
-                              : null,
+                          ? NetworkImage(user.photoUrl!)
+                          : null,
                       child: user.photoUrl == null || user.photoUrl!.isEmpty
                           ? Text(
                               user.initials,
@@ -290,7 +293,9 @@ class _SettingsContent extends StatelessWidget {
                           icon: user.isPhotographer
                               ? Icons.camera_alt_rounded
                               : Icons.person_rounded,
-                          label: user.isPhotographer ? 'Photographer' : 'Client',
+                          label: user.isPhotographer
+                              ? 'Photographer'
+                              : 'Client',
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -400,7 +405,9 @@ class _SettingsContent extends StatelessWidget {
                 subtitle: user.location ?? 'Manage your profile details',
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const EditProfileScreen(),
+                    ),
                   );
                 },
               ),
@@ -413,7 +420,9 @@ class _SettingsContent extends StatelessWidget {
                       : 'Portfolio, services, pricing',
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen(),
+                      ),
                     );
                   },
                 ),
@@ -441,7 +450,10 @@ class _SettingsContent extends StatelessWidget {
                   );
                 },
                 trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: verificationBg,
                     borderRadius: BorderRadius.circular(6),
@@ -465,6 +477,16 @@ class _SettingsContent extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => const PaymentMethodsScreen(),
                     ),
+                  );
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.favorite_outline_rounded,
+                title: 'Favorite Photographers',
+                subtitle: 'Quick access to saved profiles',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FavoritesScreen()),
                   );
                 },
               ),
@@ -655,7 +677,8 @@ class _SettingsTile extends StatelessWidget {
                 ),
               )
             : null,
-        trailing: trailing ??
+        trailing:
+            trailing ??
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFFBDBDBD),

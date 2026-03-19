@@ -40,10 +40,7 @@ class MessagingService {
       final conversation = ConversationModel(
         id: conversationId,
         participantIds: [myId, otherUserId],
-        participantNames: {
-          myId: myName,
-          otherUserId: otherUserName,
-        },
+        participantNames: {myId: myName, otherUserId: otherUserName},
         participantPhotoUrls: {
           myId: myPhotoUrl,
           otherUserId: otherUserPhotoUrl,
@@ -69,21 +66,24 @@ class MessagingService {
           .where('participantIds', arrayContains: userId)
           .orderBy('lastMessageTime', descending: true)
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => ConversationModel.fromMap(d.id, d.data()))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => ConversationModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
 
   // ─── Messages ─────────────────────────────────────────────────────────────
 
-  Stream<List<MessageModel>> messagesStream(String conversationId) =>
-      _firestore
-          .collection(FirebaseCollections.conversations)
-          .doc(conversationId)
-          .collection(FirebaseCollections.messages)
-          .orderBy('timestamp')
-          .snapshots()
-          .map((snap) =>
-              snap.docs.map((d) => MessageModel.fromMap(d.id, d.data())).toList());
+  Stream<List<MessageModel>> messagesStream(String conversationId) => _firestore
+      .collection(FirebaseCollections.conversations)
+      .doc(conversationId)
+      .collection(FirebaseCollections.messages)
+      .orderBy('timestamp')
+      .snapshots()
+      .map(
+        (snap) =>
+            snap.docs.map((d) => MessageModel.fromMap(d.id, d.data())).toList(),
+      );
 
   Future<void> sendMessage({
     required String conversationId,
@@ -93,6 +93,17 @@ class MessagingService {
     String? mediaUrl,
     String? mediaType,
   }) async {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty && mediaUrl == null) {
+      return;
+    }
+
+    final preview = trimmedText.isNotEmpty
+        ? trimmedText
+        : mediaType == 'image'
+        ? 'Sent a photo'
+        : 'Sent an attachment';
+
     final batch = _firestore.batch();
 
     // Add message to subcollection
@@ -104,7 +115,7 @@ class MessagingService {
 
     batch.set(msgRef, {
       'senderId': senderId,
-      'text': text,
+      'text': trimmedText,
       'mediaUrl': mediaUrl,
       'mediaType': mediaType,
       'timestamp': FieldValue.serverTimestamp(),
@@ -120,11 +131,14 @@ class MessagingService {
     final convDoc = await convRef.get();
     if (convDoc.exists) {
       final data = convDoc.data()!;
-      final participants =
-          List<String>.from(data['participantIds'] as List? ?? []);
-      final currentUnread =
-          Map<String, int>.from((data['unreadCounts'] as Map? ?? {})
-              .map((k, v) => MapEntry(k.toString(), (v as num).toInt())));
+      final participants = List<String>.from(
+        data['participantIds'] as List? ?? [],
+      );
+      final currentUnread = Map<String, int>.from(
+        (data['unreadCounts'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        ),
+      );
 
       for (final pid in participants) {
         if (pid != senderId) {
@@ -133,7 +147,9 @@ class MessagingService {
       }
 
       batch.update(convRef, {
-        'lastMessage': text.length > 80 ? '${text.substring(0, 80)}…' : text,
+        'lastMessage': preview.length > 80
+            ? '${preview.substring(0, 80)}…'
+            : preview,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'unreadCounts': currentUnread,
       });
@@ -145,8 +161,9 @@ class MessagingService {
             recipientId: pid,
             senderName: senderName,
             conversationId: conversationId,
-            messagePreview:
-                text.length > 60 ? '${text.substring(0, 60)}…' : text,
+            messagePreview: preview.length > 60
+                ? '${preview.substring(0, 60)}…'
+                : preview,
           );
         }
       }
@@ -158,7 +175,9 @@ class MessagingService {
   // ─── Read Receipts ────────────────────────────────────────────────────────
 
   Future<void> markConversationRead(
-      String conversationId, String userId) async {
+    String conversationId,
+    String userId,
+  ) async {
     // Reset unread count for this user
     await _firestore
         .collection(FirebaseCollections.conversations)
@@ -183,12 +202,11 @@ class MessagingService {
 
   // ─── Unread Badge ─────────────────────────────────────────────────────────
 
-  Stream<int> totalUnreadStream(String userId) =>
-      _firestore
-          .collection(FirebaseCollections.conversations)
-          .where('participantIds', arrayContains: userId)
-          .snapshots()
-          .map((snap) {
+  Stream<int> totalUnreadStream(String userId) => _firestore
+      .collection(FirebaseCollections.conversations)
+      .where('participantIds', arrayContains: userId)
+      .snapshots()
+      .map((snap) {
         int total = 0;
         for (final doc in snap.docs) {
           final counts = (doc.data()['unreadCounts'] as Map? ?? {});
@@ -199,6 +217,5 @@ class MessagingService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  String get currentUserId =>
-      FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
 }
