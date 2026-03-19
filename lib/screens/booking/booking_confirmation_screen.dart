@@ -43,11 +43,15 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
     );
     _scaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(
-          parent: _controller, curve: const Interval(0.0, 0.6, curve: Curves.elasticOut)),
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      ),
     );
     _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
-          parent: _controller, curve: const Interval(0.3, 1.0, curve: Curves.easeOut)),
+        parent: _controller,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+      ),
     );
     _controller.forward();
   }
@@ -60,8 +64,18 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -80,10 +94,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
               AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnim.value,
-                    child: child,
-                  );
+                  return Transform.scale(scale: _scaleAnim.value, child: child);
                 },
                 child: Container(
                   width: 100,
@@ -189,7 +200,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                     // Booking ID
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFEBEE),
                         borderRadius: BorderRadius.circular(10),
@@ -230,9 +243,8 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => PaymentScreen(
-                                bookingId: widget.bookingId,
-                              ),
+                              builder: (_) =>
+                                  PaymentScreen(bookingId: widget.bookingId),
                             ),
                           );
                         },
@@ -258,10 +270,13 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       width: double.infinity,
                       height: 52,
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const MainScreen()),
-                          (route) => false,
-                        ),
+                        onPressed: () =>
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => const MainScreen(),
+                              ),
+                              (route) => false,
+                            ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFC62828),
                           side: const BorderSide(color: Color(0xFFC62828)),

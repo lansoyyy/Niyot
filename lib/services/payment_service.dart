@@ -14,8 +14,9 @@ class PaymentService {
   // ─── Create ───────────────────────────────────────────────────────────────
 
   Future<String> createPaymentRecord(PaymentRecordModel record) async {
-    final docRef =
-        _firestore.collection(FirebaseCollections.paymentRecords).doc();
+    final docRef = _firestore
+        .collection(FirebaseCollections.paymentRecords)
+        .doc();
     await docRef.set(record.toMap());
     return docRef.id;
   }
@@ -29,7 +30,10 @@ class PaymentService {
         .limit(1)
         .get();
     if (snap.docs.isEmpty) return null;
-    return PaymentRecordModel.fromMap(snap.docs.first.id, snap.docs.first.data());
+    return PaymentRecordModel.fromMap(
+      snap.docs.first.id,
+      snap.docs.first.data(),
+    );
   }
 
   Stream<List<PaymentRecordModel>> payerPaymentsStream(String payerId) =>
@@ -38,9 +42,11 @@ class PaymentService {
           .where('payerId', isEqualTo: payerId)
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => PaymentRecordModel.fromMap(d.id, d.data()))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => PaymentRecordModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
 
   Stream<List<PaymentRecordModel>> payeePaymentsStream(String payeeId) =>
       _firestore
@@ -48,9 +54,11 @@ class PaymentService {
           .where('payeeId', isEqualTo: payeeId)
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => PaymentRecordModel.fromMap(d.id, d.data()))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => PaymentRecordModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
 
   // ─── Update ───────────────────────────────────────────────────────────────
 

@@ -12,16 +12,16 @@ class TimeSlotModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'time': time,
-        'isAvailable': isAvailable,
-        'bookedByBookingId': bookedByBookingId,
-      };
+    'time': time,
+    'isAvailable': isAvailable,
+    'bookedByBookingId': bookedByBookingId,
+  };
 
   factory TimeSlotModel.fromMap(Map<String, dynamic> map) => TimeSlotModel(
-        time: map['time'] as String? ?? '',
-        isAvailable: map['isAvailable'] as bool? ?? true,
-        bookedByBookingId: map['bookedByBookingId'] as String?,
-      );
+    time: map['time'] as String? ?? '',
+    isAvailable: map['isAvailable'] as bool? ?? true,
+    bookedByBookingId: map['bookedByBookingId'] as String?,
+  );
 
   TimeSlotModel copyWith({bool? isAvailable, String? bookedByBookingId}) =>
       TimeSlotModel(
@@ -47,30 +47,31 @@ class AvailabilityModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'photographerId': photographerId,
-        'date': Timestamp.fromDate(date),
-        'slots': slots.map((s) => s.toMap()).toList(),
-      };
+    'photographerId': photographerId,
+    'date': Timestamp.fromDate(date),
+    'slots': slots.map((s) => s.toMap()).toList(),
+  };
 
   factory AvailabilityModel.fromMap(Map<String, dynamic> map) =>
       AvailabilityModel(
         photographerId: map['photographerId'] as String? ?? '',
         date: (map['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
         slots: (map['slots'] as List<dynamic>? ?? [])
-            .map((s) =>
-                TimeSlotModel.fromMap(Map<String, dynamic>.from(s as Map)))
+            .map(
+              (s) => TimeSlotModel.fromMap(Map<String, dynamic>.from(s as Map)),
+            )
             .toList(),
       );
 
   /// Returns a default set of time slots for a brand new availability day.
   static List<TimeSlotModel> defaultSlots() => [
-        const TimeSlotModel(time: '9:00 AM', isAvailable: true),
-        const TimeSlotModel(time: '10:00 AM', isAvailable: true),
-        const TimeSlotModel(time: '11:00 AM', isAvailable: true),
-        const TimeSlotModel(time: '12:00 PM', isAvailable: true),
-        const TimeSlotModel(time: '1:00 PM', isAvailable: true),
-        const TimeSlotModel(time: '2:00 PM', isAvailable: true),
-        const TimeSlotModel(time: '3:00 PM', isAvailable: true),
-        const TimeSlotModel(time: '4:00 PM', isAvailable: true),
-      ];
+    const TimeSlotModel(time: '9:00 AM', isAvailable: true),
+    const TimeSlotModel(time: '10:00 AM', isAvailable: true),
+    const TimeSlotModel(time: '11:00 AM', isAvailable: true),
+    const TimeSlotModel(time: '12:00 PM', isAvailable: true),
+    const TimeSlotModel(time: '1:00 PM', isAvailable: true),
+    const TimeSlotModel(time: '2:00 PM', isAvailable: true),
+    const TimeSlotModel(time: '3:00 PM', isAvailable: true),
+    const TimeSlotModel(time: '4:00 PM', isAvailable: true),
+  ];
 }

@@ -78,7 +78,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.text = user?.email ?? '';
     _phoneController.text = user?.phone ?? '';
     _bioController.text = photographer?.bio ?? user?.bio ?? '';
-    _locationController.text = photographer?.locationText ?? user?.location ?? '';
+    _locationController.text =
+        photographer?.locationText ?? user?.location ?? '';
     _selectedSpecialties
       ..clear()
       ..addAll(photographer?.specialties ?? const <String>[]);
@@ -103,7 +104,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       String? photoUrl = _user!.photoUrl;
       if (_selectedImage != null) {
-        photoUrl = await UserService().uploadProfilePhoto(_currentUid, _selectedImage!);
+        photoUrl = await UserService().uploadProfilePhoto(
+          _currentUid,
+          _selectedImage!,
+        );
       }
 
       final name = _nameController.text.trim();
@@ -149,7 +153,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         SnackBar(
           content: Text(
             'Profile updated successfully.',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
@@ -162,7 +169,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         SnackBar(
           content: Text(
             'Failed to update profile: $error',
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           backgroundColor: const Color(0xFFC62828),
           behavior: SnackBarBehavior.floating,
@@ -210,7 +220,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _pickImage(ImageSource.gallery);
               },
             ),
-            if ((_user?.photoUrl?.isNotEmpty ?? false) || _selectedImage != null) ...[
+            if ((_user?.photoUrl?.isNotEmpty ?? false) ||
+                _selectedImage != null) ...[
               const SizedBox(height: 12),
               _ImagePickerOption(
                 icon: Icons.delete_rounded,
@@ -246,7 +257,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         body: Center(
           child: Text(
             'Unable to load profile',
-            style: GoogleFonts.poppins(fontSize: 16, color: const Color(0xFF6B7280)),
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: const Color(0xFF6B7280),
+            ),
           ),
         ),
       );
@@ -326,18 +340,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           clipBehavior: Clip.antiAlias,
                           child: _selectedImage != null
                               ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                              : user.photoUrl != null && user.photoUrl!.isNotEmpty
-                                  ? Image.network(user.photoUrl!, fit: BoxFit.cover)
-                                  : Center(
-                                      child: Text(
-                                        user.initials,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                              : user.photoUrl != null &&
+                                    user.photoUrl!.isNotEmpty
+                              ? Image.network(user.photoUrl!, fit: BoxFit.cover)
+                              : Center(
+                                  child: Text(
+                                    user.initials,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
                                     ),
+                                  ),
+                                ),
                         ),
                         Positioned(
                           bottom: 0,
@@ -387,12 +402,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      user.isPhotographer ? Icons.camera_alt_rounded : Icons.person_rounded,
+                      user.isPhotographer
+                          ? Icons.camera_alt_rounded
+                          : Icons.person_rounded,
                       color: const Color(0xFFC62828),
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      user.isPhotographer ? 'Photographer Account' : 'Client Account',
+                      user.isPhotographer
+                          ? 'Photographer Account'
+                          : 'Client Account',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -590,7 +609,11 @@ class _SpecialtyChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected)
-              const Icon(Icons.check_rounded, size: 14, color: Color(0xFFC62828)),
+              const Icon(
+                Icons.check_rounded,
+                size: 14,
+                color: Color(0xFFC62828),
+              ),
             if (selected) const SizedBox(width: 4),
             Text(
               label,

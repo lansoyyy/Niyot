@@ -30,8 +30,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _loadBookedDates(DateTime month) async {
     try {
-      final booked = await PhotographerService()
-          .getBookedDatesInMonth(widget.photographer.uid, month);
+      final booked = await PhotographerService().getBookedDatesInMonth(
+        widget.photographer.uid,
+        month,
+      );
       if (mounted) setState(() => _bookedDates = booked.toSet());
     } catch (_) {}
   }
@@ -39,8 +41,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _loadSlotsForDay(DateTime day) async {
     setState(() => _isLoadingSlots = true);
     try {
-      final availability = await PhotographerService()
-          .getAvailability(widget.photographer.uid, day);
+      final availability = await PhotographerService().getAvailability(
+        widget.photographer.uid,
+        day,
+      );
       if (mounted) {
         setState(() {
           _timeSlots = availability?.slots ?? AvailabilityModel.defaultSlots();
@@ -142,8 +146,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         photographer.primarySpecialty.isNotEmpty
                             ? photographer.primarySpecialty
                             : photographer.specialties.isNotEmpty
-                                ? photographer.specialties.first
-                                : '',
+                            ? photographer.specialties.first
+                            : '',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: const Color(0xFF9E9E9E),
@@ -159,8 +163,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: photographer.isAvailable
-                      ? const Color(0xFFE8F5E9)
-                      : const Color(0xFFFFEBEE),
+                        ? const Color(0xFFE8F5E9)
+                        : const Color(0xFFFFEBEE),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -338,85 +342,97 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Expanded(
                     child: _selectedDay != null
                         ? (_isLoadingSlots
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFFC62828)))
-                            : _timeSlots.isEmpty
-                                ? Center(
-                                    child: Text('No slots available.',
-                                        style: GoogleFonts.poppins(
-                                            color:
-                                                const Color(0xFF9E9E9E))))
-                                : GridView.builder(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 2.5,
-                                ),
-                            itemCount: _timeSlots.length,
-                            itemBuilder: (context, index) {
-                              final slot = _timeSlots[index];
-                              final isAvailable = slot.isAvailable;
-                              return GestureDetector(
-                                onTap: isAvailable
-                                    ? () {
-                                        Navigator.of(context).pop({
-                                          'date': _selectedDay,
-                                          'time': slot.time,
-                                        });
-                                      }
-                                    : null,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isAvailable
-                                        ? Colors.white
-                                        : const Color(0xFFE5E7EB),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isAvailable
-                                          ? const Color(0xFFE5E7EB)
-                                          : Colors.transparent,
-                                      width: 1,
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Color(0xFFC62828),
+                                  ),
+                                )
+                              : _timeSlots.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No slots available.',
+                                    style: GoogleFonts.poppins(
+                                      color: const Color(0xFF9E9E9E),
                                     ),
                                   ),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        if (isAvailable)
-                                          const Icon(
-                                            Icons.check_circle_rounded,
-                                            size: 14,
-                                            color: Color(0xFF2E7D32),
-                                          )
-                                        else
-                                          const Icon(
-                                            Icons.block_rounded,
-                                            size: 14,
-                                            color: Color(0xFF9E9E9E),
+                                )
+                              : GridView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    0,
+                                    20,
+                                    20,
+                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                        childAspectRatio: 2.5,
+                                      ),
+                                  itemCount: _timeSlots.length,
+                                  itemBuilder: (context, index) {
+                                    final slot = _timeSlots[index];
+                                    final isAvailable = slot.isAvailable;
+                                    return GestureDetector(
+                                      onTap: isAvailable
+                                          ? () {
+                                              Navigator.of(context).pop({
+                                                'date': _selectedDay,
+                                                'time': slot.time,
+                                              });
+                                            }
+                                          : null,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: isAvailable
+                                              ? Colors.white
+                                              : const Color(0xFFE5E7EB),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          slot.time,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
+                                          border: Border.all(
                                             color: isAvailable
-                                                ? const Color(0xFF1A1A1A)
-                                                : const Color(0xFF9E9E9E),
+                                                ? const Color(0xFFE5E7EB)
+                                                : Colors.transparent,
+                                            width: 1,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ))
+                                        child: Center(
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (isAvailable)
+                                                const Icon(
+                                                  Icons.check_circle_rounded,
+                                                  size: 14,
+                                                  color: Color(0xFF2E7D32),
+                                                )
+                                              else
+                                                const Icon(
+                                                  Icons.block_rounded,
+                                                  size: 14,
+                                                  color: Color(0xFF9E9E9E),
+                                                ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                slot.time,
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isAvailable
+                                                      ? const Color(0xFF1A1A1A)
+                                                      : const Color(0xFF9E9E9E),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ))
                         : Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,

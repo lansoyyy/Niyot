@@ -182,7 +182,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
           }
         }
 
-        final isLocked = submission != null &&
+        final isLocked =
+            submission != null &&
             (submission.isPending || submission.isVerified);
 
         return Scaffold(
@@ -391,7 +392,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         _DocumentUploadCard(
                           title: 'Front of ID',
                           subtitle: _selectedDocuments['front'] != null
-                              ? _selectedDocuments['front']!.path.split(Platform.pathSeparator).last
+                              ? _selectedDocuments['front']!.path
+                                    .split(Platform.pathSeparator)
+                                    .last
                               : 'Upload a clear image of the front side',
                           isUploaded: _selectedDocuments['front'] != null,
                           onTap: () => _pickDocument('front'),
@@ -400,7 +403,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         _DocumentUploadCard(
                           title: 'Back of ID',
                           subtitle: _selectedDocuments['back'] != null
-                              ? _selectedDocuments['back']!.path.split(Platform.pathSeparator).last
+                              ? _selectedDocuments['back']!.path
+                                    .split(Platform.pathSeparator)
+                                    .last
                               : 'Upload a clear image of the back side',
                           isUploaded: _selectedDocuments['back'] != null,
                           onTap: () => _pickDocument('back'),
@@ -409,7 +414,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         _DocumentUploadCard(
                           title: 'Selfie with ID',
                           subtitle: _selectedDocuments['selfie'] != null
-                              ? _selectedDocuments['selfie']!.path.split(Platform.pathSeparator).last
+                              ? _selectedDocuments['selfie']!.path
+                                    .split(Platform.pathSeparator)
+                                    .last
                               : 'Upload a selfie while holding your ID',
                           isUploaded: _selectedDocuments['selfie'] != null,
                           onTap: () => _pickDocument('selfie'),
@@ -433,19 +440,23 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              ...['Use good lighting', 'Keep all text readable', 'Avoid glare or blur', 'Upload uncropped originals']
-                                  .map(
-                                    (tip) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 6),
-                                      child: Text(
-                                        '• $tip',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: const Color(0xFF6B7280),
-                                        ),
-                                      ),
+                              ...[
+                                'Use good lighting',
+                                'Keep all text readable',
+                                'Avoid glare or blur',
+                                'Upload uncropped originals',
+                              ].map(
+                                (tip) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    '• $tip',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: const Color(0xFF6B7280),
                                     ),
                                   ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -593,7 +604,9 @@ class _DocumentUploadCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isUploaded ? const Color(0xFF2E7D32) : const Color(0xFFE5E7EB),
+            color: isUploaded
+                ? const Color(0xFF2E7D32)
+                : const Color(0xFFE5E7EB),
           ),
         ),
         child: Row(
@@ -602,12 +615,16 @@ class _DocumentUploadCard extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: isUploaded ? const Color(0xFFE8F5E9) : const Color(0xFFF5F5F5),
+                color: isUploaded
+                    ? const Color(0xFFE8F5E9)
+                    : const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 isUploaded ? Icons.check_rounded : Icons.upload_file_rounded,
-                color: isUploaded ? const Color(0xFF2E7D32) : const Color(0xFF6B7280),
+                color: isUploaded
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 12),
@@ -633,10 +650,7 @@ class _DocumentUploadCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFFBDBDBD),
-            ),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFFBDBDBD)),
           ],
         ),
       ),

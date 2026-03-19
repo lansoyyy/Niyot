@@ -99,7 +99,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: unread == 0 || _isMarkingAllRead ? null : _markAllRead,
+                onPressed: unread == 0 || _isMarkingAllRead
+                    ? null
+                    : _markAllRead,
                 child: Text(
                   _isMarkingAllRead ? 'Working...' : 'Mark all read',
                   style: GoogleFonts.poppins(
@@ -113,106 +115,105 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
             ],
           ),
-          body: snapshot.connectionState == ConnectionState.waiting &&
+          body:
+              snapshot.connectionState == ConnectionState.waiting &&
                   notifications.isEmpty
               ? const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFC62828),
-                  ),
+                  child: CircularProgressIndicator(color: Color(0xFFC62828)),
                 )
               : notifications.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No notifications yet',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          color: const Color(0xFF9E9E9E),
+              ? Center(
+                  child: Text(
+                    'No notifications yet',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: const Color(0xFF9E9E9E),
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
+                  itemCount: notifications.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 1, color: Colors.grey.shade100),
+                  itemBuilder: (context, index) {
+                    final item = notifications[index];
+                    return Container(
+                      color: item.isRead
+                          ? Colors.white
+                          : const Color(0xFFFFF5F5),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        onTap: () => _handleTap(item),
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: item.type.bgColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(
+                            item.type.icon,
+                            color: item.type.color,
+                            size: 22,
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: item.isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.w700,
+                                  color: const Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            if (!item.isRead)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFC62828),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            Text(
+                              item.body,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: const Color(0xFF7A7A7A),
+                                height: 1.4,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _timeAgo(item.createdAt),
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: const Color(0xFFBDBDBD),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
-                      itemCount: notifications.length,
-                      separatorBuilder: (_, __) =>
-                          Divider(height: 1, color: Colors.grey.shade100),
-                      itemBuilder: (context, index) {
-                        final item = notifications[index];
-                        return Container(
-                          color: item.isRead
-                              ? Colors.white
-                              : const Color(0xFFFFF5F5),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            onTap: () => _handleTap(item),
-                            leading: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: item.type.bgColor,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(
-                                item.type.icon,
-                                color: item.type.color,
-                                size: 22,
-                              ),
-                            ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      fontWeight: item.isRead
-                                          ? FontWeight.w600
-                                          : FontWeight.w700,
-                                      color: const Color(0xFF1A1A1A),
-                                    ),
-                                  ),
-                                ),
-                                if (!item.isRead)
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFC62828),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 2),
-                                Text(
-                                  item.body,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: const Color(0xFF7A7A7A),
-                                    height: 1.4,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _timeAgo(item.createdAt),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: const Color(0xFFBDBDBD),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    );
+                  },
+                ),
         );
       },
     );

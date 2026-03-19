@@ -48,42 +48,40 @@ class UserModel {
   }
 
   Map<String, dynamic> toMap() => {
-        'uid': uid,
-        'name': name,
-        'email': email,
-        'photoUrl': photoUrl,
-        'role': role,
-        'phone': phone,
-        'bio': bio,
-        'location': location,
-        'isProfileComplete': isProfileComplete,
-        'verificationStatus': verificationStatus,
-        'notificationPreferences': notificationPreferences,
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastActiveAt': FieldValue.serverTimestamp(),
-      };
+    'uid': uid,
+    'name': name,
+    'email': email,
+    'photoUrl': photoUrl,
+    'role': role,
+    'phone': phone,
+    'bio': bio,
+    'location': location,
+    'isProfileComplete': isProfileComplete,
+    'verificationStatus': verificationStatus,
+    'notificationPreferences': notificationPreferences,
+    'createdAt': FieldValue.serverTimestamp(),
+    'lastActiveAt': FieldValue.serverTimestamp(),
+  };
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) => UserModel(
-        uid: uid,
-        name: map['name'] as String? ?? '',
-        email: map['email'] as String? ?? '',
-        photoUrl: map['photoUrl'] as String?,
-        role: map['role'] as String? ?? 'client',
-        phone: map['phone'] as String?,
-        bio: map['bio'] as String?,
-        location: map['location'] as String?,
-        isProfileComplete: map['isProfileComplete'] as bool? ?? false,
-        verificationStatus: map['verificationStatus'] as String? ??
-            VerificationStatuses.unverified,
-        notificationPreferences: (map['notificationPreferences'] as Map? ?? {
-          'push': true,
-          'email': true,
-          'sms': false,
-        }).map((k, v) => MapEntry(k.toString(), v as bool? ?? false)),
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        lastActiveAt: (map['lastActiveAt'] as Timestamp?)?.toDate(),
-      );
+    uid: uid,
+    name: map['name'] as String? ?? '',
+    email: map['email'] as String? ?? '',
+    photoUrl: map['photoUrl'] as String?,
+    role: map['role'] as String? ?? 'client',
+    phone: map['phone'] as String?,
+    bio: map['bio'] as String?,
+    location: map['location'] as String?,
+    isProfileComplete: map['isProfileComplete'] as bool? ?? false,
+    verificationStatus:
+        map['verificationStatus'] as String? ?? VerificationStatuses.unverified,
+    notificationPreferences:
+        (map['notificationPreferences'] as Map? ??
+                {'push': true, 'email': true, 'sms': false})
+            .map((k, v) => MapEntry(k.toString(), v as bool? ?? false)),
+    createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    lastActiveAt: (map['lastActiveAt'] as Timestamp?)?.toDate(),
+  );
 
   UserModel copyWith({
     String? name,
@@ -96,21 +94,20 @@ class UserModel {
     bool? isProfileComplete,
     String? verificationStatus,
     Map<String, bool>? notificationPreferences,
-  }) =>
-      UserModel(
-        uid: uid,
-        name: name ?? this.name,
-        email: email ?? this.email,
-        photoUrl: photoUrl ?? this.photoUrl,
-        role: role ?? this.role,
-        phone: phone ?? this.phone,
-        bio: bio ?? this.bio,
-        location: location ?? this.location,
-        isProfileComplete: isProfileComplete ?? this.isProfileComplete,
-        verificationStatus: verificationStatus ?? this.verificationStatus,
-        notificationPreferences:
-            notificationPreferences ?? this.notificationPreferences,
-        createdAt: createdAt,
-        lastActiveAt: lastActiveAt,
-      );
+  }) => UserModel(
+    uid: uid,
+    name: name ?? this.name,
+    email: email ?? this.email,
+    photoUrl: photoUrl ?? this.photoUrl,
+    role: role ?? this.role,
+    phone: phone ?? this.phone,
+    bio: bio ?? this.bio,
+    location: location ?? this.location,
+    isProfileComplete: isProfileComplete ?? this.isProfileComplete,
+    verificationStatus: verificationStatus ?? this.verificationStatus,
+    notificationPreferences:
+        notificationPreferences ?? this.notificationPreferences,
+    createdAt: createdAt,
+    lastActiveAt: lastActiveAt,
+  );
 }

@@ -4,7 +4,8 @@ import '../core/firebase_constants.dart';
 import '../models/payment_method_model.dart';
 
 class PaymentMethodService {
-  static final PaymentMethodService _instance = PaymentMethodService._internal();
+  static final PaymentMethodService _instance =
+      PaymentMethodService._internal();
   factory PaymentMethodService() => _instance;
   PaymentMethodService._internal();
 

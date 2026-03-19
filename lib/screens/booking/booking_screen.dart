@@ -57,18 +57,24 @@ class _BookingScreenState extends State<BookingScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: Color(0xFF374151)),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF374151),
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: Text('Book a Session',
-              style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A1A1A))),
+          title: Text(
+            'Book a Session',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A1A),
+            ),
+          ),
         ),
         body: const Center(
-            child: Text('No packages available for this photographer.')),
+          child: Text('No packages available for this photographer.'),
+        ),
       );
     }
     final selectedPkg =
@@ -165,8 +171,8 @@ class _BookingScreenState extends State<BookingScreen> {
                           photographer.primarySpecialty.isNotEmpty
                               ? photographer.primarySpecialty
                               : photographer.specialties.isNotEmpty
-                                  ? photographer.specialties.first
-                                  : '',
+                              ? photographer.specialties.first
+                              : '',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: const Color(0xFF9E9E9E),
@@ -206,9 +212,8 @@ class _BookingScreenState extends State<BookingScreen> {
                   onPressed: () async {
                     final result = await Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => CalendarScreen(
-                          photographer: widget.photographer,
-                        ),
+                        builder: (_) =>
+                            CalendarScreen(photographer: widget.photographer),
                       ),
                     );
                     if (result != null && result is Map) {
@@ -577,8 +582,9 @@ class _BookingScreenState extends State<BookingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Failed to create booking: $e'),
-              backgroundColor: const Color(0xFFC62828)),
+            content: Text('Failed to create booking: $e'),
+            backgroundColor: const Color(0xFFC62828),
+          ),
         );
       }
     } finally {

@@ -1,12 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/firebase_constants.dart';
 
-enum PaymentStatus {
-  pending,
-  completed,
-  refunded,
-  failed,
-}
+enum PaymentStatus { pending, completed, refunded, failed }
 
 extension PaymentStatusX on PaymentStatus {
   String get value {
@@ -79,18 +74,18 @@ class PaymentRecordModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'bookingId': bookingId,
-        'payerId': payerId,
-        'payeeId': payeeId,
-        'amount': amount,
-        'currency': currency,
-        'paymentMethodLabel': paymentMethodLabel,
-        'proofUrl': proofUrl,
-        'status': status.value,
-        'notes': notes,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+    'bookingId': bookingId,
+    'payerId': payerId,
+    'payeeId': payeeId,
+    'amount': amount,
+    'currency': currency,
+    'paymentMethodLabel': paymentMethodLabel,
+    'proofUrl': proofUrl,
+    'status': status.value,
+    'notes': notes,
+    'createdAt': FieldValue.serverTimestamp(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
 
   factory PaymentRecordModel.fromMap(String id, Map<String, dynamic> map) =>
       PaymentRecordModel(
@@ -104,8 +99,7 @@ class PaymentRecordModel {
         proofUrl: map['proofUrl'] as String?,
         status: PaymentStatusX.fromValue(map['status'] as String? ?? ''),
         notes: map['notes'] as String?,
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
       );
 }

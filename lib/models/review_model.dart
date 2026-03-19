@@ -31,15 +31,15 @@ class ReviewModel {
   }
 
   Map<String, dynamic> toMap() => {
-        'photographerId': photographerId,
-        'clientId': clientId,
-        'clientName': clientName,
-        'clientPhotoUrl': clientPhotoUrl,
-        'rating': rating,
-        'comment': comment,
-        'bookingId': bookingId,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'photographerId': photographerId,
+    'clientId': clientId,
+    'clientName': clientName,
+    'clientPhotoUrl': clientPhotoUrl,
+    'rating': rating,
+    'comment': comment,
+    'bookingId': bookingId,
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   factory ReviewModel.fromMap(String id, Map<String, dynamic> map) =>
       ReviewModel(
@@ -51,7 +51,6 @@ class ReviewModel {
         rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
         comment: map['comment'] as String? ?? '',
         bookingId: map['bookingId'] as String?,
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
 }

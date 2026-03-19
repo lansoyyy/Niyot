@@ -26,15 +26,15 @@ class PaymentMethodModel {
   bool get isCard => provider == 'card';
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-        'provider': provider,
-        'label': label,
-        'holderName': holderName,
-        'last4': last4,
-        'expiry': expiry,
-        'isDefault': isDefault,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'userId': userId,
+    'provider': provider,
+    'label': label,
+    'holderName': holderName,
+    'last4': last4,
+    'expiry': expiry,
+    'isDefault': isDefault,
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   factory PaymentMethodModel.fromMap(String id, Map<String, dynamic> map) {
     return PaymentMethodModel(

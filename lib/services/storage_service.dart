@@ -20,24 +20,35 @@ class StorageService {
   }
 
   Future<String> uploadPortfolioItem(
-      String uid, String itemId, File image) async {
-    final ref =
-        _storage.ref(FirebaseStoragePaths.portfolioItem(uid, itemId));
+    String uid,
+    String itemId,
+    File image,
+  ) async {
+    final ref = _storage.ref(FirebaseStoragePaths.portfolioItem(uid, itemId));
     await ref.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
     return ref.getDownloadURL();
   }
 
   Future<String> uploadChatAttachment(
-      String conversationId, String fileName, File file) async {
-    final ref = _storage
-        .ref(FirebaseStoragePaths.chatAttachment(conversationId, fileName));
+    String conversationId,
+    String fileName,
+    File file,
+  ) async {
+    final ref = _storage.ref(
+      FirebaseStoragePaths.chatAttachment(conversationId, fileName),
+    );
     await ref.putFile(file);
     return ref.getDownloadURL();
   }
 
   Future<String> uploadVerificationDoc(
-      String uid, String docType, File file) async {
-    final ref = _storage.ref(FirebaseStoragePaths.verificationDoc(uid, docType));
+    String uid,
+    String docType,
+    File file,
+  ) async {
+    final ref = _storage.ref(
+      FirebaseStoragePaths.verificationDoc(uid, docType),
+    );
     await ref.putFile(file);
     return ref.getDownloadURL();
   }

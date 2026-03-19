@@ -22,13 +22,13 @@ class MessageModel {
   bool isSentBy(String userId) => senderId == userId;
 
   Map<String, dynamic> toMap() => {
-        'senderId': senderId,
-        'text': text,
-        'mediaUrl': mediaUrl,
-        'mediaType': mediaType,
-        'timestamp': FieldValue.serverTimestamp(),
-        'isRead': isRead,
-      };
+    'senderId': senderId,
+    'text': text,
+    'mediaUrl': mediaUrl,
+    'mediaType': mediaType,
+    'timestamp': FieldValue.serverTimestamp(),
+    'isRead': isRead,
+  };
 
   factory MessageModel.fromMap(String id, Map<String, dynamic> map) =>
       MessageModel(
@@ -37,8 +37,7 @@ class MessageModel {
         text: map['text'] as String? ?? '',
         mediaUrl: map['mediaUrl'] as String?,
         mediaType: map['mediaType'] as String?,
-        timestamp:
-            (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         isRead: map['isRead'] as bool? ?? false,
       );
 }

@@ -16,13 +16,13 @@ class ServicePackageModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        'duration': duration,
-        'price': price,
-        'features': features,
-        'isPopular': isPopular,
-      };
+    'id': id,
+    'name': name,
+    'duration': duration,
+    'price': price,
+    'features': features,
+    'isPopular': isPopular,
+  };
 
   factory ServicePackageModel.fromMap(Map<String, dynamic> map) =>
       ServicePackageModel(

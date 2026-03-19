@@ -41,31 +41,31 @@ class ConversationModel {
   }
 
   Map<String, dynamic> toMap() => {
-        'participantIds': participantIds,
-        'participantNames': participantNames,
-        'participantPhotoUrls': participantPhotoUrls
-            .map((k, v) => MapEntry(k, v)),
-        'lastMessage': lastMessage,
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'unreadCounts': unreadCounts,
-        'bookingId': bookingId,
-      };
+    'participantIds': participantIds,
+    'participantNames': participantNames,
+    'participantPhotoUrls': participantPhotoUrls.map((k, v) => MapEntry(k, v)),
+    'lastMessage': lastMessage,
+    'lastMessageTime': FieldValue.serverTimestamp(),
+    'unreadCounts': unreadCounts,
+    'bookingId': bookingId,
+  };
 
   factory ConversationModel.fromMap(String id, Map<String, dynamic> map) =>
       ConversationModel(
         id: id,
-        participantIds:
-            List<String>.from(map['participantIds'] as List? ?? []),
+        participantIds: List<String>.from(map['participantIds'] as List? ?? []),
         participantNames: Map<String, String>.from(
-            map['participantNames'] as Map? ?? {}),
-        participantPhotoUrls: (map['participantPhotoUrls'] as Map? ?? {})
-            .map((k, v) => MapEntry(k.toString(), v as String?)),
+          map['participantNames'] as Map? ?? {},
+        ),
+        participantPhotoUrls: (map['participantPhotoUrls'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), v as String?),
+        ),
         lastMessage: map['lastMessage'] as String? ?? '',
         lastMessageTime:
-            (map['lastMessageTime'] as Timestamp?)?.toDate() ??
-                DateTime.now(),
-        unreadCounts: (map['unreadCounts'] as Map? ?? {})
-            .map((k, v) => MapEntry(k.toString(), (v as num).toInt())),
+            (map['lastMessageTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        unreadCounts: (map['unreadCounts'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        ),
         bookingId: map['bookingId'] as String?,
       );
 }

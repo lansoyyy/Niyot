@@ -20,13 +20,13 @@ class PortfolioItemModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'photographerId': photographerId,
-        'imageUrl': imageUrl,
-        'thumbnailUrl': thumbnailUrl,
-        'caption': caption,
-        'tags': tags,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'photographerId': photographerId,
+    'imageUrl': imageUrl,
+    'thumbnailUrl': thumbnailUrl,
+    'caption': caption,
+    'tags': tags,
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   factory PortfolioItemModel.fromMap(String id, Map<String, dynamic> map) =>
       PortfolioItemModel(
@@ -36,7 +36,6 @@ class PortfolioItemModel {
         thumbnailUrl: map['thumbnailUrl'] as String?,
         caption: map['caption'] as String?,
         tags: List<String>.from(map['tags'] as List? ?? []),
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
 }

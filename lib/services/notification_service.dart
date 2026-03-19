@@ -16,11 +16,7 @@ class NotificationService {
   // ─── FCM Setup ────────────────────────────────────────────────────────────
 
   Future<void> initFCM() async {
-    await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    await _messaging.requestPermission(alert: true, badge: true, sound: true);
 
     final token = await _messaging.getToken();
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -48,29 +44,27 @@ class NotificationService {
           .doc(uid)
           .collection(FirebaseCollections.notifications)
           .add({
-        'userId': uid,
-        'title': message.notification?.title ?? data['title'] ?? '',
-        'body': message.notification?.body ?? data['body'] ?? '',
-        'type': data['type'] ?? NotificationTypes.system,
-        'relatedId': data['relatedId'],
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+            'userId': uid,
+            'title': message.notification?.title ?? data['title'] ?? '',
+            'body': message.notification?.body ?? data['body'] ?? '',
+            'type': data['type'] ?? NotificationTypes.system,
+            'relatedId': data['relatedId'],
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
     });
   }
 
   Future<void> saveFCMToken(String uid, String token) async {
-    await _firestore
-        .collection(FirebaseCollections.users)
-        .doc(uid)
-        .update({'fcmToken': token});
+    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
+      'fcmToken': token,
+    });
   }
 
   Future<void> removeFCMToken(String uid) async {
-    await _firestore
-        .collection(FirebaseCollections.users)
-        .doc(uid)
-        .update({'fcmToken': FieldValue.delete()});
+    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
+      'fcmToken': FieldValue.delete(),
+    });
   }
 
   // ─── Notification Stream ──────────────────────────────────────────────────
@@ -83,18 +77,19 @@ class NotificationService {
           .orderBy('createdAt', descending: true)
           .limit(50)
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => NotificationModel.fromMap(d.id, d.data()))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => NotificationModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
 
-  Stream<int> unreadCountStream(String userId) =>
-      _firestore
-          .collection(FirebaseCollections.users)
-          .doc(userId)
-          .collection(FirebaseCollections.notifications)
-          .where('isRead', isEqualTo: false)
-          .snapshots()
-          .map((snap) => snap.docs.length);
+  Stream<int> unreadCountStream(String userId) => _firestore
+      .collection(FirebaseCollections.users)
+      .doc(userId)
+      .collection(FirebaseCollections.notifications)
+      .where('isRead', isEqualTo: false)
+      .snapshots()
+      .map((snap) => snap.docs.length);
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -136,111 +131,126 @@ class NotificationService {
     required String clientName,
     required String bookingId,
     required DateTime scheduledDate,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: photographerId,
-        title: 'New Booking Request',
-        body:
-            '$clientName wants to book a session on ${_formatDate(scheduledDate)}.',
-        type: NotificationType.bookingRequest,
-        relatedId: bookingId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: photographerId,
+      title: 'New Booking Request',
+      body:
+          '$clientName wants to book a session on ${_formatDate(scheduledDate)}.',
+      type: NotificationType.bookingRequest,
+      relatedId: bookingId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   Future<void> createBookingConfirmedNotification({
     required String clientId,
     required String photographerName,
     required String bookingId,
     required DateTime scheduledDate,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: clientId,
-        title: 'Booking Confirmed!',
-        body:
-            '$photographerName has confirmed your session on ${_formatDate(scheduledDate)}.',
-        type: NotificationType.bookingConfirmed,
-        relatedId: bookingId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: clientId,
+      title: 'Booking Confirmed!',
+      body:
+          '$photographerName has confirmed your session on ${_formatDate(scheduledDate)}.',
+      type: NotificationType.bookingConfirmed,
+      relatedId: bookingId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   Future<void> createBookingDeclinedNotification({
     required String clientId,
     required String photographerName,
     required String bookingId,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: clientId,
-        title: 'Booking Declined',
-        body: '$photographerName is unavailable for your requested session.',
-        type: NotificationType.bookingDeclined,
-        relatedId: bookingId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: clientId,
+      title: 'Booking Declined',
+      body: '$photographerName is unavailable for your requested session.',
+      type: NotificationType.bookingDeclined,
+      relatedId: bookingId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   Future<void> createNewMessageNotification({
     required String recipientId,
     required String senderName,
     required String conversationId,
     required String messagePreview,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: recipientId,
-        title: 'New Message from $senderName',
-        body: messagePreview,
-        type: NotificationType.newMessage,
-        relatedId: conversationId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: recipientId,
+      title: 'New Message from $senderName',
+      body: messagePreview,
+      type: NotificationType.newMessage,
+      relatedId: conversationId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   Future<void> createPaymentReceivedNotification({
     required String photographerId,
     required String clientName,
     required int amount,
     required String bookingId,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: photographerId,
-        title: 'Payment Received',
-        body:
-            'You\'ve received \$$amount from $clientName.',
-        type: NotificationType.paymentReceived,
-        relatedId: bookingId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: photographerId,
+      title: 'Payment Received',
+      body: 'You\'ve received \$$amount from $clientName.',
+      type: NotificationType.paymentReceived,
+      relatedId: bookingId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   Future<void> createReviewNotification({
     required String photographerId,
     required String clientName,
     required double rating,
     required String bookingId,
-  }) =>
-      createNotification(NotificationModel(
-        id: '',
-        userId: photographerId,
-        title: 'New Review!',
-        body: '$clientName left a ${rating.toStringAsFixed(1)}-star review.',
-        type: NotificationType.reviewLeft,
-        relatedId: bookingId,
-        isRead: false,
-        createdAt: DateTime.now(),
-      ));
+  }) => createNotification(
+    NotificationModel(
+      id: '',
+      userId: photographerId,
+      title: 'New Review!',
+      body: '$clientName left a ${rating.toStringAsFixed(1)}-star review.',
+      type: NotificationType.reviewLeft,
+      relatedId: bookingId,
+      isRead: false,
+      createdAt: DateTime.now(),
+    ),
+  );
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

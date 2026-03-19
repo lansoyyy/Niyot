@@ -24,7 +24,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   User? get _user => FirebaseAuth.instance.currentUser;
   bool get _supportsPasswordChange {
-    final providers = _user?.providerData.map((item) => item.providerId).toSet() ?? {};
+    final providers =
+        _user?.providerData.map((item) => item.providerId).toSet() ?? {};
     return providers.contains('password');
   }
 
@@ -259,7 +260,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       },
                     ),
                     const SizedBox(height: 28),
-                    _PasswordStrengthIndicator(password: _newPasswordController.text),
+                    _PasswordStrengthIndicator(
+                      password: _newPasswordController.text,
+                    ),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
@@ -414,9 +417,12 @@ class _PasswordStrengthIndicator extends StatelessWidget {
     final hasLower = password.contains(RegExp(r'[a-z]'));
     final hasDigit = password.contains(RegExp(r'[0-9]'));
     final hasSymbol = password.contains(RegExp(r'[^A-Za-z0-9]'));
-    final score = [hasUpper, hasLower, hasDigit, hasSymbol]
-        .where((part) => part)
-        .length;
+    final score = [
+      hasUpper,
+      hasLower,
+      hasDigit,
+      hasSymbol,
+    ].where((part) => part).length;
 
     if (password.isEmpty) return 0;
     if (password.length < 8) return 1;

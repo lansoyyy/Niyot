@@ -29,33 +29,36 @@ class VerificationSubmissionModel {
   bool get isRejected => status == VerificationStatuses.rejected;
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-      'legalName': legalName,
-      'governmentIdNumber': governmentIdNumber,
-        'documents': documents.map((d) => d.toMap()).toList(),
-        'status': status,
-        'rejectionReason': rejectionReason,
-        'submittedAt': FieldValue.serverTimestamp(),
-        'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
-      };
+    'userId': userId,
+    'legalName': legalName,
+    'governmentIdNumber': governmentIdNumber,
+    'documents': documents.map((d) => d.toMap()).toList(),
+    'status': status,
+    'rejectionReason': rejectionReason,
+    'submittedAt': FieldValue.serverTimestamp(),
+    'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
+  };
 
   factory VerificationSubmissionModel.fromMap(
-          String id, Map<String, dynamic> map) =>
-      VerificationSubmissionModel(
-        id: id,
-        userId: map['userId'] as String? ?? '',
-        legalName: map['legalName'] as String? ?? '',
-        governmentIdNumber: map['governmentIdNumber'] as String? ?? '',
-        documents: (map['documents'] as List<dynamic>? ?? [])
-            .map((d) => VerificationDocumentModel.fromMap(
-                Map<String, dynamic>.from(d as Map)))
-            .toList(),
-        status: map['status'] as String? ?? VerificationStatuses.unverified,
-        rejectionReason: map['rejectionReason'] as String?,
-        submittedAt:
-            (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
-      );
+    String id,
+    Map<String, dynamic> map,
+  ) => VerificationSubmissionModel(
+    id: id,
+    userId: map['userId'] as String? ?? '',
+    legalName: map['legalName'] as String? ?? '',
+    governmentIdNumber: map['governmentIdNumber'] as String? ?? '',
+    documents: (map['documents'] as List<dynamic>? ?? [])
+        .map(
+          (d) => VerificationDocumentModel.fromMap(
+            Map<String, dynamic>.from(d as Map),
+          ),
+        )
+        .toList(),
+    status: map['status'] as String? ?? VerificationStatuses.unverified,
+    rejectionReason: map['rejectionReason'] as String?,
+    submittedAt: (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
+  );
 }
 
 class VerificationDocumentModel {
@@ -70,10 +73,10 @@ class VerificationDocumentModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'type': type,
-        'url': url,
-        'uploadedAt': Timestamp.fromDate(uploadedAt),
-      };
+    'type': type,
+    'url': url,
+    'uploadedAt': Timestamp.fromDate(uploadedAt),
+  };
 
   factory VerificationDocumentModel.fromMap(Map<String, dynamic> map) =>
       VerificationDocumentModel(

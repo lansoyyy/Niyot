@@ -142,14 +142,14 @@ class NotificationModel {
   });
 
   Map<String, dynamic> toMap() => {
-        'userId': userId,
-        'title': title,
-        'body': body,
-        'type': type.value,
-        'relatedId': relatedId,
-        'isRead': isRead,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+    'userId': userId,
+    'title': title,
+    'body': body,
+    'type': type.value,
+    'relatedId': relatedId,
+    'isRead': isRead,
+    'createdAt': FieldValue.serverTimestamp(),
+  };
 
   factory NotificationModel.fromMap(String id, Map<String, dynamic> map) =>
       NotificationModel(
@@ -160,18 +160,17 @@ class NotificationModel {
         type: NotificationTypeX.fromValue(map['type'] as String? ?? ''),
         relatedId: map['relatedId'] as String?,
         isRead: map['isRead'] as bool? ?? false,
-        createdAt:
-            (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
 
   NotificationModel copyWith({bool? isRead}) => NotificationModel(
-        id: id,
-        userId: userId,
-        title: title,
-        body: body,
-        type: type,
-        relatedId: relatedId,
-        isRead: isRead ?? this.isRead,
-        createdAt: createdAt,
-      );
+    id: id,
+    userId: userId,
+    title: title,
+    body: body,
+    type: type,
+    relatedId: relatedId,
+    isRead: isRead ?? this.isRead,
+    createdAt: createdAt,
+  );
 }

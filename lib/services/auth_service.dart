@@ -112,40 +112,40 @@ class AuthService {
   }
 
   static List<ServicePackageModel> _defaultPackages() => [
-        const ServicePackageModel(
-          id: 'starter',
-          name: 'Starter',
-          duration: '2 hours',
-          price: 150,
-          features: ['30 edited photos', 'Online gallery', '1 location'],
-        ),
-        const ServicePackageModel(
-          id: 'standard',
-          name: 'Standard',
-          duration: '4 hours',
-          price: 300,
-          features: [
-            '80 edited photos',
-            'Online gallery',
-            '2 locations',
-            'Prints included',
-          ],
-        ),
-        const ServicePackageModel(
-          id: 'premium',
-          name: 'Premium',
-          duration: 'Full day',
-          price: 600,
-          features: [
-            '200+ edited photos',
-            'Online gallery',
-            'Unlimited locations',
-            'Prints + album',
-            'Rush delivery',
-          ],
-          isPopular: true,
-        ),
-      ];
+    const ServicePackageModel(
+      id: 'starter',
+      name: 'Starter',
+      duration: '2 hours',
+      price: 150,
+      features: ['30 edited photos', 'Online gallery', '1 location'],
+    ),
+    const ServicePackageModel(
+      id: 'standard',
+      name: 'Standard',
+      duration: '4 hours',
+      price: 300,
+      features: [
+        '80 edited photos',
+        'Online gallery',
+        '2 locations',
+        'Prints included',
+      ],
+    ),
+    const ServicePackageModel(
+      id: 'premium',
+      name: 'Premium',
+      duration: 'Full day',
+      price: 600,
+      features: [
+        '200+ edited photos',
+        'Online gallery',
+        'Unlimited locations',
+        'Prints + album',
+        'Rush delivery',
+      ],
+      isPopular: true,
+    ),
+  ];
 
   // ─── Google Sign-In ───────────────────────────────────────────────────────
 

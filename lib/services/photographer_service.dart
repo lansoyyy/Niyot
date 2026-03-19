@@ -21,8 +21,9 @@ class PhotographerService {
 
   // ─── Discovery ────────────────────────────────────────────────────────────
 
-  Future<List<PhotographerModel>> getFeaturedPhotographers(
-      {int limit = 5}) async {
+  Future<List<PhotographerModel>> getFeaturedPhotographers({
+    int limit = 5,
+  }) async {
     final snap = await _firestore
         .collection(FirebaseCollections.photographers)
         .where('isFeatured', isEqualTo: true)
@@ -41,8 +42,9 @@ class PhotographerService {
     int limit = 20,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query =
-        _firestore.collection(FirebaseCollections.photographers);
+    Query<Map<String, dynamic>> query = _firestore.collection(
+      FirebaseCollections.photographers,
+    );
 
     if (category != null && category.isNotEmpty && category != 'All') {
       query = query.where('specialties', arrayContains: category);
@@ -63,10 +65,12 @@ class PhotographerService {
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final q = searchQuery.trim().toLowerCase();
       results = results
-          .where((p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.locationText.toLowerCase().contains(q) ||
-              p.specialties.any((s) => s.toLowerCase().contains(q)))
+          .where(
+            (p) =>
+                p.name.toLowerCase().contains(q) ||
+                p.locationText.toLowerCase().contains(q) ||
+                p.specialties.any((s) => s.toLowerCase().contains(q)),
+          )
           .toList();
     }
 
@@ -84,13 +88,11 @@ class PhotographerService {
     return PhotographerModel.fromMap(uid, doc.data()!);
   }
 
-  Stream<PhotographerModel?> photographerStream(String uid) =>
-      _firestore
-          .collection(FirebaseCollections.photographers)
-          .doc(uid)
-          .snapshots()
-          .map((d) =>
-              d.exists ? PhotographerModel.fromMap(uid, d.data()!) : null);
+  Stream<PhotographerModel?> photographerStream(String uid) => _firestore
+      .collection(FirebaseCollections.photographers)
+      .doc(uid)
+      .snapshots()
+      .map((d) => d.exists ? PhotographerModel.fromMap(uid, d.data()!) : null);
 
   // ─── Portfolio ────────────────────────────────────────────────────────────
 
@@ -118,9 +120,13 @@ class PhotographerService {
         .collection(FirebaseCollections.portfolio)
         .doc();
 
-    final storageRef = _storage
-        .ref(FirebaseStoragePaths.portfolioItem(photographerId, ref.id));
-    await storageRef.putFile(image, SettableMetadata(contentType: 'image/jpeg'));
+    final storageRef = _storage.ref(
+      FirebaseStoragePaths.portfolioItem(photographerId, ref.id),
+    );
+    await storageRef.putFile(
+      image,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
     final imageUrl = await storageRef.getDownloadURL();
 
     final item = PortfolioItemModel(
@@ -142,8 +148,7 @@ class PhotographerService {
     return item;
   }
 
-  Future<void> deletePortfolioItem(
-      String photographerId, String itemId) async {
+  Future<void> deletePortfolioItem(String photographerId, String itemId) async {
     await _firestore
         .collection(FirebaseCollections.photographers)
         .doc(photographerId)
@@ -165,9 +170,7 @@ class PhotographerService {
         .collection(FirebaseCollections.reviews)
         .orderBy('createdAt', descending: true)
         .get();
-    return snap.docs
-        .map((d) => ReviewModel.fromMap(d.id, d.data()))
-        .toList();
+    return snap.docs.map((d) => ReviewModel.fromMap(d.id, d.data())).toList();
   }
 
   Future<void> addReview(ReviewModel review) async {
@@ -209,7 +212,9 @@ class PhotographerService {
   // ─── Availability ─────────────────────────────────────────────────────────
 
   Future<AvailabilityModel?> getAvailability(
-      String photographerId, DateTime date) async {
+    String photographerId,
+    DateTime date,
+  ) async {
     final docId = AvailabilityModel.docId(date);
     final doc = await _firestore
         .collection(FirebaseCollections.photographers)
@@ -242,8 +247,9 @@ class PhotographerService {
     for (final doc in snap.docs) {
       final model = AvailabilityModel.fromMap(doc.data());
       if (model.slots.any((s) => s.isAvailable)) {
-        available.add(DateTime(
-            model.date.year, model.date.month, model.date.day));
+        available.add(
+          DateTime(model.date.year, model.date.month, model.date.day),
+        );
       }
     }
     return available;
@@ -270,8 +276,7 @@ class PhotographerService {
       final model = AvailabilityModel.fromMap(doc.data());
       final hasAllBooked = model.slots.every((s) => !s.isAvailable);
       if (hasAllBooked && model.slots.isNotEmpty) {
-        booked.add(DateTime(
-            model.date.year, model.date.month, model.date.day));
+        booked.add(DateTime(model.date.year, model.date.month, model.date.day));
       }
     }
     return booked;
@@ -290,7 +295,8 @@ class PhotographerService {
   // ─── Profile Update ────────────────────────────────────────────────────────
 
   Future<void> createOrUpdatePhotographerProfile(
-      PhotographerModel model) async {
+    PhotographerModel model,
+  ) async {
     await _firestore
         .collection(FirebaseCollections.photographers)
         .doc(model.uid)
@@ -298,7 +304,9 @@ class PhotographerService {
   }
 
   Future<void> updatePackages(
-      String uid, List<ServicePackageModel> packages) async {
+    String uid,
+    List<ServicePackageModel> packages,
+  ) async {
     await _firestore
         .collection(FirebaseCollections.photographers)
         .doc(uid)

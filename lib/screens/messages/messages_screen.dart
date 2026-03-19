@@ -41,7 +41,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   String _otherInitials(String name) {
-    final parts = name.trim().split(' ').where((part) => part.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
@@ -56,7 +60,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
         final recentContacts = conversations
             .where(
               (conversation) =>
-                  DateTime.now().difference(conversation.lastMessageTime).inHours < 24,
+                  DateTime.now()
+                      .difference(conversation.lastMessageTime)
+                      .inHours <
+                  24,
             )
             .toList();
 
@@ -134,8 +141,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       itemCount: recentContacts.length,
                       itemBuilder: (context, index) {
                         final conversation = recentContacts[index];
-                        final otherId = conversation.getOtherUserId(_currentUid);
-                        final otherName = conversation.getOtherUserName(_currentUid);
+                        final otherId = conversation.getOtherUserId(
+                          _currentUid,
+                        );
+                        final otherName = conversation.getOtherUserName(
+                          _currentUid,
+                        );
 
                         return Container(
                           margin: const EdgeInsets.only(right: 16),
@@ -180,7 +191,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 if (recentContacts.isNotEmpty) const SizedBox(height: 8),
                 Divider(color: Colors.grey.shade100, height: 1),
                 Expanded(
-                  child: snapshot.connectionState == ConnectionState.waiting &&
+                  child:
+                      snapshot.connectionState == ConnectionState.waiting &&
                           conversations.isEmpty
                       ? const Center(
                           child: CircularProgressIndicator(
@@ -188,132 +200,138 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           ),
                         )
                       : conversations.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No conversations yet',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: const Color(0xFF9E9E9E),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(top: 8, bottom: 100),
-                              itemCount: conversations.length,
-                              itemBuilder: (context, index) {
-                                final conversation = conversations[index];
-                                final otherId = conversation.getOtherUserId(_currentUid);
-                                final otherName = conversation.getOtherUserName(_currentUid);
-                                final unread = conversation.getUnreadCount(_currentUid);
-                                final hasUnread = unread > 0;
+                      ? Center(
+                          child: Text(
+                            'No conversations yet',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: const Color(0xFF9E9E9E),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(top: 8, bottom: 100),
+                          itemCount: conversations.length,
+                          itemBuilder: (context, index) {
+                            final conversation = conversations[index];
+                            final otherId = conversation.getOtherUserId(
+                              _currentUid,
+                            );
+                            final otherName = conversation.getOtherUserName(
+                              _currentUid,
+                            );
+                            final unread = conversation.getUnreadCount(
+                              _currentUid,
+                            );
+                            final hasUnread = unread > 0;
 
-                                return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 6,
-                                  ),
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => ChatScreen(
-                                          conversationId: conversation.id,
-                                          otherUserId: otherId,
-                                          otherUserName: otherName,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  leading: Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: _otherGradient(otherId),
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      shape: BoxShape.circle,
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 6,
+                              ),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      conversationId: conversation.id,
+                                      otherUserId: otherId,
+                                      otherUserName: otherName,
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        _otherInitials(otherName),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          otherName,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: hasUnread
-                                                ? FontWeight.w700
-                                                : FontWeight.w600,
-                                            color: const Color(0xFF1A1A1A),
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _timeAgo(conversation.lastMessageTime),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          color: hasUnread
-                                              ? const Color(0xFFC62828)
-                                              : const Color(0xFFBDBDBD),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  subtitle: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          conversation.lastMessage.isEmpty
-                                              ? 'No messages yet'
-                                              : conversation.lastMessage,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: hasUnread
-                                                ? const Color(0xFF374151)
-                                                : const Color(0xFFBDBDBD),
-                                            fontWeight: hasUnread
-                                                ? FontWeight.w500
-                                                : FontWeight.w400,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (hasUnread)
-                                        Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFC62828),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              '$unread',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
                                   ),
                                 );
                               },
-                            ),
+                              leading: Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: _otherGradient(otherId),
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _otherInitials(otherName),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      otherName,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: hasUnread
+                                            ? FontWeight.w700
+                                            : FontWeight.w600,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    _timeAgo(conversation.lastMessageTime),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      color: hasUnread
+                                          ? const Color(0xFFC62828)
+                                          : const Color(0xFFBDBDBD),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      conversation.lastMessage.isEmpty
+                                          ? 'No messages yet'
+                                          : conversation.lastMessage,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: hasUnread
+                                            ? const Color(0xFF374151)
+                                            : const Color(0xFFBDBDBD),
+                                        fontWeight: hasUnread
+                                            ? FontWeight.w500
+                                            : FontWeight.w400,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (hasUnread)
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFC62828),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '$unread',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
