@@ -209,7 +209,7 @@ class NotificationService {
       id: '',
       userId: photographerId,
       title: 'Payment Received',
-      body: 'You\'ve received \$$amount from $clientName.',
+      body: 'You\'ve received a cash payment confirmation from $clientName.',
       type: NotificationType.paymentReceived,
       relatedId: bookingId,
       isRead: false,

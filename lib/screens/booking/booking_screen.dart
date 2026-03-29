@@ -77,9 +77,6 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
       );
     }
-    final selectedPkg =
-        packages[_selectedService.clamp(0, packages.length - 1)];
-    final total = selectedPkg.price;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -317,12 +314,12 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ),
                       Text(
-                        '\$${packages[index].price}',
+                        'Free',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: _selectedService == index
-                              ? const Color(0xFFC62828)
+                              ? const Color(0xFF2E7D32)
                               : const Color(0xFF374151),
                         ),
                       ),
@@ -485,11 +482,11 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   ),
                   Text(
-                    '\$$total',
+                    'Free',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFFC62828),
+                      color: const Color(0xFF2E7D32),
                     ),
                   ),
                 ],

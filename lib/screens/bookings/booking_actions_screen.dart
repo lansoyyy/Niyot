@@ -205,7 +205,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '\$${booking.packagePrice}',
+                        'Free',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
