@@ -368,9 +368,9 @@ class _BookingCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     _InfoChip(
-                      icon: Icons.attach_money_rounded,
-                      text: '\$${booking.packagePrice}',
-                      color: const Color(0xFFC62828),
+                      icon: Icons.payments_rounded,
+                      text: 'Free',
+                      color: const Color(0xFF2E7D32),
                     ),
                   ],
                 ),

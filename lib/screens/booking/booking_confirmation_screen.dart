@@ -189,8 +189,8 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           _DetailRow(
                             icon: Icons.attach_money_rounded,
                             label: 'Total',
-                            value: '\$${widget.total}',
-                            valueColor: const Color(0xFFC62828),
+                            value: 'Free',
+                            valueColor: const Color(0xFF2E7D32),
                             valueBold: true,
                           ),
                         ],
@@ -257,7 +257,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           ),
                         ),
                         child: Text(
-                          'Continue to Payment',
+                          'Confirm Cash Payment',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,

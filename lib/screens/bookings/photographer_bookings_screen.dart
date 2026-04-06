@@ -618,7 +618,7 @@ class _NewRequestCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '\$${request.packagePrice}',
+                'Free',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -939,7 +939,7 @@ class _BookingCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '\$${booking.packagePrice}',
+                    'Free',
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
