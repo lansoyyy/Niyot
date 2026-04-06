@@ -4,9 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
 import '../../models/review_model.dart';
+import '../../models/service_package_model.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../booking/booking_screen.dart';
+import '../profile/edit_profile_screen.dart';
+import 'manage_packages_screen.dart';
+import 'manage_portfolio_screen.dart';
 
 class PhotographerProfileScreen extends StatefulWidget {
   const PhotographerProfileScreen({super.key, required this.photographer});
@@ -21,23 +25,28 @@ class PhotographerProfileScreen extends StatefulWidget {
 class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late PhotographerModel _photographer;
   List<PortfolioItemModel> _portfolioItems = [];
   List<ReviewModel> _reviews = [];
   bool _isLoadingTabs = true;
 
+  bool get _isOwnProfile =>
+      FirebaseAuth.instance.currentUser?.uid == _photographer.uid;
+
   @override
   void initState() {
     super.initState();
+    _photographer = widget.photographer;
     _tabController = TabController(length: 3, vsync: this);
-    PhotographerService().incrementProfileView(widget.photographer.uid);
+    PhotographerService().incrementProfileView(_photographer.uid);
     _loadTabData();
   }
 
   Future<void> _loadTabData() async {
     try {
       final results = await Future.wait([
-        PhotographerService().getPortfolio(widget.photographer.uid),
-        PhotographerService().getReviews(widget.photographer.uid),
+        PhotographerService().getPortfolio(_photographer.uid),
+        PhotographerService().getReviews(_photographer.uid),
       ]);
       if (mounted) {
         setState(() {
@@ -59,7 +68,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final photographer = widget.photographer;
+    final photographer = _photographer;
     final gradient = photographer.gradientColors;
 
     return Scaffold(
@@ -96,10 +105,40 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                         return const SizedBox.shrink();
                       }
 
+                      // Own profile — show edit icon
+                      if (currentUid == _photographer.uid) {
+                        return GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
+                          ),
+                          child: Container(
+                            margin: const EdgeInsets.only(
+                              right: 16,
+                              top: 8,
+                              bottom: 8,
+                            ),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Another photographer's profile — show favorite toggle
                       return StreamBuilder<bool>(
                         stream: UserService().favoriteStatusStream(
                           currentUid,
-                          widget.photographer.uid,
+                          _photographer.uid,
                         ),
                         builder: (context, snapshot) {
                           final isFavorite = snapshot.data ?? false;
@@ -110,7 +149,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                 final added = await UserService()
                                     .toggleFavoritePhotographer(
                                       uid: currentUid,
-                                      photographer: widget.photographer,
+                                      photographer: _photographer,
                                     );
 
                                 if (!context.mounted) return;
@@ -428,86 +467,169 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               ),
             ],
           ),
-          // Book Now button
+          // Bottom bar — contextual for own profile vs. client
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Starting from',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: const Color(0xFF9E9E9E),
-                          ),
-                        ),
-                        Text(
-                          photographer.startingPrice.isNotEmpty
-                              ? photographer.startingPrice
-                              : 'See packages',
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFFC62828),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              BookingScreen(photographer: photographer),
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFC62828),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        'Book Now',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _buildBottomBar(),
           ),
         ],
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Bottom bar helpers
+  // ---------------------------------------------------------------------------
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: _isOwnProfile ? _buildOwnProfileBar() : _buildBookNowBar(),
+    );
+  }
+
+  Widget _buildOwnProfileBar() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ManagePortfolioScreen(photographerId: _photographer.uid),
+                ),
+              );
+              _loadTabData();
+            },
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFC62828)),
+              foregroundColor: const Color(0xFFC62828),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.photo_library_rounded, size: 18),
+            label: Text(
+              'Portfolio',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final updated =
+                  await Navigator.of(context).push<List<ServicePackageModel>>(
+                MaterialPageRoute(
+                  builder: (_) => ManagePackagesScreen(
+                    photographerId: _photographer.uid,
+                    initialPackages: _photographer.packages,
+                  ),
+                ),
+              );
+              if (updated != null && mounted) {
+                setState(() {
+                  _photographer = _photographer.copyWith(packages: updated);
+                });
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.inventory_2_rounded, size: 18),
+            label: Text(
+              'Packages',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBookNowBar() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Starting from',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: const Color(0xFF9E9E9E),
+                ),
+              ),
+              Text(
+                _photographer.startingPrice.isNotEmpty
+                    ? _photographer.startingPrice
+                    : 'See packages',
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFC62828),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => BookingScreen(photographer: _photographer),
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: Text(
+              'Book Now',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tab content builders
+  // ---------------------------------------------------------------------------
 
   Widget _buildPortfolio() {
     if (_isLoadingTabs) {
@@ -533,6 +655,35 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                 color: const Color(0xFF9E9E9E),
               ),
             ),
+            if (_isOwnProfile) ...
+              [
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ManagePortfolioScreen(
+                          photographerId: _photographer.uid,
+                        ),
+                      ),
+                    );
+                    _loadTabData();
+                  },
+                  icon: const Icon(
+                    Icons.add_photo_alternate_rounded,
+                    size: 18,
+                    color: Color(0xFFC62828),
+                  ),
+                  label: Text(
+                    'Add your first photo',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFC62828),
+                    ),
+                  ),
+                ),
+              ],
           ],
         ),
       );
@@ -591,7 +742,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   }
 
   Widget _buildPackages() {
-    final packages = widget.photographer.packages;
+    final packages = _photographer.packages;
     if (packages.isEmpty) {
       return Center(
         child: Column(

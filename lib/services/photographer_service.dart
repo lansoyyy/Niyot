@@ -159,6 +159,12 @@ class PhotographerService {
         .collection(FirebaseCollections.photographers)
         .doc(photographerId)
         .update({'photoCount': FieldValue.increment(-1)});
+    // Also remove from Storage; ignore errors if the file was already gone.
+    try {
+      await _storage
+          .ref(FirebaseStoragePaths.portfolioItem(photographerId, itemId))
+          .delete();
+    } catch (_) {}
   }
 
   // ─── Reviews ──────────────────────────────────────────────────────────────

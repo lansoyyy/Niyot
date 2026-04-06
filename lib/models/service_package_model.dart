@@ -33,4 +33,20 @@ class ServicePackageModel {
         features: List<String>.from(map['features'] as List? ?? []),
         isPopular: map['isPopular'] as bool? ?? false,
       );
+
+  ServicePackageModel copyWith({
+    String? id,
+    String? name,
+    String? duration,
+    int? price,
+    List<String>? features,
+    bool? isPopular,
+  }) => ServicePackageModel(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    duration: duration ?? this.duration,
+    price: price ?? this.price,
+    features: features ?? this.features,
+    isPopular: isPopular ?? this.isPopular,
+  );
 }
