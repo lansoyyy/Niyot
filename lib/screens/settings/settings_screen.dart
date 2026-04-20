@@ -10,6 +10,7 @@ import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
+import '../photographer/photographer_profile_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'favorites_screen.dart';
@@ -419,11 +420,21 @@ class _SettingsContent extends StatelessWidget {
                       ? photographer!.primarySpecialty
                       : 'Portfolio, services, pricing',
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const EditProfileScreen(),
-                      ),
-                    );
+                    if (photographer != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PhotographerProfileScreen(
+                            photographer: photographer!,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const EditProfileScreen(),
+                        ),
+                      );
+                    }
                   },
                 ),
               _SettingsTile(

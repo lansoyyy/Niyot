@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/messaging_service.dart';
+import '../../services/user_service.dart';
 import '../home/home_screen.dart';
+import '../home/photographer_dashboard_screen.dart';
 import '../explore/explore_screen.dart';
 import '../bookings/my_bookings_screen.dart';
 import '../messages/messages_screen.dart';
@@ -19,13 +21,33 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  bool _isPhotographer = false;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    ExploreScreen(),
-    MyBookingsScreen(),
-    MessagesScreen(),
-    SettingsScreen(),
+  @override
+  void initState() {
+    super.initState();
+    _detectRole();
+  }
+
+  void _detectRole() {
+    final cached = UserService().cachedUser;
+    if (cached != null) {
+      _isPhotographer = cached.isPhotographer;
+    } else {
+      UserService().fetchCurrentUser().then((user) {
+        if (mounted && user != null) {
+          setState(() => _isPhotographer = user.isPhotographer);
+        }
+      });
+    }
+  }
+
+  List<Widget> get _screens => [
+    _isPhotographer ? const PhotographerDashboardScreen() : const HomeScreen(),
+    const ExploreScreen(),
+    const MyBookingsScreen(),
+    const MessagesScreen(),
+    const SettingsScreen(),
   ];
 
   @override

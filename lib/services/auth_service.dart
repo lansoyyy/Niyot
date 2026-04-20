@@ -45,6 +45,9 @@ class AuthService {
     required String name,
     required String role,
     File? profileImage,
+    String? country,
+    String? city,
+    String? province,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -65,12 +68,19 @@ class AuthService {
     await user.updateDisplayName(name.trim());
     if (photoUrl != null) await user.updatePhotoURL(photoUrl);
 
+    final locationParts = [city, province, country]
+        .where((s) => s != null && s.trim().isNotEmpty)
+        .map((s) => s!.trim())
+        .toList();
+    final locationText = locationParts.join(', ');
+
     final userModel = UserModel(
       uid: user.uid,
       name: name.trim(),
       email: email.trim(),
       photoUrl: photoUrl,
       role: role,
+      location: locationText.isNotEmpty ? locationText : null,
       createdAt: DateTime.now(),
     );
 
@@ -86,7 +96,7 @@ class AuthService {
         name: name.trim(),
         photoUrl: photoUrl,
         bio: '',
-        locationText: '',
+        locationText: locationText,
         specialties: const [],
         primarySpecialty: '',
         rating: 0.0,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../main/main_screen.dart';
 import '../payment/payment_screen.dart';
 
 class BookingConfirmationScreen extends StatefulWidget {
@@ -127,7 +126,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                 child: Column(
                   children: [
                     Text(
-                      'Booking Confirmed!',
+                      'Request Sent!',
                       style: GoogleFonts.poppins(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
@@ -136,7 +135,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your session has been requested.\n${widget.photographerName} will confirm shortly.',
+                      'Your booking request has been sent to ${widget.photographerName}. They will confirm shortly.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
@@ -257,7 +256,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           ),
                         ),
                         child: Text(
-                          'Confirm Cash Payment',
+                          'Proceed to Payment',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -270,13 +269,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       width: double.infinity,
                       height: 52,
                       child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) => const MainScreen(),
-                              ),
-                              (route) => false,
-                            ),
+                        onPressed: () => Navigator.of(context).pop(),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFC62828),
                           side: const BorderSide(color: Color(0xFFC62828)),
@@ -285,7 +278,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           ),
                         ),
                         child: Text(
-                          'Back to Home',
+                          'Edit Details',
                           style: GoogleFonts.poppins(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,

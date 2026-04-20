@@ -22,7 +22,11 @@ class _BookingScreenState extends State<BookingScreen> {
   int _selectedTimeSlot = 2;
   int _selectedService = 0;
   bool _isSubmitting = false;
+  String _selectedEventType = 'Wedding';
   final _notesController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _venueController = TextEditingController();
 
   final List<String> _timeSlots = [
     '8:00 AM',
@@ -39,6 +43,9 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void dispose() {
     _notesController.dispose();
+    _countryController.dispose();
+    _cityController.dispose();
+    _venueController.dispose();
     super.dispose();
   }
 
@@ -200,49 +207,8 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // Date selection with calendar link
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _sectionTitle('Select Date'),
-                TextButton.icon(
-                  onPressed: () async {
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CalendarScreen(photographer: widget.photographer),
-                      ),
-                    );
-                    if (result != null && result is Map) {
-                      setState(() {
-                        _selectedDate = result['date'] as DateTime;
-                        _selectedTimeSlot = _timeSlots.indexOf(
-                          result['time'] as String,
-                        );
-                      });
-                    }
-                  },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  icon: const Icon(
-                    Icons.calendar_month_rounded,
-                    size: 16,
-                    color: Color(0xFFC62828),
-                  ),
-                  label: Text(
-                    'View Full Calendar',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFC62828),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // Package selection
+            _sectionTitle('Select Package'),
             const SizedBox(height: 12),
             ...List.generate(
               packages.length,
@@ -328,9 +294,59 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            // Calendar
-            _sectionTitle('Select Date'),
+            const SizedBox(height: 16),
+            // Selected package details card
+            if (packages.isNotEmpty) ...[
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                child: _buildSelectedPackageCard(
+                    packages[_selectedService.clamp(0, packages.length - 1)]),
+              ),
+              const SizedBox(height: 24),
+            ],
+            // Date section with calendar link
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _sectionTitle('Select Date'),
+                TextButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CalendarScreen(photographer: widget.photographer),
+                      ),
+                    );
+                    if (result != null && result is Map) {
+                      setState(() {
+                        _selectedDate = result['date'] as DateTime;
+                        _selectedTimeSlot = _timeSlots.indexOf(
+                          result['time'] as String,
+                        );
+                      });
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(
+                    Icons.calendar_month_rounded,
+                    size: 16,
+                    color: Color(0xFFC62828),
+                  ),
+                  label: Text(
+                    'View Full Calendar',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFC62828),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             _buildCalendar(),
             const SizedBox(height: 24),
@@ -389,7 +405,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
               child: DropdownButtonFormField<String>(
-                value: 'Wedding',
+                initialValue: _selectedEventType,
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
@@ -406,21 +422,44 @@ class _BookingScreenState extends State<BookingScreen> {
                   fontSize: 14,
                   color: const Color(0xFF1F2937),
                 ),
-                items:
-                    [
-                          'Wedding',
-                          'Portrait',
-                          'Event',
-                          'Commercial',
-                          'Fashion',
-                          'Product',
-                          'Other',
-                        ]
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                        .toList(),
-                onChanged: (_) {},
+                items: [
+                      'Wedding',
+                      'Portrait',
+                      'Event',
+                      'Commercial',
+                      'Fashion',
+                      'Product',
+                      'Other',
+                    ]
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _selectedEventType = v);
+                },
                 dropdownColor: Colors.white,
               ),
+            ),
+            const SizedBox(height: 24),
+            // Location
+            _sectionTitle('Location'),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _countryController,
+              hint: 'Country (e.g. Philippines)',
+              icon: Icons.public_rounded,
+            ),
+            const SizedBox(height: 8),
+            _buildTextField(
+              controller: _cityController,
+              hint: 'City / Municipality',
+              icon: Icons.location_city_rounded,
+            ),
+            const SizedBox(height: 8),
+            _buildTextField(
+              controller: _venueController,
+              hint: 'Full address or venue name',
+              icon: Icons.place_rounded,
+              maxLines: 2,
             ),
             const SizedBox(height: 24),
             // Notes
@@ -482,11 +521,16 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   ),
                   Text(
-                    'Free',
+                    packages.isNotEmpty
+                        ? _formatPrice(packages[
+                                _selectedService.clamp(
+                                    0, packages.length - 1)]
+                            .price)
+                        : 'Free',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF2E7D32),
+                      color: const Color(0xFFC62828),
                     ),
                   ),
                 ],
@@ -552,7 +596,7 @@ class _BookingScreenState extends State<BookingScreen> {
         packageDuration: pkg.duration,
         scheduledDate: _selectedDate,
         scheduledTime: _timeSlots[_selectedTimeSlot],
-        location: photographer.locationText,
+        location: _buildClientLocation(),
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -566,7 +610,7 @@ class _BookingScreenState extends State<BookingScreen> {
             builder: (_) => BookingConfirmationScreen(
               bookingId: bookingId,
               photographerName: photographer.name,
-              photographerLocation: photographer.locationText,
+              photographerLocation: _buildClientLocation(),
               date: _selectedDate,
               time: _timeSlots[_selectedTimeSlot],
               service: pkg.name,
@@ -587,6 +631,133 @@ class _BookingScreenState extends State<BookingScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  String _buildClientLocation() {
+    final parts = [
+      _countryController.text.trim(),
+      _cityController.text.trim(),
+      _venueController.text.trim(),
+    ].where((s) => s.isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
+  String _formatPrice(int price) {
+    if (price == 0) return 'Free';
+    final s = price.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return '₱${buf.toString()}';
+  }
+
+  Widget _buildSelectedPackageCard(dynamic pkg) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8F8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFCDD2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                pkg.name,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1A1A),
+                ),
+              ),
+              Text(
+                _formatPrice(pkg.price as int),
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFFC62828),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded,
+                  size: 13, color: Color(0xFF9E9E9E)),
+              const SizedBox(width: 4),
+              Text(
+                pkg.duration as String,
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: const Color(0xFF9E9E9E)),
+              ),
+            ],
+          ),
+          if ((pkg.features as List).isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Divider(color: Color(0xFFFFE0E0), height: 1),
+            const SizedBox(height: 8),
+            ...(pkg.features as List<String>).map(
+              (f) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_rounded,
+                        size: 13, color: Color(0xFFC62828)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        f,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: const Color(0xFF374151),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1F2937)),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: GoogleFonts.poppins(
+              fontSize: 13, color: const Color(0xFFBDBDBD)),
+          border: InputBorder.none,
+          prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
   }
 
   Widget _sectionTitle(String title) {

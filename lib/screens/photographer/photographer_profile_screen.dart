@@ -5,9 +5,11 @@ import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
 import '../../models/review_model.dart';
 import '../../models/service_package_model.dart';
+import '../../services/messaging_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../booking/booking_screen.dart';
+import '../messages/chat_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'manage_packages_screen.dart';
 import 'manage_portfolio_screen.dart';
@@ -29,6 +31,8 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   List<PortfolioItemModel> _portfolioItems = [];
   List<ReviewModel> _reviews = [];
   bool _isLoadingTabs = true;
+  bool _currentUserIsPhotographer = false;
+  bool _isOpeningChat = false;
 
   bool get _isOwnProfile =>
       FirebaseAuth.instance.currentUser?.uid == _photographer.uid;
@@ -40,6 +44,20 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     _tabController = TabController(length: 3, vsync: this);
     PhotographerService().incrementProfileView(_photographer.uid);
     _loadTabData();
+    _detectCurrentUserRole();
+  }
+
+  void _detectCurrentUserRole() {
+    final cached = UserService().cachedUser;
+    if (cached != null) {
+      _currentUserIsPhotographer = cached.isPhotographer;
+    } else {
+      UserService().fetchCurrentUser().then((user) {
+        if (mounted && user != null) {
+          setState(() => _currentUserIsPhotographer = user.isPhotographer);
+        }
+      });
+    }
   }
 
   Future<void> _loadTabData() async {
@@ -496,7 +514,11 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
           ),
         ],
       ),
-      child: _isOwnProfile ? _buildOwnProfileBar() : _buildBookNowBar(),
+      child: _isOwnProfile
+          ? _buildOwnProfileBar()
+          : _currentUserIsPhotographer
+              ? _buildPhotographerViewBar()
+              : _buildClientActionsBar(),
     );
   }
 
@@ -568,37 +590,50 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     );
   }
 
-  Widget _buildBookNowBar() {
+  Widget _buildPhotographerViewBar() {
+    return Center(
+      child: Text(
+        'Viewing as photographer',
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          color: const Color(0xFF9E9E9E),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClientActionsBar() {
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Starting from',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: const Color(0xFF9E9E9E),
-                ),
-              ),
-              Text(
-                _photographer.startingPrice.isNotEmpty
-                    ? _photographer.startingPrice
-                    : 'See packages',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFC62828),
-                ),
-              ),
-            ],
+        // Message button
+        OutlinedButton.icon(
+          onPressed: _isOpeningChat ? null : _openMessageThread,
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFFC62828)),
+            foregroundColor: const Color(0xFFC62828),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          icon: _isOpeningChat
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFC62828),
+                  ),
+                )
+              : const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+          label: Text(
+            'Message',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(width: 12),
+        // Book Now button
         Expanded(
-          flex: 2,
           child: ElevatedButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -614,17 +649,76 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: Text(
-              'Book Now',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Starting from',
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.white70,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _photographer.startingPrice.isNotEmpty
+                      ? _photographer.startingPrice
+                      : 'Book Now',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _openMessageThread() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    setState(() => _isOpeningChat = true);
+    try {
+      final user = UserService().cachedUser;
+      final myName = user?.name ??
+          FirebaseAuth.instance.currentUser?.displayName ??
+          'User';
+      final convId = await MessagingService().getOrCreateConversation(
+        myId: uid,
+        myName: myName,
+        myPhotoUrl: user?.photoUrl,
+        otherUserId: _photographer.uid,
+        otherUserName: _photographer.name,
+        otherUserPhotoUrl: _photographer.photoUrl,
+      );
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            conversationId: convId,
+            otherUserId: _photographer.uid,
+            otherUserName: _photographer.name,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Unable to open chat right now.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isOpeningChat = false);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -698,15 +792,62 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
       itemCount: _portfolioItems.length,
       itemBuilder: (context, index) {
         final item = _portfolioItems[index];
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: item.imageUrl.isNotEmpty
-              ? Image.network(
-                  item.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _portfolioPlaceholder(index),
-                )
-              : _portfolioPlaceholder(index),
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => PhotoViewerScreen(
+                items: _portfolioItems,
+                initialIndex: index,
+              ),
+            ));
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                item.imageUrl.isNotEmpty
+                    ? Image.network(
+                        item.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _portfolioPlaceholder(index),
+                      )
+                    : _portfolioPlaceholder(index),
+                if (item.caption != null && item.caption!.isNotEmpty)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.72),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: Text(
+                        item.caption!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -772,7 +913,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         final pkg = packages[index];
         final isPopular = pkg.isPopular;
         return Container(
-          margin: const EdgeInsets.only(bottom: 14),
+          margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -791,11 +932,12 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
             ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isPopular)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: const BoxDecoration(
                     color: Color(0xFFC62828),
                     borderRadius: BorderRadius.only(
@@ -816,101 +958,156 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              pkg.name,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1A1A1A),
-                              ),
-                            ),
-                            Text(
-                              pkg.duration,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: const Color(0xFF9E9E9E),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '\$${pkg.price}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFFC62828),
-                          ),
-                        ),
-                      ],
+                    // Package name as small-caps label
+                    Text(
+                      pkg.name.toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF9E9E9E),
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Price — very prominent
+                    Text(
+                      pkg.price == 0
+                          ? 'Free'
+                          : '₱${_formatPrice(pkg.price)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFFC62828),
+                        height: 1.1,
+                      ),
                     ),
                     const SizedBox(height: 12),
+                    // Duration chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.schedule_rounded,
+                            size: 14,
+                            color: Color(0xFF374151),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            pkg.duration,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF374151),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Color(0xFFF0F0F0), height: 1),
+                    const SizedBox(height: 14),
+                    // Features
                     ...pkg.features.map(
                       (f) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              color: Color(0xFFC62828),
-                              size: 16,
+                            Container(
+                              width: 18,
+                              height: 18,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFFEBEE),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check_rounded,
+                                size: 11,
+                                color: Color(0xFFC62828),
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              f,
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                color: const Color(0xFF374151),
+                            Expanded(
+                              child: Text(
+                                f,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
+                    // Select button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => BookingScreen(
-                              photographer: widget.photographer,
+                      child: isPopular
+                          ? ElevatedButton(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => BookingScreen(
+                                    photographer: widget.photographer,
+                                  ),
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFC62828),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Select ${pkg.name}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : OutlinedButton(
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => BookingScreen(
+                                    photographer: widget.photographer,
+                                  ),
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFC62828),
+                                side:
+                                    const BorderSide(color: Color(0xFFC62828)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Select ${pkg.name}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isPopular
-                              ? const Color(0xFFC62828)
-                              : Colors.white,
-                          foregroundColor: isPopular
-                              ? Colors.white
-                              : const Color(0xFFC62828),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: isPopular
-                                ? BorderSide.none
-                                : const BorderSide(color: Color(0xFFC62828)),
-                          ),
-                        ),
-                        child: Text(
-                          'Select Package',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -920,6 +1117,16 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         );
       },
     );
+  }
+
+  String _formatPrice(int price) {
+    final s = price.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   Widget _buildReviews() {
