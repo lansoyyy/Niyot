@@ -89,6 +89,10 @@ class BookingModel {
   final DateTime? rescheduledAt;
   final String? reviewId;
   final DateTime? reviewedAt;
+  final String? deliveryLink;
+  final String? deliveryNote;
+  final DateTime? deliveredAt;
+  final DateTime? expiresAt;
   final BookingStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -112,6 +116,10 @@ class BookingModel {
     this.rescheduledAt,
     this.reviewId,
     this.reviewedAt,
+    this.deliveryLink,
+    this.deliveryNote,
+    this.deliveredAt,
+    this.expiresAt,
     required this.status,
     required this.createdAt,
     this.updatedAt,
@@ -140,6 +148,11 @@ class BookingModel {
       status == BookingStatus.cancelled ||
       status == BookingStatus.declined;
 
+  bool get isActive =>
+      status == BookingStatus.inProgress ||
+      (status == BookingStatus.confirmed &&
+          !scheduledDate.isAfter(DateTime.now()));
+
   bool get hasReview => reviewId != null && reviewId!.isNotEmpty;
 
   Map<String, dynamic> toMap() => {
@@ -162,6 +175,10 @@ class BookingModel {
         : null,
     'reviewId': reviewId,
     'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
+    'deliveryLink': deliveryLink,
+    'deliveryNote': deliveryNote,
+    'deliveredAt': deliveredAt != null ? Timestamp.fromDate(deliveredAt!) : null,
+    'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
     'status': status.value,
     'createdAt': FieldValue.serverTimestamp(),
     'updatedAt': FieldValue.serverTimestamp(),
@@ -188,6 +205,10 @@ class BookingModel {
         rescheduledAt: (map['rescheduledAt'] as Timestamp?)?.toDate(),
         reviewId: map['reviewId'] as String?,
         reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
+        deliveryLink: map['deliveryLink'] as String?,
+        deliveryNote: map['deliveryNote'] as String?,
+        deliveredAt: (map['deliveredAt'] as Timestamp?)?.toDate(),
+        expiresAt: (map['expiresAt'] as Timestamp?)?.toDate(),
         status: BookingStatusX.fromValue(map['status'] as String? ?? ''),
         createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
@@ -201,6 +222,10 @@ class BookingModel {
     DateTime? rescheduledAt,
     String? reviewId,
     DateTime? reviewedAt,
+    String? deliveryLink,
+    String? deliveryNote,
+    DateTime? deliveredAt,
+    DateTime? expiresAt,
   }) => BookingModel(
     id: id,
     clientId: clientId,
@@ -220,6 +245,10 @@ class BookingModel {
     rescheduledAt: rescheduledAt ?? this.rescheduledAt,
     reviewId: reviewId ?? this.reviewId,
     reviewedAt: reviewedAt ?? this.reviewedAt,
+    deliveryLink: deliveryLink ?? this.deliveryLink,
+    deliveryNote: deliveryNote ?? this.deliveryNote,
+    deliveredAt: deliveredAt ?? this.deliveredAt,
+    expiresAt: expiresAt ?? this.expiresAt,
     status: status ?? this.status,
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,

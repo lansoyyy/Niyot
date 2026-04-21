@@ -68,6 +68,9 @@ class AuthService {
     await user.updateDisplayName(name.trim());
     if (photoUrl != null) await user.updatePhotoURL(photoUrl);
 
+    // Send email verification
+    await user.sendEmailVerification();
+
     final locationParts = [city, province, country]
         .where((s) => s != null && s.trim().isNotEmpty)
         .map((s) => s!.trim())

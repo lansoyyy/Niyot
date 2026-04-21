@@ -374,6 +374,37 @@ class BookingService {
     });
   }
 
+  // ─── Convenience Status Helpers ──────────────────────────────────────────
+
+  Future<void> acceptBooking(String bookingId) =>
+      updateStatus(bookingId, BookingStatus.confirmed);
+
+  Future<void> declineBooking(String bookingId) =>
+      updateStatus(bookingId, BookingStatus.declined);
+
+  Future<void> cancelBooking(String bookingId) =>
+      updateStatus(bookingId, BookingStatus.cancelled);
+
+  Future<void> markDelivered({
+    required String bookingId,
+    required String deliveryLink,
+    String? deliveryNote,
+  }) async {
+    await _firestore
+        .collection(FirebaseCollections.bookings)
+        .doc(bookingId)
+        .update({
+          'status': BookingStatus.inProgress.value,
+          'deliveryLink': deliveryLink.trim(),
+          'deliveryNote': deliveryNote?.trim(),
+          'deliveredAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> markCompleted(String bookingId) =>
+      updateStatus(bookingId, BookingStatus.completed);
+
   // ─── Update Status ────────────────────────────────────────────────────────
 
   Future<void> updateStatus(
