@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -73,24 +72,6 @@ class _ChatScreenState extends State<ChatScreen> {
     return '$displayHour:$minute $period';
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
-
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -110,7 +91,16 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _isPhotographer = UserService().cachedUser?.isPhotographer ?? false;
+    final cached = UserService().cachedUser;
+    if (cached != null) {
+      _isPhotographer = cached.isPhotographer;
+    } else {
+      UserService().fetchCurrentUser().then((user) {
+        if (mounted && user != null) {
+          setState(() => _isPhotographer = user.isPhotographer);
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final uid = _currentUser?.uid;
       if (uid != null) {
@@ -128,6 +118,104 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showCustomOfferDialog() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CustomOfferSheet(
+        onSend: (name, price, dateTime) async {
+          final uid = _currentUser?.uid;
+          if (uid == null) return;
+          final senderName = UserService().cachedUser?.name ??
+              _currentUser?.displayName ??
+              'Photographer';
+          setState(() => _isSending = true);
+          try {
+            await MessagingService().sendCustomOffer(
+              conversationId: widget.conversationId,
+              senderId: uid,
+              senderName: senderName,
+              offerName: name,
+              offerPrice: price,
+              offerDateTime: dateTime,
+            );
+            _scrollToBottom();
+          } finally {
+            if (mounted) setState(() => _isSending = false);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _respondToOffer(String messageId, String status) async {
+    final uid = _currentUser?.uid;
+    if (uid == null) return;
+
+    if (status == 'accepted') {
+      // Find the message to get offer details
+      final messages = await MessagingService()
+          .messagesStream(widget.conversationId)
+          .first;
+      final msg = messages.firstWhere((m) => m.id == messageId,
+          orElse: () => throw Exception('Message not found'));
+
+      final clientName = UserService().cachedUser?.name ??
+          _currentUser?.displayName ??
+          'Client';
+      final dateTime = msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
+      final booking = BookingModel(
+        id: '',
+        clientId: uid,
+        clientName: clientName,
+        clientPhotoUrl: UserService().cachedUser?.photoUrl,
+        photographerId: msg.senderId,
+        photographerName: widget.otherUserName,
+        photographerPhotoUrl: null,
+        packageName: msg.offerName ?? 'Custom Package',
+        packagePrice: msg.offerPrice ?? 0,
+        packageDuration: '',
+        scheduledDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
+        scheduledTime:
+            '${dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour}:'
+            '${dateTime.minute.toString().padLeft(2, '0')} '
+            '${dateTime.hour >= 12 ? 'PM' : 'AM'}',
+        location: '',
+        notes: 'Booked via custom offer in chat.',
+        status: BookingStatus.confirmed,
+        createdAt: DateTime.now(),
+      );
+      final bookingId = await BookingService().createDirectBooking(booking);
+      await MessagingService().updateOfferStatus(
+        conversationId: widget.conversationId,
+        messageId: messageId,
+        status: 'accepted',
+        bookingId: bookingId,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Offer accepted! Booking added to your upcoming.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } else {
+      await MessagingService().respondToOffer(
+        conversationId: widget.conversationId,
+        messageId: messageId,
+        status: status,
+      );
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -152,7 +240,9 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.clear();
       _scrollToBottom();
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
     }
   }
 
@@ -184,6 +274,7 @@ class _ChatScreenState extends State<ChatScreen> {
         fileName,
         File(pickedFile.path),
       );
+
       await MessagingService().sendMessage(
         conversationId: widget.conversationId,
         senderId: uid,
@@ -192,6 +283,7 @@ class _ChatScreenState extends State<ChatScreen> {
         mediaUrl: imageUrl,
         mediaType: 'image',
       );
+
       _messageController.clear();
       _scrollToBottom();
     } catch (_) {
@@ -208,313 +300,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _isSending = false);
-    }
-  }
-
-  Future<void> _showSendOfferDialog() async {
-    final uid = _currentUser?.uid;
-    if (uid == null) return;
-
-    final titleController = TextEditingController();
-    final durationController = TextEditingController();
-    final priceController = TextEditingController();
-    final locationController = TextEditingController();
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 3));
-    TimeOfDay selectedTime = const TimeOfDay(hour: 10, minute: 0);
-    final formKey = GlobalKey<FormState>();
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Send Custom Offer',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _OfferTextField(
-                      controller: titleController,
-                      label: 'Package / Service Name',
-                      hint: 'e.g. Wedding Package',
-                      icon: Icons.work_outline_rounded,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _OfferTextField(
-                      controller: durationController,
-                      label: 'Duration',
-                      hint: 'e.g. 4 hours',
-                      icon: Icons.schedule_rounded,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _OfferTextField(
-                      controller: priceController,
-                      label: 'Price (₱)',
-                      hint: 'e.g. 500',
-                      icon: Icons.payments_outlined,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
-                        if (int.tryParse(v.trim()) == null)
-                          return 'Enter a valid price';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _OfferTextField(
-                      controller: locationController,
-                      label: 'Location',
-                      hint: 'e.g. Manila, Metro Manila',
-                      icon: Icons.location_on_outlined,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    // Date picker
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365),
-                          ),
-                          builder: (context, child) => Theme(
-                            data: ThemeData.light().copyWith(
-                              colorScheme: const ColorScheme.light(
-                                primary: Color(0xFFC62828),
-                              ),
-                            ),
-                            child: child!,
-                          ),
-                        );
-                        if (picked != null) {
-                          setSheetState(() => selectedDate = picked);
-                        }
-                      },
-                      child: _OfferPickerTile(
-                        icon: Icons.calendar_today_rounded,
-                        label: 'Date',
-                        value: _formatDate(selectedDate),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Time picker
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: ctx,
-                          initialTime: selectedTime,
-                          builder: (context, child) => Theme(
-                            data: ThemeData.light().copyWith(
-                              colorScheme: const ColorScheme.light(
-                                primary: Color(0xFFC62828),
-                              ),
-                            ),
-                            child: child!,
-                          ),
-                        );
-                        if (picked != null) {
-                          setSheetState(() => selectedTime = picked);
-                        }
-                      },
-                      child: _OfferPickerTile(
-                        icon: Icons.access_time_rounded,
-                        label: 'Time',
-                        value: selectedTime.format(ctx),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (!formKey.currentState!.validate()) return;
-                          final senderName =
-                              UserService().cachedUser?.name ??
-                              _currentUser?.displayName ??
-                              'Photographer';
-                          final timeStr = selectedTime.format(ctx);
-                          Navigator.of(ctx).pop();
-                          setState(() => _isSending = true);
-                          try {
-                            await MessagingService().sendCustomOffer(
-                              conversationId: widget.conversationId,
-                              senderId: uid,
-                              senderName: senderName,
-                              offerData: {
-                                'title': titleController.text.trim(),
-                                'description': durationController.text.trim(),
-                                'price': int.parse(priceController.text.trim()),
-                                'date': selectedDate.toIso8601String(),
-                                'time': timeStr,
-                                'location': locationController.text.trim(),
-                                'photographerId': uid,
-                                'photographerName': senderName,
-                                'clientId': widget.otherUserId,
-                                'clientName': widget.otherUserName,
-                              },
-                            );
-                            _scrollToBottom();
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to send offer: $e'),
-                                backgroundColor: const Color(0xFFC62828),
-                              ),
-                            );
-                          } finally {
-                            if (mounted) setState(() => _isSending = false);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFC62828),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          'Send Offer',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    titleController.dispose();
-    durationController.dispose();
-    priceController.dispose();
-    locationController.dispose();
-  }
-
-  Future<void> _acceptOffer(MessageModel message) async {
-    final uid = _currentUser?.uid;
-    if (uid == null) return;
-
-    final offerData = message.offerData!;
-    setState(() => _isSending = true);
-    try {
-      // Create confirmed booking
-      final clientName =
-          UserService().cachedUser?.name ??
-          _currentUser?.displayName ??
-          offerData['clientName'] as String? ??
-          'Client';
-      final booking = BookingModel(
-        id: '',
-        clientId: uid,
-        clientName: clientName,
-        clientPhotoUrl: UserService().cachedUser?.photoUrl,
-        photographerId: offerData['photographerId'] as String? ?? '',
-        photographerName: offerData['photographerName'] as String? ?? '',
-        photographerPhotoUrl: null,
-        packageName: offerData['title'] as String? ?? 'Custom Package',
-        packagePrice: (offerData['price'] as num?)?.toInt() ?? 0,
-        packageDuration: offerData['description'] as String? ?? '',
-        scheduledDate:
-            DateTime.tryParse(offerData['date'] as String? ?? '') ??
-            DateTime.now().add(const Duration(days: 1)),
-        scheduledTime: offerData['time'] as String? ?? '',
-        location: offerData['location'] as String? ?? '',
-        notes: 'Booked via custom offer in chat.',
-        status: BookingStatus.confirmed,
-        createdAt: DateTime.now(),
-      );
-
-      final bookingId = await BookingService().createDirectBooking(booking);
-      await MessagingService().updateOfferStatus(
-        conversationId: widget.conversationId,
-        messageId: message.id,
-        status: 'accepted',
-        bookingId: bookingId,
-      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Offer accepted! Booking added to your upcoming.',
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-            backgroundColor: const Color(0xFF2E7D32),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        setState(() => _isSending = false);
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to accept offer: $e'),
-            backgroundColor: const Color(0xFFC62828),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSending = false);
     }
-  }
-
-  Future<void> _declineOffer(MessageModel message) async {
-    await MessagingService().updateOfferStatus(
-      conversationId: widget.conversationId,
-      messageId: message.id,
-      status: 'declined',
-    );
   }
 
   @override
@@ -657,13 +446,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           ),
                         if (message.isCustomOffer)
-                          _OfferBubble(
+                          _OfferCard(
                             message: message,
                             isMe: isMe,
-                            isClient: !_isPhotographer,
-                            time: _formatTime(message.timestamp),
-                            onAccept: () => _acceptOffer(message),
-                            onDecline: () => _declineOffer(message),
+                            canRespond: !isMe && message.isOfferPending,
+                            onAccept: () =>
+                                _respondToOffer(message.id, 'accepted'),
+                            onDecline: () =>
+                                _respondToOffer(message.id, 'declined'),
                           )
                         else
                           _MessageBubble(
@@ -694,17 +484,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     size: 22,
                   ),
                 ),
-                if (_isPhotographer) ...[
+                if (_isPhotographer)
                   IconButton(
-                    onPressed: _isSending ? null : _showSendOfferDialog,
+                    onPressed: _isSending ? null : _showCustomOfferDialog,
+                    tooltip: 'Send custom offer',
                     icon: const Icon(
-                      Icons.assignment_outlined,
+                      Icons.local_offer_rounded,
                       color: Color(0xFFC62828),
                       size: 22,
                     ),
-                    tooltip: 'Send Custom Offer',
                   ),
-                ],
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -769,14 +558,17 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
 
   String _dayLabel(DateTime date) {
     final now = DateTime.now();
     if (_isSameDay(date, now)) return 'Today';
-    if (_isSameDay(date, now.subtract(const Duration(days: 1))))
+    if (_isSameDay(date, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday';
+    }
+
     const months = [
       'Jan',
       'Feb',
@@ -795,97 +587,92 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// ─── Offer Bubble ─────────────────────────────────────────────────────────────
-
-class _OfferBubble extends StatelessWidget {
-  const _OfferBubble({
+class _OfferCard extends StatelessWidget {
+  const _OfferCard({
     required this.message,
     required this.isMe,
-    required this.isClient,
-    required this.time,
+    required this.canRespond,
     required this.onAccept,
     required this.onDecline,
   });
 
   final MessageModel message;
   final bool isMe;
-  final bool isClient;
-  final String time;
+  final bool canRespond;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
-  String _formatOfferDate(String? isoDate) {
-    if (isoDate == null) return '';
-    final date = DateTime.tryParse(isoDate);
-    if (date == null) return isoDate;
+  String _formatOfferDate(DateTime dt) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    final hour = dt.hour;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}  •  $displayHour:$minute $period';
   }
 
   @override
   Widget build(BuildContext context) {
-    final offer = message.offerData ?? {};
-    final status = message.offerStatus ?? 'pending';
-    final isPending = status == 'pending';
-    final isAccepted = status == 'accepted';
+    final status = message.offerStatus;
+    final expired = message.isOfferExpired;
+    Color statusColor;
+    String statusLabel;
+    if (status == 'accepted') {
+      statusColor = const Color(0xFF2E7D32);
+      statusLabel = 'Accepted';
+    } else if (status == 'declined') {
+      statusColor = const Color(0xFFC62828);
+      statusLabel = 'Declined';
+    } else if (expired) {
+      statusColor = const Color(0xFF9E9E9E);
+      statusLabel = 'Expired';
+    } else {
+      statusColor = const Color(0xFFFF8F00);
+      statusLabel = 'Pending';
+    }
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.82,
         ),
-        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isAccepted
-                ? const Color(0xFF2E7D32)
-                : isPending
-                ? const Color(0xFFC62828)
-                : const Color(0xFFE5E7EB),
-            width: isPending || isAccepted ? 1.5 : 1,
-          ),
-          boxShadow: const [
+          border: Border.all(color: const Color(0xFFFFCDD2), width: 1.5),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x0A000000),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6B0000), Color(0xFFC62828)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
               ),
               child: Row(
                 children: [
                   const Icon(
-                    Icons.assignment_rounded,
-                    color: Color(0xFFC62828),
-                    size: 18,
+                    Icons.local_offer_rounded,
+                    color: Colors.white,
+                    size: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -893,100 +680,93 @@ class _OfferBubble extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFFC62828),
+                      color: Colors.white,
                     ),
                   ),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
+                      horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isAccepted
-                          ? const Color(0xFFE8F5E9)
-                          : isPending
-                          ? const Color(0xFFFFF3E0)
-                          : const Color(0xFFFFEBEE),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      isAccepted
-                          ? 'Accepted'
-                          : isPending
-                          ? 'Pending'
-                          : 'Declined',
+                      statusLabel,
                       style: GoogleFonts.poppins(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: isAccepted
-                            ? const Color(0xFF2E7D32)
-                            : isPending
-                            ? const Color(0xFFFF8F00)
-                            : const Color(0xFFC62828),
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            // Offer details
+            // Body
             Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    offer['title'] as String? ?? 'Custom Package',
+                    message.offerName ?? '',
                     style: GoogleFonts.poppins(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF1A1A1A),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  _OfferDetailRow(
-                    icon: Icons.schedule_rounded,
-                    text: offer['description'] as String? ?? '',
+                  const SizedBox(height: 4),
+                  Text(
+                    '\$${message.offerPrice ?? 0}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFC62828),
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  _OfferDetailRow(
-                    icon: Icons.calendar_today_rounded,
-                    text: _formatOfferDate(offer['date'] as String?),
-                  ),
-                  const SizedBox(height: 6),
-                  _OfferDetailRow(
-                    icon: Icons.access_time_rounded,
-                    text: offer['time'] as String? ?? '',
-                  ),
-                  const SizedBox(height: 6),
-                  _OfferDetailRow(
-                    icon: Icons.location_on_rounded,
-                    text: offer['location'] as String? ?? '',
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: const Color(0xFF6B7280),
+                  if (message.offerDateTime != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 13,
+                          color: Color(0xFF9E9E9E),
                         ),
-                      ),
-                      Text(
-                        '₱${offer['price'] ?? 0}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFC62828),
+                        const SizedBox(width: 5),
+                        Text(
+                          _formatOfferDate(message.offerDateTime!),
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF7A7A7A),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // Accept/Decline buttons - only for client and only when pending
-                  if (isClient && isPending) ...[
+                      ],
+                    ),
+                  ],
+                  if (message.offerExpiresAt != null && status == null && !expired) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.timer_outlined,
+                          size: 13,
+                          color: Color(0xFFFF8F00),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Expires in 24 hours',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: const Color(0xFFFF8F00),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (canRespond) ...[
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -994,7 +774,9 @@ class _OfferBubble extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: onDecline,
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFFE5E7EB)),
+                              side: const BorderSide(
+                                  color: Color(0xFFBDBDBD)),
+                              foregroundColor: const Color(0xFF6B7280),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -1005,7 +787,6 @@ class _OfferBubble extends StatelessWidget {
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFF6B7280),
                               ),
                             ),
                           ),
@@ -1017,8 +798,8 @@ class _OfferBubble extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFC62828),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
                               elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -1035,17 +816,25 @@ class _OfferBubble extends StatelessWidget {
                       ],
                     ),
                   ],
+                  if (status != null || expired)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Center(
+                        child: Text(
+                          status == 'accepted'
+                              ? 'You accepted this offer'
+                              : status == 'declined'
+                                  ? 'You declined this offer'
+                                  : 'This offer has expired',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: statusColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-              child: Text(
-                time,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: const Color(0xFFBDBDBD),
-                ),
               ),
             ),
           ],
@@ -1055,148 +844,291 @@ class _OfferBubble extends StatelessWidget {
   }
 }
 
-class _OfferDetailRow extends StatelessWidget {
-  const _OfferDetailRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
+class _CustomOfferSheet extends StatefulWidget {
+  const _CustomOfferSheet({required this.onSend});
+
+  final Future<void> Function(String name, int price, DateTime dateTime) onSend;
+
+  @override
+  State<_CustomOfferSheet> createState() => _CustomOfferSheetState();
+}
+
+class _CustomOfferSheetState extends State<_CustomOfferSheet> {
+  final _nameController = TextEditingController();
+  final _priceController = TextEditingController();
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 10, minute: 0);
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: ThemeData(
+          colorScheme: const ColorScheme.light(primary: Color(0xFFC62828)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      builder: (ctx, child) => Theme(
+        data: ThemeData(
+          colorScheme: const ColorScheme.light(primary: Color(0xFFC62828)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final priceText = _priceController.text.trim();
+    if (name.isEmpty || priceText.isEmpty) return;
+    final price = int.tryParse(priceText);
+    if (price == null || price <= 0) return;
+
+    final dt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
+    setState(() => _isSending = true);
+    await widget.onSend(name, price, dt);
+    if (mounted) Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFF9E9E9E)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: const Color(0xFF374151),
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            Text(
+              'Send Custom Offer',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Client will see this as a card with Accept / Decline options.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: const Color(0xFF9E9E9E),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _sheetLabel('Offer Name'),
+            const SizedBox(height: 8),
+            _sheetField(
+              controller: _nameController,
+              hint: 'e.g. Wedding Premium Package',
+              icon: Icons.title_rounded,
+            ),
+            const SizedBox(height: 16),
+            _sheetLabel('Price (\$)'),
+            const SizedBox(height: 8),
+            _sheetField(
+              controller: _priceController,
+              hint: '500',
+              icon: Icons.attach_money_rounded,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            _sheetLabel('Date & Time'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _pickDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: Color(0xFF9E9E9E),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatDate(_selectedDate),
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: _pickTime,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 18,
+                          color: Color(0xFF9E9E9E),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _selectedTime.format(context),
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isSending ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFC62828),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _isSending
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Send Offer',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
-}
 
-// ─── Offer Form Helpers ────────────────────────────────────────────────────────
-
-class _OfferTextField extends StatelessWidget {
-  const _OfferTextField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.icon,
-    this.keyboardType,
-    this.inputFormatters,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final IconData icon;
-  final TextInputType? keyboardType;
-  final List<TextInputFormatter>? inputFormatters;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      validator: validator,
-      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1A1A1A)),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        labelStyle: GoogleFonts.poppins(
-          fontSize: 12,
-          color: const Color(0xFF6B7280),
-        ),
-        hintStyle: GoogleFonts.poppins(
+  Widget _sheetLabel(String text) => Text(
+        text,
+        style: GoogleFonts.poppins(
           fontSize: 13,
-          color: const Color(0xFFBDBDBD),
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF374151),
         ),
-        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF9E9E9E)),
-        filled: true,
-        fillColor: const Color(0xFFF8F8F8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFC62828)),
-        ),
-      ),
-    );
-  }
-}
+      );
 
-class _OfferPickerTile extends StatelessWidget {
-  const _OfferPickerTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: const Color(0xFF9E9E9E)),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-            ],
+  Widget _sheetField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) =>
+      Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: GoogleFonts.poppins(
+              fontSize: 14, color: const Color(0xFF1F2937)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.poppins(
+                fontSize: 14, color: const Color(0xFFBDBDBD)),
+            prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 14),
           ),
-          const Spacer(),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFF9E9E9E),
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
 }
-
-// ─── Regular Message Bubble ────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({

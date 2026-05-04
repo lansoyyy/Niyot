@@ -172,97 +172,6 @@ class MessagingService {
     await batch.commit();
   }
 
-  // ─── Custom Offers ────────────────────────────────────────────────────────
-
-  Future<void> sendCustomOffer({
-    required String conversationId,
-    required String senderId,
-    required String senderName,
-    required Map<String, dynamic> offerData,
-  }) async {
-    final batch = _firestore.batch();
-
-    final msgRef = _firestore
-        .collection(FirebaseCollections.conversations)
-        .doc(conversationId)
-        .collection(FirebaseCollections.messages)
-        .doc();
-
-    batch.set(msgRef, {
-      'senderId': senderId,
-      'text': '',
-      'mediaUrl': null,
-      'mediaType': null,
-      'type': 'custom_offer',
-      'offerData': offerData,
-      'offerStatus': 'pending',
-      'timestamp': FieldValue.serverTimestamp(),
-      'isRead': false,
-    });
-
-    final convRef = _firestore
-        .collection(FirebaseCollections.conversations)
-        .doc(conversationId);
-
-    final convDoc = await convRef.get();
-    if (convDoc.exists) {
-      final data = convDoc.data()!;
-      final participants = List<String>.from(
-        data['participantIds'] as List? ?? [],
-      );
-      final currentUnread = Map<String, int>.from(
-        (data['unreadCounts'] as Map? ?? {}).map(
-          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
-        ),
-      );
-
-      for (final pid in participants) {
-        if (pid != senderId) {
-          currentUnread[pid] = (currentUnread[pid] ?? 0) + 1;
-        }
-      }
-
-      batch.update(convRef, {
-        'lastMessage': '📋 Custom Offer',
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'unreadCounts': currentUnread,
-      });
-
-      for (final pid in participants) {
-        if (pid != senderId) {
-          await NotificationService().createNewMessageNotification(
-            recipientId: pid,
-            senderName: senderName,
-            conversationId: conversationId,
-            messagePreview: 'Sent you a custom offer',
-          );
-        }
-      }
-    }
-
-    await batch.commit();
-    return;
-  }
-
-  Future<void> updateOfferStatus({
-    required String conversationId,
-    required String messageId,
-    required String status, // 'accepted' | 'declined'
-    String? bookingId,
-  }) async {
-    final msgRef = _firestore
-        .collection(FirebaseCollections.conversations)
-        .doc(conversationId)
-        .collection(FirebaseCollections.messages)
-        .doc(messageId);
-
-    final updateData = <String, dynamic>{'offerStatus': status};
-    if (bookingId != null) {
-      updateData['offerData.bookingId'] = bookingId;
-    }
-    await msgRef.update(updateData);
-  }
-
   // ─── Read Receipts ────────────────────────────────────────────────────────
 
   Future<void> markConversationRead(
@@ -305,6 +214,114 @@ class MessagingService {
         }
         return total;
       });
+
+  // ─── Custom Offers ────────────────────────────────────────────────────────
+
+  /// Sends a custom offer message. Only photographers should call this.
+  Future<void> sendCustomOffer({
+    required String conversationId,
+    required String senderId,
+    required String senderName,
+    required String offerName,
+    required int offerPrice,
+    required DateTime offerDateTime,
+  }) async {
+    final expiresAt = DateTime.now().add(const Duration(hours: 24));
+    final preview = 'Custom offer: $offerName – \$$offerPrice';
+
+    final batch = _firestore.batch();
+
+    final msgRef = _firestore
+        .collection(FirebaseCollections.conversations)
+        .doc(conversationId)
+        .collection(FirebaseCollections.messages)
+        .doc();
+
+    batch.set(msgRef, {
+      'senderId': senderId,
+      'text': preview,
+      'mediaType': 'custom_offer',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+      'offerName': offerName,
+      'offerPrice': offerPrice,
+      'offerDateTime': Timestamp.fromDate(offerDateTime),
+      'offerExpiresAt': Timestamp.fromDate(expiresAt),
+    });
+
+    final convRef = _firestore
+        .collection(FirebaseCollections.conversations)
+        .doc(conversationId);
+
+    final convDoc = await convRef.get();
+    if (convDoc.exists) {
+      final data = convDoc.data()!;
+      final participants = List<String>.from(
+        data['participantIds'] as List? ?? [],
+      );
+      final currentUnread = Map<String, int>.from(
+        (data['unreadCounts'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), (v as num).toInt()),
+        ),
+      );
+      for (final pid in participants) {
+        if (pid != senderId) {
+          currentUnread[pid] = (currentUnread[pid] ?? 0) + 1;
+        }
+      }
+      batch.update(convRef, {
+        'lastMessage': preview,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'unreadCounts': currentUnread,
+      });
+      for (final pid in participants) {
+        if (pid != senderId) {
+          await NotificationService().createNewMessageNotification(
+            recipientId: pid,
+            senderName: senderName,
+            conversationId: conversationId,
+            messagePreview: preview,
+          );
+        }
+      }
+    }
+
+    await batch.commit();
+  }
+
+  /// Accepts or declines a custom offer. Only the non-sender (client) calls this.
+  Future<void> respondToOffer({
+    required String conversationId,
+    required String messageId,
+    required String status, // 'accepted' | 'declined'
+  }) async {
+    await _firestore
+        .collection(FirebaseCollections.conversations)
+        .doc(conversationId)
+        .collection(FirebaseCollections.messages)
+        .doc(messageId)
+        .update({'offerStatus': status});
+  }
+
+  /// Updates offer status and optionally links a bookingId.
+  Future<void> updateOfferStatus({
+    required String conversationId,
+    required String messageId,
+    required String status,
+    String? bookingId,
+  }) async {
+    final msgRef = _firestore
+        .collection(FirebaseCollections.conversations)
+        .doc(conversationId)
+        .collection(FirebaseCollections.messages)
+        .doc(messageId);
+
+    final updateData = <String, dynamic>{'offerStatus': status};
+    if (bookingId != null) {
+      updateData['bookingId'] = bookingId;
+    }
+    await msgRef.update(updateData);
+  }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 

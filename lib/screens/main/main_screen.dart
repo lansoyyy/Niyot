@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
 import '../home/home_screen.dart';
+import '../home/photographer_dashboard_screen.dart';
 import '../explore/explore_screen.dart';
 import '../bookings/my_bookings_screen.dart';
-import '../bookings/photographer_bookings_screen.dart';
 import '../messages/messages_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -21,22 +21,34 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-  late final List<Widget> _screens;
+  bool _isPhotographer = false;
 
   @override
   void initState() {
     super.initState();
-    final isPhotographer = UserService().cachedUser?.isPhotographer ?? false;
-    _screens = [
-      const HomeScreen(),
-      const ExploreScreen(),
-      isPhotographer
-          ? const PhotographerBookingsScreen()
-          : const MyBookingsScreen(),
-      const MessagesScreen(),
-      const SettingsScreen(),
-    ];
+    _detectRole();
   }
+
+  void _detectRole() {
+    final cached = UserService().cachedUser;
+    if (cached != null) {
+      _isPhotographer = cached.isPhotographer;
+    } else {
+      UserService().fetchCurrentUser().then((user) {
+        if (mounted && user != null) {
+          setState(() => _isPhotographer = user.isPhotographer);
+        }
+      });
+    }
+  }
+
+  List<Widget> get _screens => [
+    _isPhotographer ? const PhotographerDashboardScreen() : const HomeScreen(),
+    const ExploreScreen(),
+    const MyBookingsScreen(),
+    const MessagesScreen(),
+    const SettingsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {

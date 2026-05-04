@@ -21,6 +21,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _provinceController = TextEditingController();
   final _authService = AuthService();
 
   bool _obscurePassword = true;
@@ -52,6 +55,9 @@ class _RegisterScreenState extends State<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _countryController.dispose();
+    _cityController.dispose();
+    _provinceController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -101,6 +107,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         name: _nameController.text,
         role: _selectedRole == 0 ? 'photographer' : 'client',
         profileImage: _profileImage,
+        country: _countryController.text.trim(),
+        city: _cityController.text.trim(),
+        province: _selectedRole == 0 ? _provinceController.text.trim() : null,
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -333,6 +342,40 @@ class _RegisterScreenState extends State<RegisterScreen>
                       return null;
                     },
                   ),
+                  const SizedBox(height: 18),
+                  _buildLabel('Country'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _countryController,
+                    hint: 'Philippines',
+                    icon: Icons.flag_outlined,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Country is required';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel('City'),
+                  const SizedBox(height: 8),
+                  _buildFormField(
+                    controller: _cityController,
+                    hint: 'Manila',
+                    icon: Icons.location_city_outlined,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'City is required';
+                      return null;
+                    },
+                  ),
+                  if (_selectedRole == 0) ...[
+                    const SizedBox(height: 18),
+                    _buildLabel('Province / State'),
+                    const SizedBox(height: 8),
+                    _buildFormField(
+                      controller: _provinceController,
+                      hint: 'Metro Manila',
+                      icon: Icons.map_outlined,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   // Terms
                   Row(
