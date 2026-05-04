@@ -73,8 +73,7 @@ class MessageModel {
         type: map['type'] as String? ?? 'text',
         offerData: map['offerData'] as Map<String, dynamic>?,
         offerStatus: map['offerStatus'] as String?,
-        timestamp:
-            (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
         isRead: map['isRead'] as bool? ?? false,
         offerName: map['offerName'] as String?,
         offerPrice: (map['offerPrice'] as num?)?.toInt(),
@@ -83,19 +82,19 @@ class MessageModel {
       );
 
   MessageModel copyWith({String? offerStatus}) => MessageModel(
-        id: id,
-        senderId: senderId,
-        text: text,
-        mediaUrl: mediaUrl,
-        mediaType: mediaType,
-        type: type,
-        offerData: offerData,
-        offerStatus: offerStatus ?? this.offerStatus,
-        timestamp: timestamp,
-        isRead: isRead,
-        offerName: offerName,
-        offerPrice: offerPrice,
-        offerDateTime: offerDateTime,
-        offerExpiresAt: offerExpiresAt,
-      );
+    id: id,
+    senderId: senderId,
+    text: text,
+    mediaUrl: mediaUrl,
+    mediaType: mediaType,
+    type: type,
+    offerData: offerData,
+    offerStatus: offerStatus ?? this.offerStatus,
+    timestamp: timestamp,
+    isRead: isRead,
+    offerName: offerName,
+    offerPrice: offerPrice,
+    offerDateTime: offerDateTime,
+    offerExpiresAt: offerExpiresAt,
+  );
 }

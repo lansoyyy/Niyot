@@ -336,15 +336,24 @@ class _BookingCardState extends State<_BookingCard> {
       [Color(0xFFBF360C), Color(0xFFE64A19)],
       [Color(0xFF4A148C), Color(0xFF7B1FA2)],
     ];
-    final index =
-        id.codeUnits.fold<int>(0, (sum, c) => sum + c) % pairs.length;
+    final index = id.codeUnits.fold<int>(0, (sum, c) => sum + c) % pairs.length;
     return pairs[index].cast<Color>();
   }
 
   String _formatDate(DateTime d) {
     const m = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${m[d.month - 1]} ${d.day}';
   }
@@ -558,9 +567,7 @@ class _BookingCardState extends State<_BookingCard> {
                           child: OutlinedButton(
                             onPressed: _isLoading ? null : _decline,
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: Color(0xFFC62828),
-                              ),
+                              side: const BorderSide(color: Color(0xFFC62828)),
                               foregroundColor: const Color(0xFFC62828),
                               padding: const EdgeInsets.symmetric(vertical: 9),
                               shape: RoundedRectangleBorder(

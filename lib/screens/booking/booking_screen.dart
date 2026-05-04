@@ -300,7 +300,8 @@ class _BookingScreenState extends State<BookingScreen> {
               AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 child: _buildSelectedPackageCard(
-                    packages[_selectedService.clamp(0, packages.length - 1)]),
+                  packages[_selectedService.clamp(0, packages.length - 1)],
+                ),
               ),
               const SizedBox(height: 24),
             ],
@@ -422,17 +423,18 @@ class _BookingScreenState extends State<BookingScreen> {
                   fontSize: 14,
                   color: const Color(0xFF1F2937),
                 ),
-                items: [
-                      'Wedding',
-                      'Portrait',
-                      'Event',
-                      'Commercial',
-                      'Fashion',
-                      'Product',
-                      'Other',
-                    ]
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                    .toList(),
+                items:
+                    [
+                          'Wedding',
+                          'Portrait',
+                          'Event',
+                          'Commercial',
+                          'Fashion',
+                          'Product',
+                          'Other',
+                        ]
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
                 onChanged: (v) {
                   if (v != null) setState(() => _selectedEventType = v);
                 },
@@ -522,10 +524,13 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                   Text(
                     packages.isNotEmpty
-                        ? _formatPrice(packages[
-                                _selectedService.clamp(
-                                    0, packages.length - 1)]
-                            .price)
+                        ? _formatPrice(
+                            packages[_selectedService.clamp(
+                                  0,
+                                  packages.length - 1,
+                                )]
+                                .price,
+                          )
                         : '—',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
@@ -712,13 +717,18 @@ class _BookingScreenState extends State<BookingScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.schedule_rounded,
-                  size: 13, color: Color(0xFF9E9E9E)),
+              const Icon(
+                Icons.schedule_rounded,
+                size: 13,
+                color: Color(0xFF9E9E9E),
+              ),
               const SizedBox(width: 4),
               Text(
                 pkg.duration as String,
                 style: GoogleFonts.poppins(
-                    fontSize: 12, color: const Color(0xFF9E9E9E)),
+                  fontSize: 12,
+                  color: const Color(0xFF9E9E9E),
+                ),
               ),
             ],
           ),
@@ -732,8 +742,11 @@ class _BookingScreenState extends State<BookingScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_rounded,
-                        size: 13, color: Color(0xFFC62828)),
+                    const Icon(
+                      Icons.check_rounded,
+                      size: 13,
+                      color: Color(0xFFC62828),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -769,15 +782,22 @@ class _BookingScreenState extends State<BookingScreen> {
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1F2937)),
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: const Color(0xFF1F2937),
+        ),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.poppins(
-              fontSize: 13, color: const Color(0xFFBDBDBD)),
+            fontSize: 13,
+            color: const Color(0xFFBDBDBD),
+          ),
           border: InputBorder.none,
           prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
         ),
       ),
     );

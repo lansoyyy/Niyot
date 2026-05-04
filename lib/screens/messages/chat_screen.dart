@@ -129,7 +129,8 @@ class _ChatScreenState extends State<ChatScreen> {
         onSend: (name, price, dateTime) async {
           final uid = _currentUser?.uid;
           if (uid == null) return;
-          final senderName = UserService().cachedUser?.name ??
+          final senderName =
+              UserService().cachedUser?.name ??
               _currentUser?.displayName ??
               'Photographer';
           setState(() => _isSending = true);
@@ -160,13 +161,17 @@ class _ChatScreenState extends State<ChatScreen> {
       final messages = await MessagingService()
           .messagesStream(widget.conversationId)
           .first;
-      final msg = messages.firstWhere((m) => m.id == messageId,
-          orElse: () => throw Exception('Message not found'));
+      final msg = messages.firstWhere(
+        (m) => m.id == messageId,
+        orElse: () => throw Exception('Message not found'),
+      );
 
-      final clientName = UserService().cachedUser?.name ??
+      final clientName =
+          UserService().cachedUser?.name ??
           _currentUser?.displayName ??
           'Client';
-      final dateTime = msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
+      final dateTime =
+          msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
       final booking = BookingModel(
         id: '',
         clientId: uid,
@@ -205,7 +210,8 @@ class _ChatScreenState extends State<ChatScreen> {
             backgroundColor: const Color(0xFF2E7D32),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -604,8 +610,18 @@ class _OfferCard extends StatelessWidget {
 
   String _formatOfferDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour = dt.hour;
     final period = hour >= 12 ? 'PM' : 'AM';
@@ -686,7 +702,9 @@ class _OfferCard extends StatelessWidget {
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -746,7 +764,9 @@ class _OfferCard extends StatelessWidget {
                       ],
                     ),
                   ],
-                  if (message.offerExpiresAt != null && status == null && !expired) ...[
+                  if (message.offerExpiresAt != null &&
+                      status == null &&
+                      !expired) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -774,8 +794,7 @@ class _OfferCard extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: onDecline,
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                  color: Color(0xFFBDBDBD)),
+                              side: const BorderSide(color: Color(0xFFBDBDBD)),
                               foregroundColor: const Color(0xFF6B7280),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
@@ -824,8 +843,8 @@ class _OfferCard extends StatelessWidget {
                           status == 'accepted'
                               ? 'You accepted this offer'
                               : status == 'declined'
-                                  ? 'You declined this offer'
-                                  : 'This offer has expired',
+                              ? 'You declined this offer'
+                              : 'This offer has expired',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             color: statusColor,
@@ -869,8 +888,18 @@ class _CustomOfferSheetState extends State<_CustomOfferSheet> {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -995,7 +1024,9 @@ class _CustomOfferSheetState extends State<_CustomOfferSheet> {
                     onTap: _pickDate,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFAFAFA),
                         borderRadius: BorderRadius.circular(12),
@@ -1026,7 +1057,9 @@ class _CustomOfferSheetState extends State<_CustomOfferSheet> {
                   onTap: _pickTime,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 14),
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAFAFA),
                       borderRadius: BorderRadius.circular(12),
@@ -1092,42 +1125,44 @@ class _CustomOfferSheetState extends State<_CustomOfferSheet> {
   }
 
   Widget _sheetLabel(String text) => Text(
-        text,
-        style: GoogleFonts.poppins(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF374151),
-        ),
-      );
+    text,
+    style: GoogleFonts.poppins(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFF374151),
+    ),
+  );
 
   Widget _sheetField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
     TextInputType? keyboardType,
-  }) =>
-      Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+  }) => Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFFFAFAFA),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE5E7EB)),
+    ),
+    child: TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1F2937)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.poppins(
+          fontSize: 14,
+          color: const Color(0xFFBDBDBD),
         ),
-        child: TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: GoogleFonts.poppins(
-              fontSize: 14, color: const Color(0xFF1F2937)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.poppins(
-                fontSize: 14, color: const Color(0xFFBDBDBD)),
-            prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 14),
-          ),
+        prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _MessageBubble extends StatelessWidget {
