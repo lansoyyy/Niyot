@@ -1,12 +1,7 @@
-import 'dart:io';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../core/firebase_constants.dart';
-import '../../models/verification_submission_model.dart';
-import '../../services/user_service.dart';
 import '../../services/verification_service.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -17,144 +12,38 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _idController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _picker = ImagePicker();
-  final Map<String, File> _selectedDocuments = {};
+  bool _isSending = false;
+  bool _isChecking = false;
+  bool _emailSent = false;
 
-  bool _isSubmitting = false;
-  bool _didPrefill = false;
-
+  User? get _firebaseUser => FirebaseAuth.instance.currentUser;
   String get _currentUid => VerificationService().currentUserId;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    final user = await UserService().fetchCurrentUser();
-    if (!mounted) return;
-    if (_nameController.text.trim().isEmpty) {
-      _nameController.text = user?.name ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _idController.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDocument(String type) async {
-    final file = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
-
-    setState(() {
-      _selectedDocuments[type] = File(file.path);
-    });
-  }
-
-  String _maskId(String value) {
-    if (value.length <= 4) return value;
-    final visible = value.substring(value.length - 4);
-    return '••••$visible';
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case VerificationStatuses.verified:
-        return const Color(0xFF2E7D32);
-      case VerificationStatuses.pending:
-        return const Color(0xFFFF8F00);
-      case VerificationStatuses.rejected:
-        return const Color(0xFFC62828);
-      default:
-        return const Color(0xFF6B7280);
-    }
-  }
-
-  Color _statusBg(String status) {
-    switch (status) {
-      case VerificationStatuses.verified:
-        return const Color(0xFFE8F5E9);
-      case VerificationStatuses.pending:
-        return const Color(0xFFFFF8E1);
-      case VerificationStatuses.rejected:
-        return const Color(0xFFFFEBEE);
-      default:
-        return const Color(0xFFF3F4F6);
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case VerificationStatuses.verified:
-        return 'Verified';
-      case VerificationStatuses.pending:
-        return 'Pending Review';
-      case VerificationStatuses.rejected:
-        return 'Needs Attention';
-      default:
-        return 'Not Submitted';
-    }
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedDocuments.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please upload all required documents.',
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
-          backgroundColor: const Color(0xFFC62828),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
+  Future<void> _sendVerificationEmail() async {
+    setState(() => _isSending = true);
     try {
-      await VerificationService().submitVerification(
-        userId: _currentUid,
-        legalName: _nameController.text.trim(),
-        governmentIdNumber: _idController.text.trim(),
-        documents: [
-          PendingDocument(type: 'front', file: _selectedDocuments['front']!),
-          PendingDocument(type: 'back', file: _selectedDocuments['back']!),
-          PendingDocument(type: 'selfie', file: _selectedDocuments['selfie']!),
-        ],
-      );
-
+      await _firebaseUser?.sendEmailVerification();
       if (!mounted) return;
+      setState(() => _emailSent = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Verification submitted successfully.',
+            'Verification email sent! Check your inbox.',
             style: GoogleFonts.poppins(fontSize: 14),
           ),
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
-      setState(() {
-        _selectedDocuments.clear();
-      });
-    } catch (error) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Failed to submit verification: $error',
+            'Failed to send email: $e',
             style: GoogleFonts.poppins(fontSize: 14),
           ),
           backgroundColor: const Color(0xFFC62828),
@@ -162,497 +51,441 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _checkVerification() async {
+    setState(() => _isChecking = true);
+    try {
+      await _firebaseUser?.reload();
+      final refreshed = FirebaseAuth.instance.currentUser;
+      if (!mounted) return;
+      if (refreshed?.emailVerified == true) {
+        await VerificationService().markEmailVerified(_currentUid);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Email verified! Your account is now verified.',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        setState(() {});
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Email not verified yet. Please click the link in your inbox.',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            backgroundColor: const Color(0xFFFF8F00),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e', style: GoogleFonts.poppins(fontSize: 14)),
+          backgroundColor: const Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isChecking = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<VerificationSubmissionModel?>(
-      stream: VerificationService().submissionStream(_currentUid),
-      builder: (context, snapshot) {
-        final submission = snapshot.data;
-        if (!_didPrefill && submission != null) {
-          _didPrefill = true;
-          if (_nameController.text.trim().isEmpty) {
-            _nameController.text = submission.legalName;
-          }
-          if (_idController.text.trim().isEmpty) {
-            _idController.text = submission.governmentIdNumber;
-          }
-        }
+    final isVerified = _firebaseUser?.emailVerified ?? false;
+    final email = _firebaseUser?.email ?? '';
 
-        final isLocked =
-            submission != null &&
-            (submission.isPending || submission.isVerified);
-
-        return Scaffold(
-          backgroundColor: const Color(0xFFF8F8F8),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            leading: IconButton(
-              icon: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 16,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              onPressed: () => Navigator.of(context).pop(),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F8F8),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
             ),
-            title: Text(
-              'Identity Verification',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A1A1A),
-              ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 16,
+              color: Color(0xFF374151),
             ),
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (submission != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Verification',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x08000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: isVerified
+                              ? const Color(0xFFE8F5E9)
+                              : const Color(0xFFFFEBEE),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isVerified
+                              ? Icons.verified_rounded
+                              : Icons.email_outlined,
+                          color: isVerified
+                              ? const Color(0xFF2E7D32)
+                              : const Color(0xFFC62828),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _statusBg(submission.status),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                _statusLabel(submission.status),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: _statusColor(submission.status),
-                                ),
+                            Text(
+                              isVerified
+                                  ? 'Email Verified'
+                                  : 'Email Not Verified',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1A1A1A),
                               ),
                             ),
-                            const Spacer(),
                             Text(
-                              '${submission.documents.length} documents',
+                              email,
                               style: GoogleFonts.poppins(
-                                fontSize: 12,
+                                fontSize: 13,
                                 color: const Color(0xFF6B7280),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _StatusRow(
-                          label: 'Legal Name',
-                          value: submission.legalName,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                        const SizedBox(height: 10),
-                        _StatusRow(
-                          label: 'Government ID',
-                          value: _maskId(submission.governmentIdNumber),
+                        decoration: BoxDecoration(
+                          color: isVerified
+                              ? const Color(0xFFE8F5E9)
+                              : const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        if (submission.rejectionReason != null &&
-                            submission.rejectionReason!.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFEBEE),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                        child: Text(
+                          isVerified ? 'Verified' : 'Pending',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isVerified
+                                ? const Color(0xFF2E7D32)
+                                : const Color(0xFFFF8F00),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isVerified) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF2E7D32),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
                             child: Text(
-                              submission.rejectionReason!,
+                              'Your account has been verified. No further action is required.',
                               style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: const Color(0xFFC62828),
+                                fontSize: 13,
+                                color: const Color(0xFF2E7D32),
+                                height: 1.4,
                               ),
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                if (submission != null) const SizedBox(height: 16),
-                if (isLocked)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      submission.isVerified
-                          ? 'Your account has already been verified. No further action is required.'
-                          : 'Your submission is currently under review. You can update it again if support requests changes.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: const Color(0xFF374151),
-                        height: 1.5,
                       ),
                     ),
-                  )
-                else
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE3F2FD),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.info_outline_rounded,
-                                color: Color(0xFF1976D2),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Submit your legal identity details and three clear images so the review team can verify your account.',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    color: const Color(0xFF1A1A1A),
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildLabel('Full Legal Name'),
-                        const SizedBox(height: 8),
-                        _buildTextField(
-                          controller: _nameController,
-                          hint: 'Enter your full legal name',
-                          icon: Icons.person_outline_rounded,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your legal name';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        _buildLabel('Government ID Number'),
-                        const SizedBox(height: 8),
-                        _buildTextField(
-                          controller: _idController,
-                          hint: 'Enter your ID number',
-                          icon: Icons.badge_outlined,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your ID number';
-                            }
-                            if (value.trim().length < 5) {
-                              return 'Please enter a valid ID number';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Required Documents',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1A1A1A),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _DocumentUploadCard(
-                          title: 'Front of ID',
-                          subtitle: _selectedDocuments['front'] != null
-                              ? _selectedDocuments['front']!.path
-                                    .split(Platform.pathSeparator)
-                                    .last
-                              : 'Upload a clear image of the front side',
-                          isUploaded: _selectedDocuments['front'] != null,
-                          onTap: () => _pickDocument('front'),
-                        ),
-                        const SizedBox(height: 12),
-                        _DocumentUploadCard(
-                          title: 'Back of ID',
-                          subtitle: _selectedDocuments['back'] != null
-                              ? _selectedDocuments['back']!.path
-                                    .split(Platform.pathSeparator)
-                                    .last
-                              : 'Upload a clear image of the back side',
-                          isUploaded: _selectedDocuments['back'] != null,
-                          onTap: () => _pickDocument('back'),
-                        ),
-                        const SizedBox(height: 12),
-                        _DocumentUploadCard(
-                          title: 'Selfie with ID',
-                          subtitle: _selectedDocuments['selfie'] != null
-                              ? _selectedDocuments['selfie']!.path
-                                    .split(Platform.pathSeparator)
-                                    .last
-                              : 'Upload a selfie while holding your ID',
-                          isUploaded: _selectedDocuments['selfie'] != null,
-                          onTap: () => _pickDocument('selfie'),
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Tips',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1A1A1A),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ...[
-                                'Use good lighting',
-                                'Keep all text readable',
-                                'Avoid glare or blur',
-                                'Upload uncropped originals',
-                              ].map(
-                                (tip) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
-                                  child: Text(
-                                    '• $tip',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFC62828),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: _isSubmitting
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : Text(
-                                    submission?.isRejected == true
-                                        ? 'Resubmit Verification'
-                                        : 'Submit Verification',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLabel(String label) {
-    return Text(
-      label,
-      style: GoogleFonts.poppins(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF374151),
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1A1A1A)),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.poppins(
-          fontSize: 13,
-          color: const Color(0xFFBDBDBD),
-        ),
-        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF9E9E9E)),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: const Color(0xFF6B7280),
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1A1A1A),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DocumentUploadCard extends StatelessWidget {
-  const _DocumentUploadCard({
-    required this.title,
-    required this.subtitle,
-    required this.isUploaded,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool isUploaded;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isUploaded
-                ? const Color(0xFF2E7D32)
-                : const Color(0xFFE5E7EB),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: isUploaded
-                    ? const Color(0xFFE8F5E9)
-                    : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                isUploaded ? Icons.check_rounded : Icons.upload_file_rounded,
-                color: isUploaded
-                    ? const Color(0xFF2E7D32)
-                    : const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFFBDBDBD)),
+            if (!isVerified) ...[
+              const SizedBox(height: 20),
+              // Info box
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: Color(0xFF1976D2),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'To verify your account, click the button below to receive a verification link at your registered email address.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: const Color(0xFF1A1A1A),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Step 1
+              _StepCard(
+                step: '1',
+                title: 'Send Verification Email',
+                subtitle: 'A verification link will be sent to $email',
+                isCompleted: _emailSent,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSending ? null : _sendVerificationEmail,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFC62828),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isSending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            _emailSent
+                                ? 'Resend Verification Email'
+                                : 'Send Verification Email',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Step 2
+              _StepCard(
+                step: '2',
+                title: 'Click the Link in Your Email',
+                subtitle:
+                    'Open the verification email and click the link to confirm your address.',
+                isCompleted: false,
+              ),
+              const SizedBox(height: 16),
+              // Step 3
+              _StepCard(
+                step: '3',
+                title: 'Confirm Verification',
+                subtitle:
+                    'Come back here and tap the button below after clicking the link.',
+                isCompleted: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _isChecking ? null : _checkVerification,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFC62828)),
+                      foregroundColor: const Color(0xFFC62828),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isChecking
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFC62828),
+                            ),
+                          )
+                        : Text(
+                            "I've Verified My Email",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StepCard extends StatelessWidget {
+  const _StepCard({
+    required this.step,
+    required this.title,
+    required this.subtitle,
+    required this.isCompleted,
+    this.child,
+  });
+
+  final String step;
+  final String title;
+  final String subtitle;
+  final bool isCompleted;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? const Color(0xFF2E7D32)
+                      : const Color(0xFFC62828),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        )
+                      : Text(
+                          step,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF6B7280),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (child != null) ...[const SizedBox(height: 16), child!],
+        ],
       ),
     );
   }

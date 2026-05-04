@@ -23,6 +23,10 @@ class _BookingScreenState extends State<BookingScreen> {
   int _selectedService = 0;
   bool _isSubmitting = false;
   final _notesController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _addressController = TextEditingController();
+  String _eventType = 'Wedding';
 
   final List<String> _timeSlots = [
     '8:00 AM',
@@ -39,6 +43,9 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void dispose() {
     _notesController.dispose();
+    _countryController.dispose();
+    _cityController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -314,12 +321,12 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ),
                       Text(
-                        'Free',
+                        '₱${packages[index].price}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: _selectedService == index
-                              ? const Color(0xFF2E7D32)
+                              ? const Color(0xFFC62828)
                               : const Color(0xFF374151),
                         ),
                       ),
@@ -389,14 +396,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
               child: DropdownButtonFormField<String>(
-                value: 'Wedding',
-                decoration: InputDecoration(
+                value: _eventType,
+                decoration: const InputDecoration(
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding: EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 4,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.event_rounded,
                     color: Color(0xFF9E9E9E),
                     size: 20,
@@ -418,9 +425,32 @@ class _BookingScreenState extends State<BookingScreen> {
                         ]
                         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                         .toList(),
-                onChanged: (_) {},
+                onChanged: (v) {
+                  if (v != null) setState(() => _eventType = v);
+                },
                 dropdownColor: Colors.white,
               ),
+            ),
+            const SizedBox(height: 24),
+            // Location
+            _sectionTitle('Location'),
+            const SizedBox(height: 12),
+            _buildLocationField(
+              controller: _countryController,
+              hint: 'Country (e.g. Philippines)',
+              icon: Icons.language_rounded,
+            ),
+            const SizedBox(height: 10),
+            _buildLocationField(
+              controller: _cityController,
+              hint: 'City / Municipality',
+              icon: Icons.location_city_rounded,
+            ),
+            const SizedBox(height: 10),
+            _buildLocationField(
+              controller: _addressController,
+              hint: 'Full address or venue name',
+              icon: Icons.place_rounded,
             ),
             const SizedBox(height: 24),
             // Notes
@@ -482,11 +512,11 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   ),
                   Text(
-                    'Free',
+                    '₱${packages[_selectedService.clamp(0, packages.length - 1)].price}',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF2E7D32),
+                      color: const Color(0xFFC62828),
                     ),
                   ),
                 ],
@@ -536,9 +566,33 @@ class _BookingScreenState extends State<BookingScreen> {
     final pkg = packages[_selectedService.clamp(0, packages.length - 1)];
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
+
+    // Validate location fields
+    final country = _countryController.text.trim();
+    final city = _cityController.text.trim();
+    final address = _addressController.text.trim();
+
+    if (country.isEmpty || city.isEmpty || address.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please fill in all location fields.',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          backgroundColor: const Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final user = await UserService().fetchCurrentUser();
+      final locationText = '$address, $city, $country';
       final booking = BookingModel(
         id: '',
         clientId: currentUser.uid,
@@ -552,7 +606,7 @@ class _BookingScreenState extends State<BookingScreen> {
         packageDuration: pkg.duration,
         scheduledDate: _selectedDate,
         scheduledTime: _timeSlots[_selectedTimeSlot],
-        location: photographer.locationText,
+        location: locationText,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -596,6 +650,40 @@ class _BookingScreenState extends State<BookingScreen> {
         fontSize: 15,
         fontWeight: FontWeight.w700,
         color: const Color(0xFF1A1A1A),
+      ),
+    );
+  }
+
+  Widget _buildLocationField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: TextField(
+        controller: controller,
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: const Color(0xFF1F2937),
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: GoogleFonts.poppins(
+            fontSize: 13,
+            color: const Color(0xFFBDBDBD),
+          ),
+          prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
       ),
     );
   }

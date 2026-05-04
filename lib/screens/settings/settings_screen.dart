@@ -298,24 +298,25 @@ class _SettingsContent extends StatelessWidget {
                               : 'Client',
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: verificationBg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            verificationLabel,
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: verificationColor,
+                        if (user.verificationStatus != 'unverified')
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: verificationBg,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              verificationLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: verificationColor,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -449,24 +450,26 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   );
                 },
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: verificationBg,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    verificationLabel,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: verificationColor,
-                    ),
-                  ),
-                ),
+                trailing: user.verificationStatus != 'unverified'
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: verificationBg,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          verificationLabel,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: verificationColor,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
               _SettingsTile(
                 icon: Icons.payment_outlined,

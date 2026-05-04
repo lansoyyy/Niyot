@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/messaging_service.dart';
+import '../../services/user_service.dart';
 import '../home/home_screen.dart';
 import '../explore/explore_screen.dart';
 import '../bookings/my_bookings_screen.dart';
+import '../bookings/photographer_bookings_screen.dart';
 import '../messages/messages_screen.dart';
 import '../settings/settings_screen.dart';
 
@@ -19,14 +21,22 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  late final List<Widget> _screens;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    ExploreScreen(),
-    MyBookingsScreen(),
-    MessagesScreen(),
-    SettingsScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final isPhotographer = UserService().cachedUser?.isPhotographer ?? false;
+    _screens = [
+      const HomeScreen(),
+      const ExploreScreen(),
+      isPhotographer
+          ? const PhotographerBookingsScreen()
+          : const MyBookingsScreen(),
+      const MessagesScreen(),
+      const SettingsScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

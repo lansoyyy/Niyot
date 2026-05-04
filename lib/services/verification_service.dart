@@ -107,6 +107,22 @@ class VerificationService {
                   ),
           );
 
+  /// Called after Firebase email verification is confirmed.
+  /// Updates the user doc (and photographer doc if applicable) to 'verified'.
+  Future<void> markEmailVerified(String userId) async {
+    await _firestore.collection(FirebaseCollections.users).doc(userId).update({
+      'verificationStatus': VerificationStatuses.verified,
+    });
+
+    final photoDoc = await _firestore
+        .collection(FirebaseCollections.photographers)
+        .doc(userId)
+        .get();
+    if (photoDoc.exists) {
+      await photoDoc.reference.update({'isVerified': true});
+    }
+  }
+
   String get currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
 }
 
