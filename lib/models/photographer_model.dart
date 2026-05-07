@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../core/profile_initials.dart';
 import 'service_package_model.dart';
 
 class PhotographerModel {
@@ -44,18 +45,14 @@ class PhotographerModel {
   });
 
   /// Two-letter initials derived from the display name.
-  String get initials {
-    final parts = name.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
-  }
+  String get initials => ProfileInitials.fromName(name);
 
   /// Formatted starting price from cheapest package.
   String get startingPrice {
     if (packages.isEmpty) return '';
     final min = packages.map((p) => p.price).reduce((a, b) => a < b ? a : b);
-    return '\$$min';
+    if (min == 0) return 'Free';
+    return 'PHP $min';
   }
 
   /// Deterministic gradient for card/avatar backgrounds when no photo is set.

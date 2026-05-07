@@ -146,12 +146,19 @@ class MessagingService {
         }
       }
 
+      final senderPhotoSnap = await _firestore
+          .collection(FirebaseCollections.users)
+          .doc(senderId)
+          .get();
+      final senderPhoto = senderPhotoSnap.data()?['photoUrl'];
+
       batch.update(convRef, {
         'lastMessage': preview.length > 80
             ? '${preview.substring(0, 80)}…'
             : preview,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'unreadCounts': currentUnread,
+        'participantPhotoUrls.$senderId': senderPhoto,
       });
 
       // Notify other participants
@@ -227,7 +234,7 @@ class MessagingService {
     required DateTime offerDateTime,
   }) async {
     final expiresAt = DateTime.now().add(const Duration(hours: 24));
-    final preview = 'Custom offer: $offerName – \$$offerPrice';
+    final preview = 'Custom offer: $offerName – PHP $offerPrice';
 
     final batch = _firestore.batch();
 
@@ -269,10 +276,17 @@ class MessagingService {
           currentUnread[pid] = (currentUnread[pid] ?? 0) + 1;
         }
       }
+      final senderPhotoSnap = await _firestore
+          .collection(FirebaseCollections.users)
+          .doc(senderId)
+          .get();
+      final senderPhoto = senderPhotoSnap.data()?['photoUrl'];
+
       batch.update(convRef, {
         'lastMessage': preview,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'unreadCounts': currentUnread,
+        'participantPhotoUrls.$senderId': senderPhoto,
       });
       for (final pid in participants) {
         if (pid != senderId) {
@@ -286,6 +300,27 @@ class MessagingService {
       }
     }
 
+    await batch.commit();
+  }
+
+  /// Writes latest Firestore profile photo into all conversations for this user.
+  Future<void> syncParticipantPhotoForUser(String userId) async {
+    final userDoc = await _firestore
+        .collection(FirebaseCollections.users)
+        .doc(userId)
+        .get();
+    final photoUrl = userDoc.data()?['photoUrl'];
+    final qs = await _firestore
+        .collection(FirebaseCollections.conversations)
+        .where('participantIds', arrayContains: userId)
+        .get();
+    if (qs.docs.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final d in qs.docs) {
+      batch.update(d.reference, {
+        'participantPhotoUrls.$userId': photoUrl,
+      });
+    }
     await batch.commit();
   }
 

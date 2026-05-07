@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/favorite_photographer_model.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../photographer/photographer_profile_screen.dart';
 
 class FavoritesScreen extends StatelessWidget {
@@ -164,23 +165,10 @@ class _FavoritePhotographerCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: const Color(0xFFFFEBEE),
-              backgroundImage:
-                  favorite.photoUrl != null && favorite.photoUrl!.isNotEmpty
-                  ? NetworkImage(favorite.photoUrl!)
-                  : null,
-              child: favorite.photoUrl == null || favorite.photoUrl!.isEmpty
-                  ? Text(
-                      _initials(favorite.name),
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFFC62828),
-                      ),
-                    )
-                  : null,
+            AppProfileAvatar(
+              displayName: favorite.name,
+              photoUrl: favorite.photoUrl,
+              size: 52,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -248,14 +236,4 @@ class _FavoritePhotographerCard extends StatelessWidget {
     );
   }
 
-  String _initials(String name) {
-    final parts = name
-        .trim()
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
 }

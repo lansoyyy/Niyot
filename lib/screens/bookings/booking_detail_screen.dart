@@ -4,10 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/booking_model.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../services/booking_service.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/currency/peso_price_text.dart';
 import '../messages/chat_screen.dart';
+import '../payment/payment_screen.dart';
 import '../reviews/leave_review_screen.dart';
 import 'booking_actions_screen.dart';
 
@@ -73,20 +77,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     final hours = dur.inHours.remainder(24);
     if (days > 0) return '$days day${days == 1 ? '' : 's'} $hours hr';
     return '$hours hr ${dur.inMinutes.remainder(60)} min';
-  }
-
-  List<Color> _gradient(String id) {
-    const pairs = [
-      [Color(0xFF6B0000), Color(0xFFC62828)],
-      [Color(0xFF4A0000), Color(0xFF880E0E)],
-      [Color(0xFF1A237E), Color(0xFF3949AB)],
-      [Color(0xFF1B5E20), Color(0xFF388E3C)],
-      [Color(0xFF004D40), Color(0xFF00897B)],
-      [Color(0xFFBF360C), Color(0xFFE64A19)],
-      [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-    ];
-    final index = id.codeUnits.fold<int>(0, (s, c) => s + c) % pairs.length;
-    return pairs[index].cast<Color>();
   }
 
   // ── actions ────────────────────────────────────────────────────────────────
@@ -300,8 +290,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     final status = booking.status;
 
     final otherName = isPhotographer ? booking.clientName : booking.photographerName;
-    final otherInitials = isPhotographer ? booking.clientInitials : booking.photographerInitials;
-    final gradientId = isPhotographer ? booking.clientId : booking.photographerId;
+    final otherPhotoUrl =
+        isPhotographer ? booking.clientPhotoUrl : booking.photographerPhotoUrl;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -350,27 +340,16 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: _gradient(gradientId),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
+              decoration: const BoxDecoration(
+                color: AppAvatarColors.profileHeaderBackground,
+                borderRadius: BorderRadius.all(Radius.circular(18)),
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    child: Text(
-                      otherInitials,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                  AppProfileAvatar(
+                    displayName: otherName,
+                    photoUrl: otherPhotoUrl,
+                    size: 56,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -573,7 +552,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   _DetailRow(
                     icon: Icons.attach_money_rounded,
                     label: 'Total',
-                    value: '\$${booking.packagePrice}',
+                    value: booking.packagePrice <= 0
+                        ? 'Free'
+                        : 'PHP ${PesoPriceText.formatDigits(booking.packagePrice)}',
                     valueColor: const Color(0xFF2E7D32),
                   ),
                   if (booking.notes != null && booking.notes!.isNotEmpty)
@@ -586,6 +567,99 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            if (status == BookingStatus.paymentPending && !isPhotographer) ...[
+              _ActionSection(
+                title: 'Confirm cash payment',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFE082)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.payments_rounded,
+                            color: Color(0xFFF57F17),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Your slot is held. Confirm cash payment to send this request to the photographer for approval.',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: const Color(0xFF374151),
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PaymentScreen(bookingId: booking.id),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFC62828),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Proceed to cash payment',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _isLoading ? null : _cancelBooking,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFC62828)),
+                          foregroundColor: const Color(0xFFC62828),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel booking',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // ── Status-specific action sections ───────────────────────────
             if (status == BookingStatus.requested) ...[
@@ -1050,6 +1124,8 @@ class _StatusBadge extends StatelessWidget {
         return const Color(0xFF2E7D32);
       case BookingStatus.requested:
         return const Color(0xFFFF6D00);
+      case BookingStatus.paymentPending:
+        return const Color(0xFFFB8C00);
       case BookingStatus.inProgress:
         return const Color(0xFF1565C0);
       case BookingStatus.completed:
@@ -1057,8 +1133,6 @@ class _StatusBadge extends StatelessWidget {
       case BookingStatus.cancelled:
       case BookingStatus.declined:
         return const Color(0xFFC62828);
-      default:
-        return const Color(0xFF9E9E9E);
     }
   }
 
@@ -1068,6 +1142,8 @@ class _StatusBadge extends StatelessWidget {
         return const Color(0xFFE8F5E9);
       case BookingStatus.requested:
         return const Color(0xFFFFF3E0);
+      case BookingStatus.paymentPending:
+        return const Color(0xFFFFF8E1);
       case BookingStatus.inProgress:
         return const Color(0xFFE3F2FD);
       case BookingStatus.completed:
@@ -1075,8 +1151,6 @@ class _StatusBadge extends StatelessWidget {
       case BookingStatus.cancelled:
       case BookingStatus.declined:
         return const Color(0xFFFFEBEE);
-      default:
-        return const Color(0xFFF5F5F5);
     }
   }
 

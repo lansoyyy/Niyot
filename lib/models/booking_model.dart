@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/firebase_constants.dart';
+import '../core/profile_initials.dart';
 
 enum BookingStatus {
   requested,
@@ -125,19 +126,10 @@ class BookingModel {
     this.updatedAt,
   });
 
-  String get clientInitials {
-    final parts = clientName.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
-  }
+  String get clientInitials => ProfileInitials.fromName(clientName);
 
-  String get photographerInitials {
-    final parts = photographerName.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
-  }
+  String get photographerInitials =>
+      ProfileInitials.fromName(photographerName);
 
   bool get isUpcoming =>
       status == BookingStatus.confirmed &&

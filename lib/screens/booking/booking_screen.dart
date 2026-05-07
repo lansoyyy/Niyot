@@ -1,10 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_avatar_colors.dart';
+import '../../data/philippines_locations.dart';
 import '../../models/booking_model.dart';
 import '../../models/photographer_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/currency/peso_price_text.dart';
+import '../../widgets/location/ph_location_dropdowns.dart';
 import 'booking_confirmation_screen.dart';
 import '../calendar/calendar_screen.dart';
 
@@ -24,9 +29,10 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isSubmitting = false;
   String _selectedEventType = 'Wedding';
   final _notesController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _cityController = TextEditingController();
   final _venueController = TextEditingController();
+  String _country = PhilippinesLocations.countryName;
+  String _province = '';
+  String _city = '';
 
   final List<String> _timeSlots = [
     '8:00 AM',
@@ -43,8 +49,6 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void dispose() {
     _notesController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
     _venueController.dispose();
     super.dispose();
   }
@@ -140,22 +144,14 @@ class _BookingScreenState extends State<BookingScreen> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: photographer.gradientColors,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: AppAvatarColors.profileHeaderBackground,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Center(
-                      child: Text(
-                        photographer.initials,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                    alignment: Alignment.center,
+                    child: AppProfileAvatar(
+                      displayName: photographer.name,
+                      photoUrl: photographer.photoUrl,
+                      size: 48,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -279,8 +275,8 @@ class _BookingScreenState extends State<BookingScreen> {
                           ],
                         ),
                       ),
-                      Text(
-                        '₱${packages[index].price}',
+                      PesoPriceText(
+                        packages[index].price,
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -442,26 +438,28 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // Location
+            // Location (country / province / city dropdowns; exact address typed)
             _sectionTitle('Location'),
             const SizedBox(height: 12),
-            _buildTextField(
-              controller: _countryController,
-              hint: 'Country (e.g. Philippines)',
-              icon: Icons.public_rounded,
+            PhLocationDropdowns(
+              country: _country,
+              province: _province,
+              city: _city,
+              dense: true,
+              onCountryChanged: (c) => setState(() => _country = c),
+              onProvinceChanged: (p) => setState(() {
+                _province = p;
+                final cities = PhilippinesLocations.citiesForProvince(p);
+                _city = cities.isNotEmpty ? cities.first : '';
+              }),
+              onCityChanged: (c) => setState(() => _city = c),
             ),
+            const SizedBox(height: 12),
+            _sectionTitle('Exact address or venue'),
             const SizedBox(height: 8),
-            _buildTextField(
-              controller: _cityController,
-              hint: 'City / Municipality',
-              icon: Icons.location_city_rounded,
-            ),
-            const SizedBox(height: 8),
-            _buildTextField(
+            VenueAddressField(
               controller: _venueController,
-              hint: 'Full address or venue name',
-              icon: Icons.place_rounded,
-              maxLines: 2,
+              hint: 'Street, building, barangay, landmark…',
             ),
             const SizedBox(height: 24),
             // Notes
@@ -522,22 +520,26 @@ class _BookingScreenState extends State<BookingScreen> {
                       color: const Color(0xFF9E9E9E),
                     ),
                   ),
-                  Text(
-                    packages.isNotEmpty
-                        ? _formatPrice(
-                            packages[_selectedService.clamp(
-                                  0,
-                                  packages.length - 1,
-                                )]
-                                .price,
-                          )
-                        : '—',
-                    style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFFC62828),
-                    ),
-                  ),
+                  packages.isNotEmpty
+                      ? PesoPriceText(
+                          packages[_selectedService.clamp(
+                            0,
+                            packages.length - 1,
+                          )].price,
+                          style: GoogleFonts.poppins(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFC62828),
+                          ),
+                        )
+                      : Text(
+                          '—',
+                          style: GoogleFonts.poppins(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFC62828),
+                          ),
+                        ),
                 ],
               ),
             ),
@@ -586,16 +588,13 @@ class _BookingScreenState extends State<BookingScreen> {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // Validate location fields
-    final country = _countryController.text.trim();
-    final city = _cityController.text.trim();
     final venue = _venueController.text.trim();
 
-    if (country.isEmpty || city.isEmpty || venue.isEmpty) {
+    if (_province.isEmpty || _city.isEmpty || venue.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Please fill in all location fields.',
+            'Please select province and city, and enter the exact address.',
             style: GoogleFonts.poppins(fontSize: 14),
           ),
           backgroundColor: const Color(0xFFC62828),
@@ -628,7 +627,7 @@ class _BookingScreenState extends State<BookingScreen> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
-        status: BookingStatus.requested,
+        status: BookingStatus.paymentPending,
         createdAt: DateTime.now(),
       );
       final bookingId = await BookingService().createBooking(booking);
@@ -662,23 +661,14 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   String _buildClientLocation() {
-    final parts = [
-      _countryController.text.trim(),
-      _cityController.text.trim(),
-      _venueController.text.trim(),
-    ].where((s) => s.isNotEmpty).toList();
-    return parts.join(', ');
-  }
-
-  String _formatPrice(int price) {
-    if (price == 0) return '₱0';
-    final s = price.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return '₱${buf.toString()}';
+    final base = PhilippinesLocations.composeLocation(
+      city: _city,
+      province: _province,
+      country: _country,
+    );
+    final v = _venueController.text.trim();
+    if (v.isEmpty) return base;
+    return '$base — $v';
   }
 
   Widget _buildSelectedPackageCard(dynamic pkg) {
@@ -704,8 +694,8 @@ class _BookingScreenState extends State<BookingScreen> {
                   color: const Color(0xFF1A1A1A),
                 ),
               ),
-              Text(
-                _formatPrice(pkg.price as int),
+              PesoPriceText(
+                pkg.price as int,
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -763,42 +753,6 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    int maxLines = 1,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          color: const Color(0xFF1F2937),
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: GoogleFonts.poppins(
-            fontSize: 13,
-            color: const Color(0xFFBDBDBD),
-          ),
-          border: InputBorder.none,
-          prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
       ),
     );
   }

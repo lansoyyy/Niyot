@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/service_package_model.dart';
 import '../../services/photographer_service.dart';
+import '../../widgets/currency/peso_price_text.dart';
 
 class ManagePackagesScreen extends StatefulWidget {
   const ManagePackagesScreen({
@@ -376,8 +377,8 @@ class _ManagePackagesScreenState extends State<ManagePackagesScreen> {
                             ],
                           ),
                         ),
-                        Text(
-                          '\$${pkg.price}',
+                        PesoPriceText(
+                          pkg.price,
                           style: GoogleFonts.poppins(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,

@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../data/philippines_locations.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/location/ph_location_dropdowns.dart';
 import '../main/main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -21,10 +24,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _countryController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _provinceController = TextEditingController();
   final _authService = AuthService();
+  String _country = PhilippinesLocations.countryName;
+  String _province = '';
+  String _city = '';
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -47,6 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       CurvedAnimation(parent: _animController, curve: Curves.easeOut),
     );
     _animController.forward();
+    _nameController.addListener(() => setState(() {}));
   }
 
   @override
@@ -55,9 +59,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
-    _provinceController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -93,6 +94,10 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _register() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_province.isEmpty || _city.isEmpty) {
+      _showError('Please select province and city.');
+      return;
+    }
     if (!_acceptedTerms) {
       _showError('Please accept the Terms of Service and Privacy Policy.');
       return;
@@ -107,9 +112,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         name: _nameController.text,
         role: _selectedRole == 0 ? 'photographer' : 'client',
         profileImage: _profileImage,
-        country: _countryController.text.trim(),
-        city: _cityController.text.trim(),
-        province: _selectedRole == 0 ? _provinceController.text.trim() : null,
+        country: _country.trim(),
+        city: _city.trim(),
+        province: _province.trim(),
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -185,19 +190,22 @@ class _RegisterScreenState extends State<RegisterScreen>
                       onTap: _pickImage,
                       child: Stack(
                         children: [
-                          CircleAvatar(
-                            radius: 48,
-                            backgroundColor: const Color(0xFFFFEBEE),
-                            backgroundImage: _profileImage != null
-                                ? FileImage(_profileImage!)
-                                : null,
-                            child: _profileImage == null
-                                ? const Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 44,
-                                    color: Color(0xFFC62828),
-                                  )
-                                : null,
+                          SizedBox(
+                            width: 96,
+                            height: 96,
+                            child: ClipOval(
+                              child: _profileImage != null
+                                  ? Image.file(
+                                      _profileImage!,
+                                      fit: BoxFit.cover,
+                                      width: 96,
+                                      height: 96,
+                                    )
+                                  : AppProfileAvatar(
+                                      displayName: _nameController.text,
+                                      size: 96,
+                                    ),
+                            ),
                           ),
                           Positioned(
                             bottom: 0,
@@ -343,39 +351,18 @@ class _RegisterScreenState extends State<RegisterScreen>
                     },
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel('Country'),
-                  const SizedBox(height: 8),
-                  _buildFormField(
-                    controller: _countryController,
-                    hint: 'Philippines',
-                    icon: Icons.flag_outlined,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Country is required';
-                      return null;
-                    },
+                  PhLocationDropdowns(
+                    country: _country,
+                    province: _province,
+                    city: _city,
+                    onCountryChanged: (c) => setState(() => _country = c),
+                    onProvinceChanged: (p) => setState(() {
+                      _province = p;
+                      final cities = PhilippinesLocations.citiesForProvince(p);
+                      _city = cities.isNotEmpty ? cities.first : '';
+                    }),
+                    onCityChanged: (c) => setState(() => _city = c),
                   ),
-                  const SizedBox(height: 18),
-                  _buildLabel('City'),
-                  const SizedBox(height: 8),
-                  _buildFormField(
-                    controller: _cityController,
-                    hint: 'Manila',
-                    icon: Icons.location_city_outlined,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'City is required';
-                      return null;
-                    },
-                  ),
-                  if (_selectedRole == 0) ...[
-                    const SizedBox(height: 18),
-                    _buildLabel('Province / State'),
-                    const SizedBox(height: 8),
-                    _buildFormField(
-                      controller: _provinceController,
-                      hint: 'Metro Manila',
-                      icon: Icons.map_outlined,
-                    ),
-                  ],
                   const SizedBox(height: 20),
                   // Terms
                   Row(

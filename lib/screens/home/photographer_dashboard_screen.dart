@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/app_avatar_colors.dart';
+import '../../core/profile_initials.dart';
 import '../../models/booking_model.dart';
 import '../../models/photographer_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../notifications/notifications_screen.dart';
 import '../photographer/manage_packages_screen.dart';
 import '../photographer/manage_portfolio_screen.dart';
@@ -156,11 +159,7 @@ class _PhotographerDashboardScreenState
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF6B0000), Color(0xFFC62828)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppAvatarColors.profileHeaderBackground,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(28),
           bottomRight: Radius.circular(28),
@@ -302,7 +301,11 @@ class _PhotographerDashboardScreenState
             // Client info
             Row(
               children: [
-                _clientAvatar(nextShoot.clientName),
+                AppProfileAvatar(
+                  displayName: nextShoot.clientName,
+                  photoUrl: nextShoot.clientPhotoUrl,
+                  size: 44,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -358,7 +361,7 @@ class _PhotographerDashboardScreenState
                         ),
                       const SizedBox(height: 2),
                       Text(
-                        '${nextShoot.packageName}  •  \$${nextShoot.packagePrice}',
+                        '${nextShoot.packageName}  •  PHP ${nextShoot.packagePrice}',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -412,42 +415,6 @@ class _PhotographerDashboardScreenState
     );
   }
 
-  Widget _clientAvatar(String name) {
-    final parts = name.trim().split(' ');
-    final initials = parts.length == 1
-        ? parts[0][0].toUpperCase()
-        : '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    const colors = [
-      [Color(0xFF1A237E), Color(0xFF3949AB)],
-      [Color(0xFF1B5E20), Color(0xFF388E3C)],
-      [Color(0xFF004D40), Color(0xFF00897B)],
-      [Color(0xFFC62828), Color(0xFF6B0000)],
-    ];
-    final idx = name.codeUnits.fold(0, (s, c) => s + c) % colors.length;
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: colors[idx],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          initials,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
   // ── Coming Up Row ──────────────────────────────────────────────────────────
 
   Widget _buildComingUpRow(List<BookingModel> bookings) {
@@ -471,10 +438,8 @@ class _PhotographerDashboardScreenState
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: bookings.map((b) {
-                  final parts = b.clientName.trim().split(' ');
-                  final initials = parts.length == 1
-                      ? parts[0][0].toUpperCase()
-                      : '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+                  final initials =
+                      ProfileInitials.fromName(b.clientName);
                   final date = b.scheduledDate;
                   final label =
                       '${months[date.month - 1]} ${date.day}  •  ${b.packageName}';

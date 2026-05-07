@@ -3,6 +3,11 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../core/app_avatar_colors.dart';
+import '../../models/user_model.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/currency/peso_price_text.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/booking_model.dart';
@@ -36,33 +41,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isSending = false;
   bool _isPhotographer = false;
-
-  static const _gradients = [
-    [Color(0xFF6B0000), Color(0xFFC62828)],
-    [Color(0xFF4A0000), Color(0xFF880E0E)],
-    [Color(0xFF1A237E), Color(0xFF3949AB)],
-    [Color(0xFF1B5E20), Color(0xFF388E3C)],
-    [Color(0xFF004D40), Color(0xFF00897B)],
-    [Color(0xFFBF360C), Color(0xFFE64A19)],
-    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-  ];
-
-  List<Color> _otherGradient(String userId) {
-    final index =
-        userId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
-    return _gradients[index].cast<Color>();
-  }
-
-  String _initials(String name) {
-    final parts = name
-        .trim()
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
 
   String _formatTime(DateTime date) {
     final hour = date.hour;
@@ -314,8 +292,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = _otherGradient(widget.otherUserId);
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
       appBar: AppBar(
@@ -337,52 +313,45 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  _initials(widget.otherUserName),
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        title: StreamBuilder<UserModel?>(
+          stream: UserService().userStream(widget.otherUserId),
+          builder: (context, snap) {
+            final u = snap.data;
+            final name = (u?.name.trim().isNotEmpty ?? false)
+                ? u!.name
+                : widget.otherUserName;
+            final photoUrl = u?.photoUrl;
+            return Row(
               children: [
-                Text(
-                  widget.otherUserName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A1A1A),
-                  ),
+                AppProfileAvatar(
+                  displayName: name,
+                  photoUrl: photoUrl,
+                  size: 38,
                 ),
-                Text(
-                  'Conversation',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: const Color(0xFFBDBDBD),
-                  ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    Text(
+                      'Conversation',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: const Color(0xFFBDBDBD),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
         actions: const [],
       ),
@@ -468,7 +437,6 @@ class _ChatScreenState extends State<ChatScreen> {
                             mediaType: message.mediaType,
                             time: _formatTime(message.timestamp),
                             isMe: isMe,
-                            gradient: gradient,
                           ),
                       ],
                     );
@@ -538,13 +506,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: _isSending
-                            ? const [Color(0xFFBDBDBD), Color(0xFF9E9E9E)]
-                            : const [Color(0xFF6B0000), Color(0xFFC62828)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: _isSending
+                          ? const Color(0xFFBDBDBD)
+                          : const Color(0xFFC62828),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -676,11 +640,7 @@ class _OfferCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6B0000), Color(0xFFC62828)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppAvatarColors.profileHeaderBackground,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
               ),
               child: Row(
@@ -736,8 +696,9 @@ class _OfferCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '\$${message.offerPrice ?? 0}',
+                  PesoPriceText(
+                    message.offerPrice ?? 0,
+                    freeLabel: 'Free',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -1006,7 +967,7 @@ class _CustomOfferSheetState extends State<_CustomOfferSheet> {
               icon: Icons.title_rounded,
             ),
             const SizedBox(height: 16),
-            _sheetLabel('Price (\$)'),
+            _sheetLabel('Price (PHP)'),
             const SizedBox(height: 8),
             _sheetField(
               controller: _priceController,
@@ -1172,7 +1133,6 @@ class _MessageBubble extends StatelessWidget {
     this.mediaType,
     required this.time,
     required this.isMe,
-    required this.gradient,
   });
 
   final String text;
@@ -1180,7 +1140,6 @@ class _MessageBubble extends StatelessWidget {
   final String? mediaType;
   final String time;
   final bool isMe;
-  final List<Color> gradient;
 
   @override
   Widget build(BuildContext context) {
@@ -1193,14 +1152,7 @@ class _MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          gradient: isMe
-              ? LinearGradient(
-                  colors: gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: isMe ? null : Colors.white,
+          color: isMe ? const Color(0xFFC62828) : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),

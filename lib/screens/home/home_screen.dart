@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
 import '../../models/user_model.dart';
 import '../../services/photographer_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../../services/user_service.dart';
 import '../explore/explore_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
@@ -528,11 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 260,
               margin: const EdgeInsets.only(right: 14),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: item.gradientColors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppAvatarColors.profileHeaderBackground,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Stack(
@@ -568,10 +566,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Row(
                           children: [
-                            _Avatar(
-                              initials: item.initials,
-                              size: 48,
+                            AppProfileAvatar(
+                              displayName: item.name,
                               photoUrl: item.photoUrl,
+                              size: 48,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -708,13 +706,9 @@ class _PhotographerCard extends StatelessWidget {
             // Photo area
             Container(
               height: 130,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: photographer.gradientColors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: AppAvatarColors.profileHeaderBackground,
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                 ),
@@ -722,10 +716,10 @@ class _PhotographerCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Center(
-                    child: _Avatar(
-                      initials: photographer.initials,
-                      size: 60,
+                    child: AppProfileAvatar(
+                      displayName: photographer.name,
                       photoUrl: photographer.photoUrl,
+                      size: 60,
                     ),
                   ),
                   Positioned(
@@ -837,41 +831,3 @@ class _PhotographerCard extends StatelessWidget {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initials, required this.size, this.photoUrl});
-
-  final String initials;
-  final double size;
-  final String? photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.2),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 2,
-        ),
-        image: photoUrl != null
-            ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
-            : null,
-      ),
-      child: photoUrl == null
-          ? Center(
-              child: Text(
-                initials,
-                style: GoogleFonts.poppins(
-                  fontSize: size * 0.3,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            )
-          : null,
-    );
-  }
-}

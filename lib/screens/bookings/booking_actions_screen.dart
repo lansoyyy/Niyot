@@ -5,6 +5,7 @@ import '../../models/availability_model.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
+import '../../widgets/currency/peso_price_text.dart';
 
 class BookingActionsScreen extends StatefulWidget {
   const BookingActionsScreen({
@@ -204,14 +205,23 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        'Free',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF2E7D32),
-                        ),
-                      ),
+                      booking.packagePrice <= 0
+                          ? Text(
+                              'Free',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF2E7D32),
+                              ),
+                            )
+                          : PesoPriceText(
+                              booking.packagePrice,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF2E7D32),
+                              ),
+                            ),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,

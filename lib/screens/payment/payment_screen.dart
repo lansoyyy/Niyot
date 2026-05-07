@@ -6,6 +6,7 @@ import '../../models/booking_model.dart';
 import '../../models/payment_record_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/payment_service.dart';
+import '../../widgets/currency/peso_price_text.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key, required this.bookingId});
@@ -37,6 +38,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (existingPayment != null &&
         existingPayment.status != PaymentStatus.failed &&
         existingPayment.status != PaymentStatus.refunded) {
+      if (booking.status == BookingStatus.paymentPending) {
+        await BookingService().promoteBookingAfterCashConfirmation(booking.id);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => PaymentSuccessScreen(booking: booking),
+            ),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -64,7 +77,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         bookingId: booking.id,
         payerId: _currentUid,
         payeeId: booking.photographerId,
-        amount: 0,
+        amount: booking.packagePrice,
+        currency: 'PHP',
         paymentMethodLabel: 'Cash',
         status: PaymentStatus.pending,
         notes: notes.isNotEmpty ? notes : 'Cash payment — to be collected on session day.',
@@ -72,6 +86,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       await PaymentService().createPaymentRecord(record);
+      await BookingService().promoteBookingAfterCashConfirmation(booking.id);
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -269,13 +284,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               color: const Color(0xFF1A1A1A),
                             ),
                           ),
-                          Text(
-                            'Free',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF2E7D32),
-                            ),
+                          _PhpAmount(
+                            amount: booking.packagePrice,
+                            fontSize: 20,
                           ),
                         ],
                       ),
@@ -466,13 +477,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           color: const Color(0xFF6B7280),
                         ),
                       ),
-                      Text(
-                        'Cash — Free',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF2E7D32),
-                        ),
+                      _PhpAmount(
+                        amount: booking.packagePrice,
+                        fontSize: 18,
                       ),
                     ],
                   ),
@@ -518,6 +525,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _PhpAmount extends StatelessWidget {
+  const _PhpAmount({required this.amount, this.fontSize = 16});
+
+  final int amount;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.poppins(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w700,
+      color: const Color(0xFF2E7D32),
+    );
+    if (amount <= 0) {
+      return Text('Free', style: base);
+    }
+    return PesoPriceText(
+      amount,
+      style: base,
     );
   }
 }
@@ -614,7 +644,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Your booking is confirmed. Please settle the payment in cash directly with ${booking.photographerName} on session day.',
+                'Your session request has been sent to ${booking.photographerName}. Please settle payment in cash directly with them on session day.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
@@ -664,11 +694,13 @@ class PaymentSuccessScreen extends StatelessWidget {
                       valueColor: Color(0xFF2E7D32),
                     ),
                     const SizedBox(height: 12),
-                    const _SuccessDetailRow(
+                    _SuccessDetailRow(
                       icon: Icons.sell_rounded,
                       label: 'Amount',
-                      value: 'Free',
-                      valueColor: Color(0xFF2E7D32),
+                      value: booking.packagePrice <= 0
+                          ? 'Free'
+                          : 'PHP ${PesoPriceText.formatDigits(booking.packagePrice)}',
+                      valueColor: const Color(0xFF2E7D32),
                     ),
                     const SizedBox(height: 12),
                     const _SuccessDetailRow(

@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/conversation_model.dart';
+import '../../models/user_model.dart';
 import '../../services/messaging_service.dart';
+import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import 'chat_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -16,39 +19,12 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  static const _gradients = [
-    [Color(0xFF6B0000), Color(0xFFC62828)],
-    [Color(0xFF4A0000), Color(0xFF880E0E)],
-    [Color(0xFF1A237E), Color(0xFF3949AB)],
-    [Color(0xFF1B5E20), Color(0xFF388E3C)],
-    [Color(0xFF004D40), Color(0xFF00897B)],
-    [Color(0xFFBF360C), Color(0xFFE64A19)],
-    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-  ];
-
-  List<Color> _otherGradient(String userId) {
-    final index =
-        userId.codeUnits.fold<int>(0, (sum, c) => sum + c) % _gradients.length;
-    return _gradients[index].cast<Color>();
-  }
-
   String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return 'now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     if (diff.inHours < 24) return '${diff.inHours}h';
     return '${diff.inDays}d';
-  }
-
-  String _otherInitials(String name) {
-    final parts = name
-        .trim()
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   @override
@@ -152,27 +128,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           margin: const EdgeInsets.only(right: 16),
                           child: Column(
                             children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: _otherGradient(otherId),
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  shape: BoxShape.circle,
+                              _ConversationAvatar(
+                                otherUserId: otherId,
+                                fallbackName: otherName,
+                                stalePhotoUrl: conversation.getOtherUserPhotoUrl(
+                                  _currentUid,
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    _otherInitials(otherName),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
+                                size: 48,
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -241,27 +203,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   ),
                                 );
                               },
-                              leading: Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: _otherGradient(otherId),
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  shape: BoxShape.circle,
+                              leading: _ConversationAvatar(
+                                otherUserId: otherId,
+                                fallbackName: otherName,
+                                stalePhotoUrl: conversation.getOtherUserPhotoUrl(
+                                  _currentUid,
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    _otherInitials(otherName),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
+                                size: 52,
                               ),
                               title: Row(
                                 children: [
@@ -336,6 +284,39 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _ConversationAvatar extends StatelessWidget {
+  const _ConversationAvatar({
+    required this.otherUserId,
+    required this.fallbackName,
+    required this.stalePhotoUrl,
+    required this.size,
+  });
+
+  final String otherUserId;
+  final String fallbackName;
+  final String? stalePhotoUrl;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<UserModel?>(
+      stream: UserService().userStream(otherUserId),
+      builder: (context, snap) {
+        final u = snap.data;
+        final url = u?.photoUrl ?? stalePhotoUrl;
+        final name = (u?.name.trim().isNotEmpty ?? false)
+            ? u!.name
+            : fallbackName;
+        return AppProfileAvatar(
+          displayName: name,
+          photoUrl: url,
+          size: size,
         );
       },
     );

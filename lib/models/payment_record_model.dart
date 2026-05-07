@@ -49,7 +49,7 @@ class PaymentRecordModel {
   final String bookingId;
   final String payerId;
   final String payeeId;
-  final int amount; // in USD
+  final int amount; // whole pesos (PHP)
   final String currency;
   final String paymentMethodLabel;
   final String? proofUrl;
@@ -64,7 +64,7 @@ class PaymentRecordModel {
     required this.payerId,
     required this.payeeId,
     required this.amount,
-    this.currency = 'USD',
+    this.currency = 'PHP',
     required this.paymentMethodLabel,
     this.proofUrl,
     required this.status,
@@ -94,7 +94,7 @@ class PaymentRecordModel {
         payerId: map['payerId'] as String? ?? '',
         payeeId: map['payeeId'] as String? ?? '',
         amount: (map['amount'] as num?)?.toInt() ?? 0,
-        currency: map['currency'] as String? ?? 'USD',
+        currency: map['currency'] as String? ?? 'PHP',
         paymentMethodLabel: map['paymentMethodLabel'] as String? ?? '',
         proofUrl: map['proofUrl'] as String?,
         status: PaymentStatusX.fromValue(map['status'] as String? ?? ''),

@@ -4,10 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/app_avatar_colors.dart';
 import '../../models/booking_model.dart';
 import '../../models/user_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/currency/peso_price_text.dart';
 import 'booking_detail_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
@@ -68,9 +71,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
       builder: (context, snapshot) {
         final all = snapshot.data ?? [];
 
-        final requested = all
-            .where((b) => b.status == BookingStatus.requested)
-            .toList();
+        final requested = all.where((b) {
+          if (!_isPhotographer) {
+            return b.status == BookingStatus.requested ||
+                b.status == BookingStatus.paymentPending;
+          }
+          return b.status == BookingStatus.requested;
+        }).toList();
         final upcoming = all.where((b) => b.isUpcoming).toList();
         final active = all.where((b) => b.isActive).toList();
         final past = all.where((b) => b.isPast).toList();
@@ -326,20 +333,6 @@ class _BookingCard extends StatefulWidget {
 class _BookingCardState extends State<_BookingCard> {
   bool _isLoading = false;
 
-  List<Color> _gradient(String id) {
-    const pairs = [
-      [Color(0xFF6B0000), Color(0xFFC62828)],
-      [Color(0xFF4A0000), Color(0xFF880E0E)],
-      [Color(0xFF1A237E), Color(0xFF3949AB)],
-      [Color(0xFF1B5E20), Color(0xFF388E3C)],
-      [Color(0xFF004D40), Color(0xFF00897B)],
-      [Color(0xFFBF360C), Color(0xFFE64A19)],
-      [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-    ];
-    final index = id.codeUnits.fold<int>(0, (sum, c) => sum + c) % pairs.length;
-    return pairs[index].cast<Color>();
-  }
-
   String _formatDate(DateTime d) {
     const m = [
       'Jan',
@@ -364,6 +357,8 @@ class _BookingCardState extends State<_BookingCard> {
         return const Color(0xFF2E7D32);
       case BookingStatus.requested:
         return const Color(0xFFFF6D00);
+      case BookingStatus.paymentPending:
+        return const Color(0xFFFB8C00);
       case BookingStatus.inProgress:
         return const Color(0xFF1565C0);
       case BookingStatus.completed:
@@ -371,8 +366,6 @@ class _BookingCardState extends State<_BookingCard> {
       case BookingStatus.cancelled:
       case BookingStatus.declined:
         return const Color(0xFFC62828);
-      default:
-        return const Color(0xFF9E9E9E);
     }
   }
 
@@ -382,6 +375,8 @@ class _BookingCardState extends State<_BookingCard> {
         return const Color(0xFFE8F5E9);
       case BookingStatus.requested:
         return const Color(0xFFFFF3E0);
+      case BookingStatus.paymentPending:
+        return const Color(0xFFFFF8E1);
       case BookingStatus.inProgress:
         return const Color(0xFFE3F2FD);
       case BookingStatus.completed:
@@ -389,8 +384,6 @@ class _BookingCardState extends State<_BookingCard> {
       case BookingStatus.cancelled:
       case BookingStatus.declined:
         return const Color(0xFFFFEBEE);
-      default:
-        return const Color(0xFFF5F5F5);
     }
   }
 
@@ -419,12 +412,9 @@ class _BookingCardState extends State<_BookingCard> {
     final otherName = isPhotographer
         ? booking.clientName
         : booking.photographerName;
-    final otherInitials = isPhotographer
-        ? booking.clientInitials
-        : booking.photographerInitials;
-    final gradientId = isPhotographer
-        ? booking.clientId
-        : booking.photographerId;
+    final otherPhotoUrl = isPhotographer
+        ? booking.clientPhotoUrl
+        : booking.photographerPhotoUrl;
     final status = booking.status;
     final isRequested = status == BookingStatus.requested;
 
@@ -455,30 +445,19 @@ class _BookingCardState extends State<_BookingCard> {
             // ── Header gradient ──
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: _gradient(gradientId),
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: AppAvatarColors.profileHeaderBackground,
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                 ),
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    child: Text(
-                      otherInitials,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                  AppProfileAvatar(
+                    displayName: otherName,
+                    photoUrl: otherPhotoUrl,
+                    size: 44,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -543,7 +522,9 @@ class _BookingCardState extends State<_BookingCard> {
                       const SizedBox(width: 8),
                       _Chip(
                         icon: Icons.payments_rounded,
-                        text: '₱${booking.packagePrice}',
+                        text: booking.packagePrice <= 0
+                            ? 'Free'
+                            : 'PHP ${PesoPriceText.formatDigits(booking.packagePrice)}',
                         color: const Color(0xFFC62828),
                       ),
                     ],

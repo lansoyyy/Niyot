@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/firebase_constants.dart';
+import '../core/profile_initials.dart';
 
 class UserModel {
   final String uid;
@@ -40,12 +41,7 @@ class UserModel {
   bool get isClient => role == 'client';
   bool get isVerified => verificationStatus == VerificationStatuses.verified;
 
-  String get initials {
-    final parts = name.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
-  }
+  String get initials => ProfileInitials.fromName(name);
 
   Map<String, dynamic> toMap() => {
     'uid': uid,

@@ -9,12 +9,13 @@ import '../../services/auth_service.dart';
 import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
+import '../../core/app_avatar_colors.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../auth/login_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'favorites_screen.dart';
-import 'payment_methods_screen.dart';
 import 'verification_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -244,31 +245,14 @@ class _SettingsContent extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF6B0000), Color(0xFFC62828)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppAvatarColors.profileHeaderBackground,
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 42,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      backgroundImage:
-                          user.photoUrl != null && user.photoUrl!.isNotEmpty
-                          ? NetworkImage(user.photoUrl!)
-                          : null,
-                      child: user.photoUrl == null || user.photoUrl!.isEmpty
-                          ? Text(
-                              user.initials,
-                              style: GoogleFonts.poppins(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            )
-                          : null,
+                    AppProfileAvatar(
+                      displayName: user.name,
+                      photoUrl: user.photoUrl,
+                      size: 84,
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -481,18 +465,6 @@ class _SettingsContent extends StatelessWidget {
                         ),
                       )
                     : null,
-              ),
-              _SettingsTile(
-                icon: Icons.payment_outlined,
-                title: 'Payment Methods',
-                subtitle: 'Manage saved payment options',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PaymentMethodsScreen(),
-                    ),
-                  );
-                },
               ),
               _SettingsTile(
                 icon: Icons.favorite_outline_rounded,

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../../models/user_model.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
@@ -766,14 +768,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
             ),
           ),
         Container(
-          width: isSelected ? 50 : 38,
-          height: isSelected ? 50 : 38,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: photographer.gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 3),
             boxShadow: [
@@ -784,13 +779,12 @@ class _MapViewScreenState extends State<MapViewScreen> {
               ),
             ],
           ),
-        ),
-        Text(
-          photographer.initials,
-          style: GoogleFonts.poppins(
-            fontSize: isSelected ? 14 : 11,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+          child: ClipOval(
+            child: AppProfileAvatar(
+              displayName: photographer.name,
+              photoUrl: photographer.photoUrl,
+              size: isSelected ? 44 : 32,
+            ),
           ),
         ),
         if (!photographer.isAvailable)
@@ -863,22 +857,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: photographer.gradientColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: AppAvatarColors.profileHeaderBackground,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Center(
-                        child: Text(
-                          photographer.initials,
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
+                      alignment: Alignment.center,
+                      child: AppProfileAvatar(
+                        displayName: photographer.name,
+                        photoUrl: photographer.photoUrl,
+                        size: 48,
                       ),
                     ),
                     const SizedBox(width: 14),

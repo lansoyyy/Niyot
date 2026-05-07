@@ -29,21 +29,41 @@ class BookingService {
       bookingId: docRef.id,
     );
 
-    // Notify photographer of new booking request
+    // Photographer is notified and booking count increments only after the
+    // client confirms cash payment on the payment screen (see
+    // [promoteBookingAfterCashConfirmation]).
+
+    return docRef.id;
+  }
+
+  /// Call after the client confirms cash payment. Moves [payment_pending] →
+  /// [requested], notifies the photographer, and increments booking count.
+  Future<void> promoteBookingAfterCashConfirmation(String bookingId) async {
+    final bookingRef = _firestore
+        .collection(FirebaseCollections.bookings)
+        .doc(bookingId);
+    final snap = await bookingRef.get();
+    if (!snap.exists) return;
+
+    final booking = BookingModel.fromMap(bookingId, snap.data()!);
+    if (booking.status != BookingStatus.paymentPending) return;
+
+    await bookingRef.update({
+      'status': BookingStatuses.requested,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
     await NotificationService().createBookingRequestNotification(
       photographerId: booking.photographerId,
       clientName: booking.clientName,
-      bookingId: docRef.id,
+      bookingId: bookingId,
       scheduledDate: booking.scheduledDate,
     );
 
-    // Increment photographer booking count
     await _firestore
         .collection(FirebaseCollections.photographers)
         .doc(booking.photographerId)
         .update({'bookingCount': FieldValue.increment(1)});
-
-    return docRef.id;
   }
 
   /// Creates a booking that is already confirmed (e.g. from a custom chat offer).

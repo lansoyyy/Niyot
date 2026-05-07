@@ -5,10 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../data/philippines_locations.dart';
 import '../../models/photographer_model.dart';
 import '../../models/user_model.dart';
+import '../../services/messaging_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/location/ph_location_dropdowns.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -23,8 +27,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
-  final _locationController = TextEditingController();
   final _picker = ImagePicker();
+  String _country = PhilippinesLocations.countryName;
+  String _province = '';
+  String _city = '';
 
   final _specialtyOptions = const [
     'Portrait',
@@ -59,8 +65,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _bioController.dispose();
-    _locationController.dispose();
     super.dispose();
+  }
+
+  void _parseLocationString(String? raw) {
+    _country = PhilippinesLocations.countryName;
+    _province = '';
+    _city = '';
+    if (raw == null || raw.trim().isEmpty) return;
+    final parts = raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.length >= 3) {
+      _city = parts[0];
+      _province = parts[1];
+      final c0 = parts[2];
+      if (PhilippinesLocations.countries.contains(c0)) {
+        _country = c0;
+      }
+    } else if (parts.length == 2) {
+      _city = parts[0];
+      _province = parts[1];
+    } else {
+      _city = parts[0];
+    }
+    if (_province.isNotEmpty &&
+        !PhilippinesLocations.provinces.contains(_province)) {
+      _province = 'Other / Not listed';
+      _city = 'Other';
+    }
+    final cities = PhilippinesLocations.citiesForProvince(_province);
+    if (_province.isNotEmpty &&
+        _city.isNotEmpty &&
+        cities.isNotEmpty &&
+        !cities.contains(_city)) {
+      _city = cities.first;
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -78,8 +120,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.text = user?.email ?? '';
     _phoneController.text = user?.phone ?? '';
     _bioController.text = photographer?.bio ?? user?.bio ?? '';
-    _locationController.text =
-        photographer?.locationText ?? user?.location ?? '';
+    _parseLocationString(photographer?.locationText ?? user?.location);
     _selectedSpecialties
       ..clear()
       ..addAll(photographer?.specialties ?? const <String>[]);
@@ -99,6 +140,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _user == null) return;
+    if (_province.isEmpty || _city.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please select province and city.',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          backgroundColor: const Color(0xFFC62828),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
@@ -113,7 +170,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final name = _nameController.text.trim();
       final phone = _phoneController.text.trim();
       final bio = _bioController.text.trim();
-      final location = _locationController.text.trim();
+      final location = PhilippinesLocations.composeLocation(
+        city: _city,
+        province: _province,
+        country: _country,
+      );
 
       await UserService().updateProfile(
         uid: _currentUid,
@@ -147,6 +208,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         );
       }
+
+      await MessagingService().syncParticipantPhotoForUser(_currentUid);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -326,32 +389,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     Stack(
                       children: [
-                        Container(
+                        SizedBox(
                           width: 100,
                           height: 100,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF6B0000), Color(0xFFC62828)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          clipBehavior: Clip.antiAlias,
                           child: _selectedImage != null
-                              ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                              : user.photoUrl != null &&
-                                    user.photoUrl!.isNotEmpty
-                              ? Image.network(user.photoUrl!, fit: BoxFit.cover)
-                              : Center(
-                                  child: Text(
-                                    user.initials,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
+                              ? ClipOval(
+                                  child: Image.file(
+                                    _selectedImage!,
+                                    fit: BoxFit.cover,
+                                    width: 100,
+                                    height: 100,
                                   ),
+                                )
+                              : AppProfileAvatar(
+                                  displayName: user.name,
+                                  photoUrl: user.photoUrl,
+                                  size: 100,
                                 ),
                         ),
                         Positioned(
@@ -454,12 +507,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 20),
-              _buildLabel('Location'),
-              const SizedBox(height: 8),
-              _buildTextField(
-                controller: _locationController,
-                hint: 'Enter your city or location',
-                icon: Icons.location_on_outlined,
+              PhLocationDropdowns(
+                country: _country,
+                province: _province,
+                city: _city,
+                dense: true,
+                onCountryChanged: (c) => setState(() => _country = c),
+                onProvinceChanged: (p) => setState(() {
+                  _province = p;
+                  final cities = PhilippinesLocations.citiesForProvince(p);
+                  _city = cities.isNotEmpty ? cities.first : '';
+                }),
+                onCityChanged: (c) => setState(() => _city = c),
               ),
               const SizedBox(height: 20),
               _buildLabel('Bio'),

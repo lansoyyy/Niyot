@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../models/availability_model.dart';
 import '../../models/photographer_model.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../../services/photographer_service.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -111,22 +113,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: photographer.gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: AppAvatarColors.profileHeaderBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Center(
-                    child: Text(
-                      photographer.initials,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                  alignment: Alignment.center,
+                  child: AppProfileAvatar(
+                    displayName: photographer.name,
+                    photoUrl: photographer.photoUrl,
+                    size: 42,
                   ),
                 ),
                 const SizedBox(width: 12),

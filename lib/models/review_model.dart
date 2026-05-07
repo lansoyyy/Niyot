@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/profile_initials.dart';
 
 class ReviewModel {
   final String id;
@@ -23,12 +24,7 @@ class ReviewModel {
     required this.createdAt,
   });
 
-  String get clientInitials {
-    final parts = clientName.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
-  }
+  String get clientInitials => ProfileInitials.fromName(clientName);
 
   Map<String, dynamic> toMap() => {
     'photographerId': photographerId,

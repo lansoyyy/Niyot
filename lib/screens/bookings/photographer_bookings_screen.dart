@@ -5,6 +5,7 @@ import '../../models/booking_model.dart';
 import '../../models/payment_record_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/payment_service.dart';
+import '../../widgets/currency/peso_price_text.dart';
 
 class PhotographerBookingsScreen extends StatefulWidget {
   const PhotographerBookingsScreen({super.key});
@@ -617,14 +618,23 @@ class _NewRequestCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                'Free',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2E7D32),
-                ),
-              ),
+              request.packagePrice <= 0
+                  ? Text(
+                      'Free',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2E7D32),
+                      ),
+                    )
+                  : PesoPriceText(
+                      request.packagePrice,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2E7D32),
+                      ),
+                    ),
             ],
           ),
           const SizedBox(height: 12),
@@ -938,14 +948,23 @@ class _BookingCard extends StatelessWidget {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Free',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF2E7D32),
-                    ),
-                  ),
+                  booking.packagePrice <= 0
+                      ? Text(
+                          'Free',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF2E7D32),
+                          ),
+                        )
+                      : PesoPriceText(
+                          booking.packagePrice,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF2E7D32),
+                          ),
+                        ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,

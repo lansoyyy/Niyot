@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
 import '../../models/review_model.dart';
@@ -8,6 +9,8 @@ import '../../models/service_package_model.dart';
 import '../../services/messaging_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/currency/peso_price_text.dart';
 import '../booking/booking_screen.dart';
 import '../messages/chat_screen.dart';
 import '../profile/edit_profile_screen.dart';
@@ -87,7 +90,6 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   @override
   Widget build(BuildContext context) {
     final photographer = _photographer;
-    final gradient = photographer.gradientColors;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -99,7 +101,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               SliverAppBar(
                 expandedHeight: 280,
                 pinned: true,
-                backgroundColor: gradient[0],
+                backgroundColor: AppAvatarColors.profileHeaderBackground,
                 leading: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
@@ -229,12 +231,8 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: gradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                    decoration: const BoxDecoration(
+                      color: AppAvatarColors.profileHeaderBackground,
                     ),
                     child: Stack(
                       children: [
@@ -272,27 +270,17 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                             children: [
                               // Avatar
                               Container(
-                                width: 72,
-                                height: 72,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.2),
                                   border: Border.all(
                                     color: Colors.white,
                                     width: 2.5,
                                   ),
                                 ),
-                                child: Center(
-                                  child: photographer.photoUrl != null
-                                      ? null
-                                      : Text(
-                                          photographer.initials,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
+                                child: AppProfileAvatar(
+                                  displayName: photographer.name,
+                                  photoUrl: photographer.photoUrl,
+                                  size: 72,
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -846,13 +834,13 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               fit: StackFit.expand,
               children: [
                 item.imageUrl.isNotEmpty
-                    ? Image.network(
+                        ? Image.network(
                         item.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
-                            _portfolioPlaceholder(index),
+                            _portfolioPlaceholder(),
                       )
-                    : _portfolioPlaceholder(index),
+                    : _portfolioPlaceholder(),
                 if (item.caption != null && item.caption!.isNotEmpty)
                   Positioned(
                     bottom: 0,
@@ -891,25 +879,9 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     );
   }
 
-  Widget _portfolioPlaceholder(int index) {
-    const pairs = [
-      [Color(0xFF8E0000), Color(0xFFC62828)],
-      [Color(0xFF880E4F), Color(0xFFAD1457)],
-      [Color(0xFF4A0000), Color(0xFFBF360C)],
-      [Color(0xFF1A237E), Color(0xFFC62828)],
-      [Color(0xFF6B0000), Color(0xFF880E4F)],
-      [Color(0xFF3D0000), Color(0xFF8E0000)],
-      [Color(0xFF560027), Color(0xFFC62828)],
-    ];
-    final pair = pairs[index % pairs.length];
+  Widget _portfolioPlaceholder() {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [pair[0], pair[1]],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      color: AppAvatarColors.profileHeaderBackground,
       child: Center(
         child: Icon(
           Icons.photo_camera_rounded,
@@ -1012,17 +984,25 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                     ),
                     const SizedBox(height: 6),
                     // Price — very prominent
-                    Text(
-                      pkg.price == 0
-                          ? 'Free'
-                          : '₱${_formatPrice(pkg.price)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFFC62828),
-                        height: 1.1,
-                      ),
-                    ),
+                    pkg.price == 0
+                        ? Text(
+                            'Free',
+                            style: GoogleFonts.poppins(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFC62828),
+                              height: 1.1,
+                            ),
+                          )
+                        : PesoPriceText(
+                            pkg.price,
+                            style: GoogleFonts.poppins(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFC62828),
+                              height: 1.1,
+                            ),
+                          ),
                     const SizedBox(height: 12),
                     // Duration chip
                     Container(
@@ -1157,16 +1137,6 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     );
   }
 
-  String _formatPrice(int price) {
-    final s = price.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
-
   Widget _buildReviews() {
     if (_isLoadingTabs) {
       return const Center(
@@ -1213,25 +1183,10 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF8E0000), Color(0xFFC62828)],
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        review.clientInitials,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  AppProfileAvatar(
+                    displayName: review.clientName,
+                    photoUrl: review.clientPhotoUrl,
+                    size: 40,
                   ),
                   const SizedBox(width: 10),
                   Expanded(

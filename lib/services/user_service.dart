@@ -41,12 +41,26 @@ class UserService {
       .snapshots()
       .map((doc) {
         if (!doc.exists) {
-          _cachedUser = null;
+          if (uid == FirebaseAuth.instance.currentUser?.uid) {
+            _cachedUser = null;
+          }
           return null;
         }
-        _cachedUser = UserModel.fromMap(uid, doc.data()!);
-        return _cachedUser;
+        final user = UserModel.fromMap(uid, doc.data()!);
+        if (uid == FirebaseAuth.instance.currentUser?.uid) {
+          _cachedUser = user;
+        }
+        return user;
       });
+
+  Future<UserModel?> fetchUserById(String uid) async {
+    final doc = await _firestore
+        .collection(FirebaseCollections.users)
+        .doc(uid)
+        .get();
+    if (!doc.exists) return null;
+    return UserModel.fromMap(uid, doc.data()!);
+  }
 
   // ─── Profile Update ────────────────────────────────────────────────────────
 

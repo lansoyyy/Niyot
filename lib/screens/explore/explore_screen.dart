@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
 import '../../services/photographer_service.dart';
+import '../../widgets/common/app_profile_avatar.dart';
 import '../photographer/photographer_profile_screen.dart';
 import 'map_view_screen.dart';
 
@@ -703,13 +705,9 @@ class _ExploreScreenState extends State<ExploreScreen>
               children: [
                 Container(
                   height: 130,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: item.gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: const BorderRadius.only(
+                  decoration: const BoxDecoration(
+                    color: AppAvatarColors.profileHeaderBackground,
+                    borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(18),
                       topRight: Radius.circular(18),
                     ),
@@ -717,10 +715,10 @@ class _ExploreScreenState extends State<ExploreScreen>
                   child: Stack(
                     children: [
                       Center(
-                        child: _initialsAvatar(
-                          item.initials,
-                          56,
-                          item.photoUrl,
+                        child: AppProfileAvatar(
+                          displayName: item.name,
+                          photoUrl: item.photoUrl,
+                          size: 56,
                         ),
                       ),
                       if (item.isAvailable)
@@ -860,16 +858,16 @@ class _ExploreScreenState extends State<ExploreScreen>
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: item.gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
+                  decoration: const BoxDecoration(
+                    color: AppAvatarColors.profileHeaderBackground,
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
                   ),
                   child: Center(
-                    child: _initialsAvatar(item.initials, 36, item.photoUrl),
+                    child: AppProfileAvatar(
+                      displayName: item.name,
+                      photoUrl: item.photoUrl,
+                      size: 44,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -977,33 +975,4 @@ class _ExploreScreenState extends State<ExploreScreen>
     );
   }
 
-  Widget _initialsAvatar(String initials, double size, String? photoUrl) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.2),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 2,
-        ),
-        image: photoUrl != null
-            ? DecorationImage(image: NetworkImage(photoUrl), fit: BoxFit.cover)
-            : null,
-      ),
-      child: photoUrl == null
-          ? Center(
-              child: Text(
-                initials,
-                style: GoogleFonts.poppins(
-                  fontSize: size * 0.3,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            )
-          : null,
-    );
-  }
 }

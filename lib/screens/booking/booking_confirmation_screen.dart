@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../widgets/currency/peso_price_text.dart';
 import '../payment/payment_screen.dart';
 
 class BookingConfirmationScreen extends StatefulWidget {
@@ -126,7 +128,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                 child: Column(
                   children: [
                     Text(
-                      'Request Sent!',
+                      'Almost there!',
                       style: GoogleFonts.poppins(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
@@ -135,7 +137,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your booking request has been sent to ${widget.photographerName}. They will confirm shortly.',
+                      'Confirm cash payment on the next screen so your request is sent to ${widget.photographerName} for approval.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
@@ -188,7 +190,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           _DetailRow(
                             icon: Icons.attach_money_rounded,
                             label: 'Total',
-                            value: 'Free',
+                            value: widget.total <= 0
+                                ? 'Free'
+                                : 'PHP ${PesoPriceText.formatDigits(widget.total)}',
                             valueColor: const Color(0xFF2E7D32),
                             valueBold: true,
                           ),
