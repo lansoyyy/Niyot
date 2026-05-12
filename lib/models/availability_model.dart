@@ -74,4 +74,31 @@ class AvailabilityModel {
     const TimeSlotModel(time: '3:00 PM', isAvailable: true),
     const TimeSlotModel(time: '4:00 PM', isAvailable: true),
   ];
+
+  /// Maps any [DateTime] to the closest grid label in [defaultSlots] so booking
+  /// flows that reserve availability stay consistent with the hourly calendar.
+  static String snapDateTimeToGridSlotLabel(DateTime dt) {
+    final labels = defaultSlots().map((s) => s.time).toList();
+    final minutes = dt.hour * 60 + dt.minute;
+    const slotStarts = <int>[
+      9 * 60,
+      10 * 60,
+      11 * 60,
+      12 * 60,
+      13 * 60,
+      14 * 60,
+      15 * 60,
+      16 * 60,
+    ];
+    var bestIdx = 0;
+    var bestDiff = 1 << 30;
+    for (var i = 0; i < slotStarts.length; i++) {
+      final d = (minutes - slotStarts[i]).abs();
+      if (d < bestDiff) {
+        bestDiff = d;
+        bestIdx = i;
+      }
+    }
+    return labels[bestIdx];
+  }
 }

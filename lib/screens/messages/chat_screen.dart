@@ -10,6 +10,7 @@ import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../models/availability_model.dart';
 import '../../models/booking_model.dart';
 import '../../models/message_model.dart';
 import '../../services/booking_service.dart';
@@ -150,6 +151,8 @@ class _ChatScreenState extends State<ChatScreen> {
           'Client';
       final dateTime =
           msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
+      final scheduledTime =
+          AvailabilityModel.snapDateTimeToGridSlotLabel(dateTime);
       final booking = BookingModel(
         id: '',
         clientId: uid,
@@ -162,16 +165,14 @@ class _ChatScreenState extends State<ChatScreen> {
         packagePrice: msg.offerPrice ?? 0,
         packageDuration: '',
         scheduledDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
-        scheduledTime:
-            '${dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour}:'
-            '${dateTime.minute.toString().padLeft(2, '0')} '
-            '${dateTime.hour >= 12 ? 'PM' : 'AM'}',
+        scheduledTime: scheduledTime,
         location: '',
         notes: 'Booked via custom offer in chat.',
-        status: BookingStatus.confirmed,
+        status: BookingStatus.requested,
         createdAt: DateTime.now(),
       );
-      final bookingId = await BookingService().createDirectBooking(booking);
+      final bookingId =
+          await BookingService().createBookingFromAcceptedOffer(booking);
       await MessagingService().updateOfferStatus(
         conversationId: widget.conversationId,
         messageId: messageId,
@@ -182,7 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Offer accepted! Booking added to your upcoming.',
+              'Offer accepted! Your request was sent to the photographer for approval.',
               style: GoogleFonts.poppins(fontSize: 13),
             ),
             backgroundColor: const Color(0xFF2E7D32),

@@ -66,21 +66,34 @@ class BookingService {
         .update({'bookingCount': FieldValue.increment(1)});
   }
 
-  /// Creates a booking that is already confirmed (e.g. from a custom chat offer).
-  /// Skips the request notification and slot reservation.
-  Future<String> createDirectBooking(BookingModel booking) async {
+  /// After the client accepts a custom chat offer: creates a [requested]
+  /// booking (same queue as post–cash‑payment package bookings), reserves the
+  /// time slot, notifies the photographer, and increments booking count.
+  Future<String> createBookingFromAcceptedOffer(BookingModel booking) async {
+    if (booking.status != BookingStatus.requested) {
+      throw ArgumentError(
+        'createBookingFromAcceptedOffer expects status requested, '
+        'got ${booking.status}',
+      );
+    }
+
     final docRef = _firestore.collection(FirebaseCollections.bookings).doc();
     await docRef.set(booking.toMap());
 
-    // Notify client that booking is confirmed
-    await NotificationService().createBookingConfirmedNotification(
-      clientId: booking.clientId,
-      photographerName: booking.photographerName,
+    await _reserveSlot(
+      photographerId: booking.photographerId,
+      date: booking.scheduledDate,
+      time: booking.scheduledTime,
+      bookingId: docRef.id,
+    );
+
+    await NotificationService().createBookingRequestNotification(
+      photographerId: booking.photographerId,
+      clientName: booking.clientName,
       bookingId: docRef.id,
       scheduledDate: booking.scheduledDate,
     );
 
-    // Increment photographer booking count
     await _firestore
         .collection(FirebaseCollections.photographers)
         .doc(booking.photographerId)

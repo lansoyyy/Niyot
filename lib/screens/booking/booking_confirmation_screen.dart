@@ -86,11 +86,11 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
             children: [
-              const Spacer(),
               // Success animation
               AnimatedBuilder(
                 animation: _controller,
@@ -219,12 +219,14 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                             color: Color(0xFFC62828),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Booking ID: ${widget.bookingId.isNotEmpty ? '#${widget.bookingId.substring(0, widget.bookingId.length.clamp(0, 8)).toUpperCase()}' : 'Pending'}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFC62828),
+                          Flexible(
+                            child: Text(
+                              'Booking ID: ${widget.bookingId.isNotEmpty ? '#${widget.bookingId.substring(0, widget.bookingId.length.clamp(0, 8)).toUpperCase()}' : 'Pending'}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFC62828),
+                              ),
                             ),
                           ),
                         ],
@@ -233,8 +235,8 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                   ],
                 ),
               ),
-              const Spacer(),
-              // Action buttons
+              const SizedBox(height: 28),
+              // Action buttons (inside scroll so short phones can reach them)
               FadeTransition(
                 opacity: _fadeAnim,
                 child: Column(
@@ -323,6 +325,7 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 32,
@@ -334,7 +337,8 @@ class _DetailRow extends StatelessWidget {
           child: Icon(icon, size: 16, color: const Color(0xFFC62828)),
         ),
         const SizedBox(width: 12),
-        Expanded(
+        SizedBox(
+          width: 92,
           child: Text(
             label,
             style: GoogleFonts.poppins(
@@ -343,12 +347,18 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
-            color: valueColor ?? const Color(0xFF1A1A1A),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 6,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
+              color: valueColor ?? const Color(0xFF1A1A1A),
+              height: 1.35,
+            ),
           ),
         ),
       ],
