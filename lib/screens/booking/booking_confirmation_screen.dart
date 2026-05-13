@@ -337,28 +337,35 @@ class _DetailRow extends StatelessWidget {
           child: Icon(icon, size: 16, color: const Color(0xFFC62828)),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 92,
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: const Color(0xFF9E9E9E),
-            ),
-          ),
-        ),
         Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            maxLines: 6,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
-              color: valueColor ?? const Color(0xFF1A1A1A),
-              height: 1.35,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: const Color(0xFF9E9E9E),
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                softWrap: true,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
+                  color: valueColor ?? const Color(0xFF1A1A1A),
+                  height: 1.35,
+                ),
+              ),
+            ],
           ),
         ),
       ],

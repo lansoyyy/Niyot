@@ -53,17 +53,18 @@ class BookingService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    await NotificationService().createBookingRequestNotification(
-      photographerId: booking.photographerId,
-      clientName: booking.clientName,
-      bookingId: bookingId,
-      scheduledDate: booking.scheduledDate,
-    );
+    try {
+      await NotificationService().createBookingRequestNotification(
+        photographerId: booking.photographerId,
+        clientName: booking.clientName,
+        bookingId: bookingId,
+        scheduledDate: booking.scheduledDate,
+      );
+    } catch (_) {
+      // Notification failure must not block status promotion.
+    }
 
-    await _firestore
-        .collection(FirebaseCollections.photographers)
-        .doc(booking.photographerId)
-        .update({'bookingCount': FieldValue.increment(1)});
+    await _bumpPhotographerBookingCount(booking.photographerId);
   }
 
   /// After the client accepts a custom chat offer: creates a [requested]
@@ -87,19 +88,36 @@ class BookingService {
       bookingId: docRef.id,
     );
 
-    await NotificationService().createBookingRequestNotification(
-      photographerId: booking.photographerId,
-      clientName: booking.clientName,
-      bookingId: docRef.id,
-      scheduledDate: booking.scheduledDate,
-    );
+    try {
+      await NotificationService().createBookingRequestNotification(
+        photographerId: booking.photographerId,
+        clientName: booking.clientName,
+        bookingId: docRef.id,
+        scheduledDate: booking.scheduledDate,
+      );
+    } catch (_) {
+      // Notification failure must not block offer acceptance.
+    }
 
-    await _firestore
-        .collection(FirebaseCollections.photographers)
-        .doc(booking.photographerId)
-        .update({'bookingCount': FieldValue.increment(1)});
+    await _bumpPhotographerBookingCount(booking.photographerId);
 
     return docRef.id;
+  }
+
+  /// Increments the photographer's bookingCount, creating the field if the
+  /// photographer doc is missing or doesn't yet have the field. Failures here
+  /// are swallowed so they don't break the booking flow.
+  Future<void> _bumpPhotographerBookingCount(String photographerId) async {
+    final ref = _firestore
+        .collection(FirebaseCollections.photographers)
+        .doc(photographerId);
+    try {
+      await ref.set({
+        'bookingCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Non-fatal: leave the counter as-is rather than break the user flow.
+    }
   }
 
   Future<void> _reserveSlot({

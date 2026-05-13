@@ -24,7 +24,7 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 3));
-  int _selectedTimeSlot = 2;
+  int _selectedTimeSlot = 1;
   int _selectedService = 0;
   bool _isSubmitting = false;
   String _selectedEventType = 'Wedding';
@@ -34,8 +34,8 @@ class _BookingScreenState extends State<BookingScreen> {
   String _province = '';
   String _city = '';
 
+  // Must match AvailabilityModel.defaultSlots so reservations resolve cleanly.
   final List<String> _timeSlots = [
-    '8:00 AM',
     '9:00 AM',
     '10:00 AM',
     '11:00 AM',

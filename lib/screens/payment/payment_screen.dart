@@ -31,46 +31,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _processPayment(BookingModel booking) async {
     if (_isProcessing) return;
 
-    final existingPayment = await PaymentService().getPaymentForBooking(
-      booking.id,
-    );
-    if (!mounted) return;
-    if (existingPayment != null &&
-        existingPayment.status != PaymentStatus.failed &&
-        existingPayment.status != PaymentStatus.refunded) {
-      if (booking.status == BookingStatus.paymentPending) {
-        await BookingService().promoteBookingAfterCashConfirmation(booking.id);
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => PaymentSuccessScreen(booking: booking),
-            ),
-          );
-        }
-        return;
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'A payment record already exists for this booking.',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: const Color(0xFFE53935),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-      return;
-    }
-
     setState(() => _isProcessing = true);
     try {
+      final existingPayment = await PaymentService().getPaymentForBooking(
+        booking.id,
+      );
+      if (!mounted) return;
+      if (existingPayment != null &&
+          existingPayment.status != PaymentStatus.failed &&
+          existingPayment.status != PaymentStatus.refunded) {
+        if (booking.status == BookingStatus.paymentPending) {
+          await BookingService().promoteBookingAfterCashConfirmation(
+            booking.id,
+          );
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => PaymentSuccessScreen(booking: booking),
+              ),
+            );
+          }
+          return;
+        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'A payment record already exists for this booking.',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            backgroundColor: const Color(0xFFE53935),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+
       final notes = _notesController.text.trim();
       final record = PaymentRecordModel(
         id: '',
@@ -81,7 +83,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: 'PHP',
         paymentMethodLabel: 'Cash',
         status: PaymentStatus.pending,
-        notes: notes.isNotEmpty ? notes : 'Cash payment — to be collected on session day.',
+        notes: notes.isNotEmpty
+            ? notes
+            : 'Cash payment — to be collected on session day.',
         createdAt: DateTime.now(),
       );
 
@@ -92,6 +96,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => PaymentSuccessScreen(booking: booking),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not confirm payment: $e',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: const Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }

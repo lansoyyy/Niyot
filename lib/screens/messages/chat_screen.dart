@@ -42,6 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _isSending = false;
   bool _isPhotographer = false;
+  final Set<String> _processingOffers = <String>{};
 
   String _formatTime(DateTime date) {
     final hour = date.hour;
@@ -131,62 +132,93 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _respondToOffer(String messageId, String status) async {
+  Future<void> _respondToOffer(MessageModel msg, String status) async {
     final uid = _currentUser?.uid;
     if (uid == null) return;
+    if (_processingOffers.contains(msg.id)) return;
 
-    if (status == 'accepted') {
-      // Find the message to get offer details
-      final messages = await MessagingService()
-          .messagesStream(widget.conversationId)
-          .first;
-      final msg = messages.firstWhere(
-        (m) => m.id == messageId,
-        orElse: () => throw Exception('Message not found'),
-      );
-
-      final clientName =
-          UserService().cachedUser?.name ??
-          _currentUser?.displayName ??
-          'Client';
-      final dateTime =
-          msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
-      final scheduledTime =
-          AvailabilityModel.snapDateTimeToGridSlotLabel(dateTime);
-      final booking = BookingModel(
-        id: '',
-        clientId: uid,
-        clientName: clientName,
-        clientPhotoUrl: UserService().cachedUser?.photoUrl,
-        photographerId: msg.senderId,
-        photographerName: widget.otherUserName,
-        photographerPhotoUrl: null,
-        packageName: msg.offerName ?? 'Custom Package',
-        packagePrice: msg.offerPrice ?? 0,
-        packageDuration: '',
-        scheduledDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
-        scheduledTime: scheduledTime,
-        location: '',
-        notes: 'Booked via custom offer in chat.',
-        status: BookingStatus.requested,
-        createdAt: DateTime.now(),
-      );
-      final bookingId =
-          await BookingService().createBookingFromAcceptedOffer(booking);
-      await MessagingService().updateOfferStatus(
-        conversationId: widget.conversationId,
-        messageId: messageId,
-        status: 'accepted',
-        bookingId: bookingId,
-      );
+    setState(() => _processingOffers.add(msg.id));
+    try {
+      if (status == 'accepted') {
+        final cachedClient = UserService().cachedUser;
+        final clientName =
+            cachedClient?.name ?? _currentUser?.displayName ?? 'Client';
+        final dateTime =
+            msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
+        final scheduledTime =
+            AvailabilityModel.snapDateTimeToGridSlotLabel(dateTime);
+        final booking = BookingModel(
+          id: '',
+          clientId: uid,
+          clientName: clientName,
+          clientPhotoUrl: cachedClient?.photoUrl,
+          photographerId: msg.senderId,
+          photographerName: widget.otherUserName,
+          photographerPhotoUrl: null,
+          packageName: msg.offerName ?? 'Custom Package',
+          packagePrice: msg.offerPrice ?? 0,
+          packageDuration: '',
+          scheduledDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
+          scheduledTime: scheduledTime,
+          location: '',
+          notes: 'Booked via custom offer in chat.',
+          status: BookingStatus.requested,
+          createdAt: DateTime.now(),
+        );
+        final bookingId =
+            await BookingService().createBookingFromAcceptedOffer(booking);
+        await MessagingService().updateOfferStatus(
+          conversationId: widget.conversationId,
+          messageId: msg.id,
+          status: 'accepted',
+          bookingId: bookingId,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Offer accepted! Your request was sent to the photographer for approval.',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
+              backgroundColor: const Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      } else {
+        await MessagingService().respondToOffer(
+          conversationId: widget.conversationId,
+          messageId: msg.id,
+          status: status,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Offer declined.',
+                style: GoogleFonts.poppins(fontSize: 13),
+              ),
+              backgroundColor: const Color(0xFF6B7280),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Offer accepted! Your request was sent to the photographer for approval.',
-              style: GoogleFonts.poppins(fontSize: 13),
+              'Could not ${status == 'accepted' ? 'accept' : 'decline'} the offer: $e',
+              style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
             ),
-            backgroundColor: const Color(0xFF2E7D32),
+            backgroundColor: const Color(0xFFC62828),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -194,12 +226,10 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         );
       }
-    } else {
-      await MessagingService().respondToOffer(
-        conversationId: widget.conversationId,
-        messageId: messageId,
-        status: status,
-      );
+    } finally {
+      if (mounted) {
+        setState(() => _processingOffers.remove(msg.id));
+      }
     }
   }
 
@@ -426,10 +456,11 @@ class _ChatScreenState extends State<ChatScreen> {
                             message: message,
                             isMe: isMe,
                             canRespond: !isMe && message.isOfferPending,
+                            isProcessing: _processingOffers.contains(message.id),
                             onAccept: () =>
-                                _respondToOffer(message.id, 'accepted'),
+                                _respondToOffer(message, 'accepted'),
                             onDecline: () =>
-                                _respondToOffer(message.id, 'declined'),
+                                _respondToOffer(message, 'declined'),
                           )
                         else
                           _MessageBubble(
@@ -563,6 +594,7 @@ class _OfferCard extends StatelessWidget {
     required this.message,
     required this.isMe,
     required this.canRespond,
+    required this.isProcessing,
     required this.onAccept,
     required this.onDecline,
   });
@@ -570,6 +602,7 @@ class _OfferCard extends StatelessWidget {
   final MessageModel message;
   final bool isMe;
   final bool canRespond;
+  final bool isProcessing;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
@@ -754,7 +787,7 @@ class _OfferCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: onDecline,
+                            onPressed: isProcessing ? null : onDecline,
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFFBDBDBD)),
                               foregroundColor: const Color(0xFF6B7280),
@@ -775,23 +808,33 @@ class _OfferCard extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: onAccept,
+                            onPressed: isProcessing ? null : onAccept,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFC62828),
                               foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFFE5BDBD),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Text(
-                              'Accept',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child: isProcessing
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    'Accept',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
