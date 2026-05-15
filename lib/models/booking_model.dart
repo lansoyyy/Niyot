@@ -131,9 +131,36 @@ class BookingModel {
   String get photographerInitials =>
       ProfileInitials.fromName(photographerName);
 
-  bool get isUpcoming =>
-      status == BookingStatus.confirmed &&
-      scheduledDate.isAfter(DateTime.now());
+  /// Calendar day of the shoot (time stripped).
+  DateTime get scheduledDay =>
+      DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+
+  /// Best-effort session start on [scheduledDay] using [scheduledTime] (e.g. "2:00 PM").
+  /// Falls back to end-of-day when the label cannot be parsed so same-day bookings
+  /// still behave sensibly in lists.
+  DateTime get scheduledSessionStart {
+    final day = scheduledDay;
+    final parsed = _parseClockOnDay(day, scheduledTime);
+    if (parsed != null) return parsed;
+    return DateTime(day.year, day.month, day.day, 23, 59, 59);
+  }
+
+  /// Future sessions that are not finished or rejected — includes package flow
+  /// ([paymentPending]), chat-offer flow ([requested]), and [confirmed].
+  bool get isUpcoming {
+    if (status == BookingStatus.declined ||
+        status == BookingStatus.cancelled ||
+        status == BookingStatus.completed ||
+        status == BookingStatus.inProgress) {
+      return false;
+    }
+    if (status != BookingStatus.confirmed &&
+        status != BookingStatus.requested &&
+        status != BookingStatus.paymentPending) {
+      return false;
+    }
+    return scheduledSessionStart.isAfter(DateTime.now());
+  }
 
   bool get isPast =>
       status == BookingStatus.completed ||
@@ -143,7 +170,7 @@ class BookingModel {
   bool get isActive =>
       status == BookingStatus.inProgress ||
       (status == BookingStatus.confirmed &&
-          !scheduledDate.isAfter(DateTime.now()));
+          !scheduledSessionStart.isAfter(DateTime.now()));
 
   bool get hasReview => reviewId != null && reviewId!.isNotEmpty;
 
@@ -205,6 +232,21 @@ class BookingModel {
         createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
       );
+
+  /// Parses strings like "9:00 AM" / "12:30 PM" on [day]; returns null if unknown.
+  static DateTime? _parseClockOnDay(DateTime day, String label) {
+    final m = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)$',
+      caseSensitive: false,
+    ).firstMatch(label.trim());
+    if (m == null) return null;
+    var hour = int.tryParse(m.group(1)!) ?? 0;
+    final minute = int.tryParse(m.group(2)!) ?? 0;
+    final ap = m.group(3)!.toUpperCase();
+    if (ap == 'PM' && hour < 12) hour += 12;
+    if (ap == 'AM' && hour == 12) hour = 0;
+    return DateTime(day.year, day.month, day.day, hour, minute);
+  }
 
   BookingModel copyWith({
     BookingStatus? status,

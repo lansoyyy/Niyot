@@ -55,6 +55,16 @@ class MessagingService {
     return conversationId;
   }
 
+  /// Loads a single conversation (e.g. for notification deep links).
+  Future<ConversationModel?> getConversationById(String conversationId) async {
+    final doc = await _firestore
+        .collection(FirebaseCollections.conversations)
+        .doc(conversationId)
+        .get();
+    if (!doc.exists) return null;
+    return ConversationModel.fromMap(conversationId, doc.data()!);
+  }
+
   String _buildConversationId(String uid1, String uid2) {
     final sorted = [uid1, uid2]..sort();
     return '${sorted[0]}_${sorted[1]}';

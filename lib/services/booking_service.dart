@@ -176,27 +176,37 @@ class BookingService {
 
   // ─── Read ─────────────────────────────────────────────────────────────────
 
-  Stream<List<BookingModel>> clientBookingsStream(String clientId) => _firestore
-      .collection(FirebaseCollections.bookings)
-      .where('clientId', isEqualTo: clientId)
-      .orderBy('scheduledDate', descending: true)
-      .snapshots()
-      .map(
-        (snap) =>
-            snap.docs.map((d) => BookingModel.fromMap(d.id, d.data())).toList(),
-      );
+  Stream<List<BookingModel>> clientBookingsStream(String clientId) =>
+      _firestore
+          .collection(FirebaseCollections.bookings)
+          .where('clientId', isEqualTo: clientId)
+          .snapshots()
+          .map((snap) {
+            final list = snap.docs
+                .map((d) => BookingModel.fromMap(d.id, d.data()))
+                .toList();
+            list.sort(
+              (a, b) => b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+            );
+            return list;
+          });
 
   Stream<List<BookingModel>> photographerBookingsStream(
     String photographerId,
-  ) => _firestore
-      .collection(FirebaseCollections.bookings)
-      .where('photographerId', isEqualTo: photographerId)
-      .orderBy('scheduledDate', descending: true)
-      .snapshots()
-      .map(
-        (snap) =>
-            snap.docs.map((d) => BookingModel.fromMap(d.id, d.data())).toList(),
-      );
+  ) =>
+      _firestore
+          .collection(FirebaseCollections.bookings)
+          .where('photographerId', isEqualTo: photographerId)
+          .snapshots()
+          .map((snap) {
+            final list = snap.docs
+                .map((d) => BookingModel.fromMap(d.id, d.data()))
+                .toList();
+            list.sort(
+              (a, b) => b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+            );
+            return list;
+          });
 
   Future<BookingModel?> getBookingById(String id) async {
     final doc = await _firestore

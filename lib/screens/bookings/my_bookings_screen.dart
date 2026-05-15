@@ -72,11 +72,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         final all = snapshot.data ?? [];
 
         final requested = all.where((b) {
-          if (!_isPhotographer) {
-            return b.status == BookingStatus.requested ||
-                b.status == BookingStatus.paymentPending;
-          }
-          return b.status == BookingStatus.requested;
+          return b.status == BookingStatus.requested ||
+              b.status == BookingStatus.paymentPending;
         }).toList();
         final upcoming = all.where((b) => b.isUpcoming).toList();
         final active = all.where((b) => b.isActive).toList();

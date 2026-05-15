@@ -68,13 +68,20 @@ class _PhotographerDashboardScreenState
       .where(
         (b) =>
             b.status == BookingStatus.confirmed &&
-            b.scheduledDate.isAfter(DateTime.now()),
+            b.scheduledSessionStart.isAfter(DateTime.now()),
       )
       .toList()
-    ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    ..sort(
+      (a, b) => a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
+    );
 
-  int _pendingCount(List<BookingModel> all) =>
-      all.where((b) => b.status == BookingStatus.requested).length;
+  int _pendingCount(List<BookingModel> all) => all
+      .where(
+        (b) =>
+            b.status == BookingStatus.requested ||
+            b.status == BookingStatus.paymentPending,
+      )
+      .length;
 
   int _shootsThisWeek(List<BookingModel> all) {
     final now = DateTime.now();
@@ -84,8 +91,8 @@ class _PhotographerDashboardScreenState
         .where(
           (b) =>
               b.status == BookingStatus.confirmed &&
-              b.scheduledDate.isAfter(weekStart) &&
-              b.scheduledDate.isBefore(weekEnd),
+              b.scheduledSessionStart.isAfter(weekStart) &&
+              b.scheduledSessionStart.isBefore(weekEnd),
         )
         .length;
   }

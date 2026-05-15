@@ -40,6 +40,9 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   bool get _isOwnProfile =>
       FirebaseAuth.instance.currentUser?.uid == _photographer.uid;
 
+  /// Clients only — photographers browse in read-only mode.
+  bool get _canBookPackages => !_isOwnProfile && !_currentUserIsPhotographer;
+
   @override
   void initState() {
     super.initState();
@@ -1070,59 +1073,89 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Select button
+                    // Select button (hidden for own profile / photographer accounts)
                     SizedBox(
                       width: double.infinity,
-                      child: isPopular
-                          ? ElevatedButton(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => BookingScreen(
-                                    photographer: widget.photographer,
-                                  ),
-                                ),
+                      child: _canBookPackages
+                          ? (isPopular
+                                ? ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => BookingScreen(
+                                          photographer: _photographer,
+                                        ),
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFC62828),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Select ${pkg.name}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  )
+                                : OutlinedButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => BookingScreen(
+                                          photographer: _photographer,
+                                        ),
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFFC62828),
+                                      side: const BorderSide(
+                                        color: Color(0xFFC62828),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Select ${pkg.name}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ))
+                          : Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 12,
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFC62828),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
                               ),
+                              alignment: Alignment.center,
                               child: Text(
-                                'Select ${pkg.name}',
+                                _isOwnProfile
+                                    ? 'Use the Packages button below to manage pricing.'
+                                    : 'Booking is available to client accounts only.',
+                                textAlign: TextAlign.center,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            )
-                          : OutlinedButton(
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => BookingScreen(
-                                    photographer: widget.photographer,
-                                  ),
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFC62828),
-                                side:
-                                    const BorderSide(color: Color(0xFFC62828)),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                'Select ${pkg.name}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF9E9E9E),
+                                  height: 1.35,
                                 ),
                               ),
                             ),

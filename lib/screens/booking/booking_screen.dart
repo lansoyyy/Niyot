@@ -27,6 +27,8 @@ class _BookingScreenState extends State<BookingScreen> {
   int _selectedTimeSlot = 1;
   int _selectedService = 0;
   bool _isSubmitting = false;
+  /// When set, this screen is read-only (self-booking or photographer account).
+  String? _bookingBlockedReason;
   String _selectedEventType = 'Wedding';
   final _notesController = TextEditingController();
   final _venueController = TextEditingController();
@@ -45,6 +47,29 @@ class _BookingScreenState extends State<BookingScreen> {
     '3:00 PM',
     '4:00 PM',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _evaluateBookingEligibility();
+  }
+
+  Future<void> _evaluateBookingEligibility() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    if (uid == widget.photographer.uid) {
+      if (mounted) {
+        setState(() => _bookingBlockedReason = 'self');
+      }
+      return;
+    }
+    final cached = UserService().cachedUser;
+    final user = cached ?? await UserService().fetchCurrentUser();
+    if (!mounted) return;
+    if (user?.isPhotographer == true) {
+      setState(() => _bookingBlockedReason = 'photographer');
+    }
+  }
 
   @override
   void dispose() {
@@ -85,6 +110,48 @@ class _BookingScreenState extends State<BookingScreen> {
         ),
         body: const Center(
           child: Text('No packages available for this photographer.'),
+        ),
+      );
+    }
+
+    if (_bookingBlockedReason != null) {
+      final message = _bookingBlockedReason == 'self'
+          ? 'You cannot book a session with your own photographer profile.'
+          : 'Client accounts can book photographers. Switch to a client profile or use a separate client account to place a booking.';
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8F8F8),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF374151),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Book a Session',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A1A),
+            ),
+          ),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                color: const Color(0xFF6B7280),
+                height: 1.5,
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -587,6 +654,26 @@ class _BookingScreenState extends State<BookingScreen> {
     final pkg = packages[_selectedService.clamp(0, packages.length - 1)];
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
+
+    if (_bookingBlockedReason != null ||
+        currentUser.uid == photographer.uid) {
+      return;
+    }
+    final gateUser =
+        UserService().cachedUser ?? await UserService().fetchCurrentUser();
+    if (!mounted) return;
+    if (gateUser?.isPhotographer == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Photographer accounts cannot place bookings.',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+      return;
+    }
 
     final venue = _venueController.text.trim();
 

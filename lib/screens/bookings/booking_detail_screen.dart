@@ -383,7 +383,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             // ── Countdown (upcoming only) ─────────────────────────────────
             if (status == BookingStatus.confirmed && booking.isUpcoming) ...[
               Builder(builder: (_) {
-                final dur = _countdown(booking.scheduledDate);
+                final dur = _countdown(booking.scheduledSessionStart);
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),

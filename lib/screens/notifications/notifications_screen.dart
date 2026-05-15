@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/notification_model.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/navigation/notification_navigation_helper.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -45,6 +46,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!notification.isRead) {
       await NotificationService().markRead(_currentUid, notification.id);
     }
+    if (!mounted) return;
+    await NotificationNavigationHelper.openFromNotification(
+      context,
+      notification,
+    );
   }
 
   @override
