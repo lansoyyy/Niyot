@@ -15,8 +15,8 @@ class MessagingService {
 
   // ─── Conversations ────────────────────────────────────────────────────────
 
-  /// Gets or creates a conversation between two users.
-  /// For booking-scoped chats, provide [bookingId] to use a deterministic ID.
+  /// Gets or creates the **single** conversation between two users (Messenger-style).
+  /// Reuses any existing thread for the pair, including legacy `booking_*` docs.
   Future<String> getOrCreateConversation({
     required String myId,
     required String myName,
@@ -26,11 +26,18 @@ class MessagingService {
     String? otherUserPhotoUrl,
     String? bookingId,
   }) async {
-    // Deterministic conversation ID prevents duplicates
-    final conversationId = bookingId != null
-        ? 'booking_$bookingId'
-        : _buildConversationId(myId, otherUserId);
+    final existing = await _findExistingConversationId(myId, otherUserId);
+    if (existing != null) {
+      if (bookingId != null) {
+        await _firestore
+            .collection(FirebaseCollections.conversations)
+            .doc(existing)
+            .set({'bookingId': bookingId}, SetOptions(merge: true));
+      }
+      return existing;
+    }
 
+    final conversationId = _buildConversationId(myId, otherUserId);
     final docRef = _firestore
         .collection(FirebaseCollections.conversations)
         .doc(conversationId);
@@ -51,8 +58,29 @@ class MessagingService {
         bookingId: bookingId,
       );
       await docRef.set(conversation.toMap());
+    } else if (bookingId != null) {
+      await docRef.set({'bookingId': bookingId}, SetOptions(merge: true));
     }
     return conversationId;
+  }
+
+  /// Returns the most recently active conversation between [uidA] and [uidB].
+  Future<String?> _findExistingConversationId(String uidA, String uidB) async {
+    final snap = await _firestore
+        .collection(FirebaseCollections.conversations)
+        .where('participantIds', arrayContains: uidA)
+        .get();
+
+    ConversationModel? best;
+    for (final doc in snap.docs) {
+      final conv = ConversationModel.fromMap(doc.id, doc.data());
+      if (!conv.participantIds.contains(uidB)) continue;
+      if (best == null ||
+          conv.lastMessageTime.isAfter(best.lastMessageTime)) {
+        best = conv;
+      }
+    }
+    return best?.id;
   }
 
   /// Loads a single conversation (e.g. for notification deep links).

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/app_avatar_colors.dart';
+import '../../core/offer_expiration.dart';
 import '../../models/user_model.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
@@ -147,6 +149,28 @@ class _ChatScreenState extends State<ChatScreen> {
             msg.offerDateTime ?? DateTime.now().add(const Duration(days: 1));
         final scheduledTime =
             AvailabilityModel.snapDateTimeToGridSlotLabel(dateTime);
+        final scheduledDate =
+            DateTime(dateTime.year, dateTime.month, dateTime.day);
+        final slotFree = await BookingService().isTimeSlotAvailable(
+          photographerId: msg.senderId,
+          scheduledDate: scheduledDate,
+          scheduledTime: scheduledTime,
+        );
+        if (!slotFree) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'That time slot is already booked. Ask the photographer for another time.',
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+                backgroundColor: const Color(0xFFC62828),
+              ),
+            );
+          }
+          return;
+        }
+
         final booking = BookingModel(
           id: '',
           clientId: uid,
@@ -158,7 +182,7 @@ class _ChatScreenState extends State<ChatScreen> {
           packageName: msg.offerName ?? 'Custom Package',
           packagePrice: msg.offerPrice ?? 0,
           packageDuration: '',
-          scheduledDate: DateTime(dateTime.year, dateTime.month, dateTime.day),
+          scheduledDate: scheduledDate,
           scheduledTime: scheduledTime,
           location: '',
           notes: 'Booked via custom offer in chat.',
@@ -589,7 +613,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _OfferCard extends StatelessWidget {
+class _OfferCard extends StatefulWidget {
   const _OfferCard({
     required this.message,
     required this.isMe,
@@ -605,6 +629,31 @@ class _OfferCard extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+
+  @override
+  State<_OfferCard> createState() => _OfferCardState();
+}
+
+class _OfferCardState extends State<_OfferCard> {
+  Timer? _expiryTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.message.offerExpiresAt != null &&
+        widget.message.offerStatus == null &&
+        !widget.message.isOfferExpired) {
+      _expiryTicker = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _expiryTicker?.cancel();
+    super.dispose();
+  }
 
   String _formatOfferDate(DateTime dt) {
     const months = [
@@ -630,6 +679,7 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final message = widget.message;
     final status = message.offerStatus;
     final expired = message.isOfferExpired;
     Color statusColor;
@@ -649,7 +699,7 @@ class _OfferCard extends StatelessWidget {
     }
 
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         constraints: BoxConstraints(
@@ -772,7 +822,9 @@ class _OfferCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 5),
                         Text(
-                          'Expires in 24 hours',
+                          OfferExpiration.hoursRemainingLabel(
+                            message.offerExpiresAt!,
+                          ),
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             color: const Color(0xFFFF8F00),
@@ -781,13 +833,15 @@ class _OfferCard extends StatelessWidget {
                       ],
                     ),
                   ],
-                  if (canRespond) ...[
+                  if (widget.canRespond) ...[
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: isProcessing ? null : onDecline,
+                            onPressed: widget.isProcessing
+                                ? null
+                                : widget.onDecline,
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFFBDBDBD)),
                               foregroundColor: const Color(0xFF6B7280),
@@ -808,7 +862,9 @@ class _OfferCard extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: isProcessing ? null : onAccept,
+                            onPressed: widget.isProcessing
+                                ? null
+                                : widget.onAccept,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFC62828),
                               foregroundColor: Colors.white,
@@ -819,7 +875,7 @@ class _OfferCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: isProcessing
+                            child: widget.isProcessing
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,

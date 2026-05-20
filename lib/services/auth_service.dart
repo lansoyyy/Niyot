@@ -119,9 +119,9 @@ class AuthService {
           .set(photographerModel.toMap());
     }
 
-    // Seed user profile into cache and start FCM
+    // Seed user profile into cache (in-app notifications are Firestore-only)
     await UserService().fetchCurrentUser();
-    await NotificationService().initFCM();
+    await NotificationService().init();
   }
 
   static List<ServicePackageModel> _defaultPackages() => [
@@ -196,7 +196,7 @@ class AuthService {
     }
 
     await UserService().fetchCurrentUser();
-    await NotificationService().initFCM();
+    await NotificationService().init();
   }
 
   // ─── Forgot Password ──────────────────────────────────────────────────────
@@ -210,7 +210,6 @@ class AuthService {
   Future<void> signOut() async {
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
-      await NotificationService().removeFCMToken(uid);
     }
     UserService().clearCache();
     await _googleSignIn.signOut();

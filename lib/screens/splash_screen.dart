@@ -79,9 +79,9 @@ class _SplashScreenState extends State<SplashScreen>
     final user = FirebaseAuth.instance.currentUser;
     Widget destination;
     if (user != null) {
-      // Eagerly load profile and start FCM so MainScreen is immediately useful
+      // Eagerly load profile so MainScreen is immediately useful
       await UserService().fetchCurrentUser();
-      await NotificationService().initFCM();
+      await NotificationService().init();
       destination = const MainScreen();
     } else {
       destination = const OnboardingScreen();

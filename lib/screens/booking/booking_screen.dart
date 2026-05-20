@@ -696,6 +696,30 @@ class _BookingScreenState extends State<BookingScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final scheduledTime = _timeSlots[_selectedTimeSlot];
+      final slotFree = await BookingService().isTimeSlotAvailable(
+        photographerId: photographer.uid,
+        scheduledDate: _selectedDate,
+        scheduledTime: scheduledTime,
+      );
+      if (!slotFree) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That time slot is no longer available. Please choose another date or time.',
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+            backgroundColor: const Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+
       final user = await UserService().fetchCurrentUser();
       final booking = BookingModel(
         id: '',
@@ -709,7 +733,7 @@ class _BookingScreenState extends State<BookingScreen> {
         packagePrice: pkg.price,
         packageDuration: pkg.duration,
         scheduledDate: _selectedDate,
-        scheduledTime: _timeSlots[_selectedTimeSlot],
+        scheduledTime: scheduledTime,
         location: _buildClientLocation(),
         notes: _notesController.text.trim().isEmpty
             ? null
@@ -717,19 +741,10 @@ class _BookingScreenState extends State<BookingScreen> {
         status: BookingStatus.paymentPending,
         createdAt: DateTime.now(),
       );
-      final bookingId = await BookingService().createBooking(booking);
       if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => BookingConfirmationScreen(
-              bookingId: bookingId,
-              photographerName: photographer.name,
-              photographerLocation: _buildClientLocation(),
-              date: _selectedDate,
-              time: _timeSlots[_selectedTimeSlot],
-              service: pkg.name,
-              total: pkg.price,
-            ),
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => BookingConfirmationScreen(pendingBooking: booking),
           ),
         );
       }
@@ -737,7 +752,7 @@ class _BookingScreenState extends State<BookingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create booking: $e'),
+            content: Text('Could not continue: $e'),
             backgroundColor: const Color(0xFFC62828),
           ),
         );

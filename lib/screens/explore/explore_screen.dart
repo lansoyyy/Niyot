@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
 import '../../services/photographer_service.dart';
-import '../../widgets/common/app_profile_avatar.dart';
-import '../photographer/photographer_profile_screen.dart';
+import '../../widgets/explore/explore_creator_card.dart';
 import 'map_view_screen.dart';
 
 enum _ExploreSortOption {
@@ -33,7 +31,7 @@ class _ExploreScreenState extends State<ExploreScreen>
     with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   int _selectedFilter = 0;
-  bool _isGridView = true;
+  bool _isGridView = false;
   bool _availableOnly = false;
   List<PhotographerModel> _results = [];
   bool _isLoading = true;
@@ -572,7 +570,7 @@ class _ExploreScreenState extends State<ExploreScreen>
                   Text(
                     _isLoading
                         ? 'Searching...'
-                        : '${_results.length} photographers found',
+                        : '${_results.length} creators found',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -663,314 +661,37 @@ class _ExploreScreenState extends State<ExploreScreen>
                 ),
               )
             else
-              Expanded(child: _isGridView ? _buildGrid() : _buildList()),
+              Expanded(
+                child: _isGridView ? _buildGrid() : _buildRecommendedList(),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 0.72,
-      ),
-      itemCount: _results.length,
-      itemBuilder: (context, index) {
-        final item = _results[index];
-        return GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PhotographerProfileScreen(photographer: item),
-            ),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 130,
-                  decoration: const BoxDecoration(
-                    color: AppAvatarColors.profileHeaderBackground,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(18),
-                      topRight: Radius.circular(18),
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: AppProfileAvatar(
-                          displayName: item.name,
-                          photoUrl: item.photoUrl,
-                          size: 56,
-                        ),
-                      ),
-                      if (item.isAvailable)
-                        Positioned(
-                          top: 10,
-                          left: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Available',
-                              style: GoogleFonts.poppins(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                color: Colors.yellowAccent,
-                                size: 11,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                item.rating.toStringAsFixed(1),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.name,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1A1A1A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        item.primarySpecialty.isNotEmpty
-                            ? item.primarySpecialty
-                            : item.specialties.isNotEmpty
-                            ? item.specialties.first
-                            : '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: const Color(0xFF9E9E9E),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item.startingPrice,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFC62828),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  Widget _buildGrid() => _buildRecommendedList();
 
-  Widget _buildList() {
+  Widget _buildRecommendedList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-      itemCount: _results.length,
+      itemCount: _results.length + 1,
       itemBuilder: (context, index) {
-        final item = _results[index];
-        return GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PhotographerProfileScreen(photographer: item),
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12, top: 4),
+            child: Text(
+              'RECOMMENDED FOR YOU',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFC62828),
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x08000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Avatar
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    color: AppAvatarColors.profileHeaderBackground,
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
-                  ),
-                  child: Center(
-                    child: AppProfileAvatar(
-                      displayName: item.name,
-                      photoUrl: item.photoUrl,
-                      size: 44,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item.name,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                          Text(
-                            item.startingPrice,
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFFC62828),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.primarySpecialty.isNotEmpty
-                            ? item.primarySpecialty
-                            : item.specialties.isNotEmpty
-                            ? item.specialties.first
-                            : '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: const Color(0xFF9E9E9E),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            color: Color(0xFFFFB300),
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${item.rating.toStringAsFixed(1)} (${item.reviewCount})',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: const Color(0xFF7A7A7A),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 12,
-                            color: Color(0xFFBDBDBD),
-                          ),
-                          const SizedBox(width: 2),
-                          Expanded(
-                            child: Text(
-                              item.locationText,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: const Color(0xFFBDBDBD),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (item.isAvailable)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE8F5E9),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'Available',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+          );
+        }
+        return ExploreCreatorCard(photographer: _results[index - 1]);
       },
     );
   }

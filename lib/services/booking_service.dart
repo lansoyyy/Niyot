@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/booking_expiration.dart';
 import '../core/firebase_constants.dart';
 import '../models/booking_model.dart';
 import '../models/availability_model.dart';
@@ -15,25 +18,193 @@ class BookingService {
 
   // ─── Create ───────────────────────────────────────────────────────────────
 
+  static const _slotBlockingStatuses = {
+    BookingStatuses.paymentPending,
+    BookingStatuses.requested,
+    BookingStatuses.confirmed,
+    BookingStatuses.inProgress,
+  };
+
+  /// Whether the photographer has no other active booking at this date/time.
+  Future<bool> isTimeSlotAvailable({
+    required String photographerId,
+    required DateTime scheduledDate,
+    required String scheduledTime,
+    String? excludeBookingId,
+  }) async {
+    if (await hasConflictingActiveBooking(
+      photographerId: photographerId,
+      scheduledDate: scheduledDate,
+      scheduledTime: scheduledTime,
+      excludeBookingId: excludeBookingId,
+    )) {
+      return false;
+    }
+
+    final day = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+    );
+    final docRef = _availabilityDocRef(photographerId, day);
+    final doc = await docRef.get();
+    if (!doc.exists) return true;
+
+    final model = AvailabilityModel.fromMap(doc.data()!);
+    final index = model.slots.indexWhere((s) => s.time == scheduledTime);
+    if (index == -1) return false;
+    final timeSlot = model.slots[index];
+    if (timeSlot.isAvailable) return true;
+    return excludeBookingId != null &&
+        timeSlot.bookedByBookingId == excludeBookingId;
+  }
+
+  Future<bool> hasConflictingActiveBooking({
+    required String photographerId,
+    required DateTime scheduledDate,
+    required String scheduledTime,
+    String? excludeBookingId,
+  }) async {
+    final day = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+    );
+    final snap = await _firestore
+        .collection(FirebaseCollections.bookings)
+        .where('photographerId', isEqualTo: photographerId)
+        .get();
+
+    for (final doc in snap.docs) {
+      if (excludeBookingId != null && doc.id == excludeBookingId) continue;
+      final data = doc.data();
+      final status = data['status'] as String? ?? '';
+      if (!_slotBlockingStatuses.contains(status)) continue;
+
+      final bookingDay = (data['scheduledDate'] as Timestamp?)?.toDate();
+      if (bookingDay == null) continue;
+      final normalized = DateTime(
+        bookingDay.year,
+        bookingDay.month,
+        bookingDay.day,
+      );
+      if (normalized != day) continue;
+      if ((data['scheduledTime'] as String? ?? '') == scheduledTime) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Creates a booking and reserves the slot atomically. Photographer is notified
+  /// only after cash payment ([promoteBookingAfterCashConfirmation]).
   Future<String> createBooking(BookingModel booking) async {
-    final docRef = _firestore.collection(FirebaseCollections.bookings).doc();
-
-    final data = booking.toMap();
-    await docRef.set(data);
-
-    // Reserve the time slot in photographer's availability
-    await _reserveSlot(
+    await cancelDuplicatePendingForSlot(
+      clientId: booking.clientId,
       photographerId: booking.photographerId,
-      date: booking.scheduledDate,
-      time: booking.scheduledTime,
-      bookingId: docRef.id,
+      scheduledDate: booking.scheduledDate,
+      scheduledTime: booking.scheduledTime,
     );
 
-    // Photographer is notified and booking count increments only after the
-    // client confirms cash payment on the payment screen (see
-    // [promoteBookingAfterCashConfirmation]).
+    final available = await isTimeSlotAvailable(
+      photographerId: booking.photographerId,
+      scheduledDate: booking.scheduledDate,
+      scheduledTime: booking.scheduledTime,
+    );
+    if (!available) {
+      throw StateError('Selected time slot is already booked.');
+    }
 
-    return docRef.id;
+    final docRef = _firestore.collection(FirebaseCollections.bookings).doc();
+    final bookingId = docRef.id;
+    final data = _mapWithExpiration(booking);
+
+    await _firestore.runTransaction((transaction) async {
+      await _applySlotReservation(
+        transaction: transaction,
+        photographerId: booking.photographerId,
+        date: booking.scheduledDate,
+        time: booking.scheduledTime,
+        bookingId: bookingId,
+      );
+      transaction.set(docRef, data);
+    });
+
+    return bookingId;
+  }
+
+  Map<String, dynamic> _mapWithExpiration(BookingModel booking) {
+    final data = booking.toMap();
+    data['expiresAt'] = Timestamp.fromDate(BookingExpiration.expiresAtFor(booking));
+    return data;
+  }
+
+  /// Cancels other pending bookings for the same client, photographer, and slot.
+  Future<void> cancelDuplicatePendingForSlot({
+    required String clientId,
+    required String photographerId,
+    required DateTime scheduledDate,
+    required String scheduledTime,
+    String? keepBookingId,
+  }) async {
+    final day = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+    );
+    final snap = await _firestore
+        .collection(FirebaseCollections.bookings)
+        .where('photographerId', isEqualTo: photographerId)
+        .where('clientId', isEqualTo: clientId)
+        .get();
+
+    for (final doc in snap.docs) {
+      if (keepBookingId != null && doc.id == keepBookingId) continue;
+      final b = BookingModel.fromMap(doc.id, doc.data());
+      if (!BookingExpiration.isPendingStatus(b.status)) continue;
+      final bDay = DateTime(
+        b.scheduledDate.year,
+        b.scheduledDate.month,
+        b.scheduledDate.day,
+      );
+      if (bDay != day || b.scheduledTime != scheduledTime) continue;
+      await cancelBooking(doc.id);
+    }
+  }
+
+  Future<void> expireBookingIfNeeded(BookingModel booking) async {
+    if (!BookingExpiration.hasExpired(booking)) return;
+
+    await updateStatus(
+      booking.id,
+      BookingStatus.cancelled,
+      notes: 'Request expired',
+    );
+
+    try {
+      await NotificationService().createBookingExpiredNotification(
+        userId: booking.clientId,
+        bookingId: booking.id,
+        isPhotographer: false,
+      );
+      await NotificationService().createBookingExpiredNotification(
+        userId: booking.photographerId,
+        bookingId: booking.id,
+        isPhotographer: true,
+      );
+    } catch (_) {}
+  }
+
+  Future<List<BookingModel>> _syncExpirations(List<BookingModel> list) async {
+    final active = <BookingModel>[];
+    for (final b in list) {
+      if (BookingExpiration.hasExpired(b)) {
+        unawaited(expireBookingIfNeeded(b));
+        continue;
+      }
+      active.add(b);
+    }
+    return active;
   }
 
   /// Call after the client confirms cash payment. Moves [payment_pending] →
@@ -78,21 +249,42 @@ class BookingService {
       );
     }
 
-    final docRef = _firestore.collection(FirebaseCollections.bookings).doc();
-    await docRef.set(booking.toMap());
-
-    await _reserveSlot(
+    await cancelDuplicatePendingForSlot(
+      clientId: booking.clientId,
       photographerId: booking.photographerId,
-      date: booking.scheduledDate,
-      time: booking.scheduledTime,
-      bookingId: docRef.id,
+      scheduledDate: booking.scheduledDate,
+      scheduledTime: booking.scheduledTime,
     );
+
+    final available = await isTimeSlotAvailable(
+      photographerId: booking.photographerId,
+      scheduledDate: booking.scheduledDate,
+      scheduledTime: booking.scheduledTime,
+    );
+    if (!available) {
+      throw StateError('Selected time slot is already booked.');
+    }
+
+    final docRef = _firestore.collection(FirebaseCollections.bookings).doc();
+    final bookingId = docRef.id;
+    final data = _mapWithExpiration(booking);
+
+    await _firestore.runTransaction((transaction) async {
+      await _applySlotReservation(
+        transaction: transaction,
+        photographerId: booking.photographerId,
+        date: booking.scheduledDate,
+        time: booking.scheduledTime,
+        bookingId: bookingId,
+      );
+      transaction.set(docRef, data);
+    });
 
     try {
       await NotificationService().createBookingRequestNotification(
         photographerId: booking.photographerId,
         clientName: booking.clientName,
-        bookingId: docRef.id,
+        bookingId: bookingId,
         scheduledDate: booking.scheduledDate,
       );
     } catch (_) {
@@ -101,7 +293,7 @@ class BookingService {
 
     await _bumpPhotographerBookingCount(booking.photographerId);
 
-    return docRef.id;
+    return bookingId;
   }
 
   /// Increments the photographer's bookingCount, creating the field if the
@@ -120,20 +312,17 @@ class BookingService {
     }
   }
 
-  Future<void> _reserveSlot({
+  Future<void> _applySlotReservation({
+    required Transaction transaction,
     required String photographerId,
     required DateTime date,
     required String time,
     required String bookingId,
   }) async {
-    final docId = AvailabilityModel.docId(date);
-    final docRef = _firestore
-        .collection(FirebaseCollections.photographers)
-        .doc(photographerId)
-        .collection(FirebaseCollections.availability)
-        .doc(docId);
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final docRef = _availabilityDocRef(photographerId, normalizedDate);
+    final doc = await transaction.get(docRef);
 
-    final doc = await docRef.get();
     if (!doc.exists) {
       final slots = AvailabilityModel.defaultSlots().map((s) {
         if (s.time == time) {
@@ -144,34 +333,39 @@ class BookingService {
       if (!slots.any((slot) => slot.time == time)) {
         throw StateError('Selected time slot is unavailable.');
       }
-      await docRef.set(
+      transaction.set(
+        docRef,
         AvailabilityModel(
           photographerId: photographerId,
-          date: date,
+          date: normalizedDate,
           slots: slots,
         ).toMap(),
       );
-    } else {
-      final model = AvailabilityModel.fromMap(doc.data()!);
-      final targetIndex = model.slots.indexWhere((slot) => slot.time == time);
-      if (targetIndex == -1) {
-        throw StateError('Selected time slot is unavailable.');
-      }
-
-      final targetSlot = model.slots[targetIndex];
-      if (!targetSlot.isAvailable &&
-          targetSlot.bookedByBookingId != bookingId) {
-        throw StateError('Selected time slot is already booked.');
-      }
-
-      final updated = model.slots.map((s) {
-        if (s.time == time) {
-          return s.copyWith(isAvailable: false, bookedByBookingId: bookingId);
-        }
-        return s;
-      }).toList();
-      await docRef.update({'slots': updated.map((s) => s.toMap()).toList()});
+      return;
     }
+
+    final model = AvailabilityModel.fromMap(doc.data()!);
+    final targetIndex = model.slots.indexWhere((slot) => slot.time == time);
+    if (targetIndex == -1) {
+      throw StateError('Selected time slot is unavailable.');
+    }
+
+    final targetSlot = model.slots[targetIndex];
+    if (!targetSlot.isAvailable &&
+        targetSlot.bookedByBookingId != bookingId) {
+      throw StateError('Selected time slot is already booked.');
+    }
+
+    final updated = model.slots.map((s) {
+      if (s.time == time) {
+        return s.copyWith(isAvailable: false, bookedByBookingId: bookingId);
+      }
+      return s;
+    }).toList();
+    transaction.update(
+      docRef,
+      {'slots': updated.map((s) => s.toMap()).toList()},
+    );
   }
 
   // ─── Read ─────────────────────────────────────────────────────────────────
@@ -181,14 +375,15 @@ class BookingService {
           .collection(FirebaseCollections.bookings)
           .where('clientId', isEqualTo: clientId)
           .snapshots()
-          .map((snap) {
+          .asyncMap((snap) async {
             final list = snap.docs
                 .map((d) => BookingModel.fromMap(d.id, d.data()))
                 .toList();
             list.sort(
-              (a, b) => b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+              (a, b) =>
+                  b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
             );
-            return list;
+            return _syncExpirations(list);
           });
 
   Stream<List<BookingModel>> photographerBookingsStream(
@@ -198,14 +393,15 @@ class BookingService {
           .collection(FirebaseCollections.bookings)
           .where('photographerId', isEqualTo: photographerId)
           .snapshots()
-          .map((snap) {
+          .asyncMap((snap) async {
             final list = snap.docs
                 .map((d) => BookingModel.fromMap(d.id, d.data()))
                 .toList();
             list.sort(
-              (a, b) => b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+              (a, b) =>
+                  b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
             );
-            return list;
+            return _syncExpirations(list);
           });
 
   Future<BookingModel?> getBookingById(String id) async {
@@ -474,6 +670,8 @@ class BookingService {
     required String deliveryLink,
     String? deliveryNote,
   }) async {
+    final booking = await getBookingById(bookingId);
+
     await _firestore
         .collection(FirebaseCollections.bookings)
         .doc(bookingId)
@@ -484,6 +682,16 @@ class BookingService {
           'deliveredAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+    if (booking != null) {
+      try {
+        await NotificationService().createPhotosDeliveredNotification(
+          clientId: booking.clientId,
+          photographerName: booking.photographerName,
+          bookingId: bookingId,
+        );
+      } catch (_) {}
+    }
   }
 
   Future<void> markCompleted(String bookingId) =>

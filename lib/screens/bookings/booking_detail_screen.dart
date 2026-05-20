@@ -1,16 +1,14 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../models/booking_model.dart';
 import '../../core/app_avatar_colors.dart';
+import '../../core/booking_expiration.dart';
+import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
-import '../../services/messaging_service.dart';
-import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
-import '../messages/chat_screen.dart';
+import '../../widgets/messaging/chat_navigation_helper.dart';
 import '../payment/payment_screen.dart';
 import '../reviews/leave_review_screen.dart';
 import 'booking_actions_screen.dart';
@@ -66,18 +64,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     return '$wd, ${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
-  Duration _countdown(DateTime target) {
-    final now = DateTime.now();
-    return target.isAfter(now) ? target.difference(now) : Duration.zero;
-  }
-
-  String _countdownText(Duration dur) {
-    if (dur == Duration.zero) return 'Today';
-    final days = dur.inDays;
-    final hours = dur.inHours.remainder(24);
-    if (days > 0) return '$days day${days == 1 ? '' : 's'} $hours hr';
-    return '$hours hr ${dur.inMinutes.remainder(60)} min';
-  }
+  String _countdownText(BookingModel booking) =>
+      SessionCountdown.compactLabel(
+        SessionCountdown.until(booking.scheduledSessionStart),
+      );
 
   // ── actions ────────────────────────────────────────────────────────────────
 
@@ -238,36 +228,20 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   Future<void> _openChat() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null || !mounted) return;
     final booking = widget.booking;
-    final userProfile =
-        UserService().cachedUser ?? await UserService().fetchCurrentUser();
-
-    final otherUserId = widget.isPhotographer ? booking.clientId : booking.photographerId;
-    final otherUserName = widget.isPhotographer ? booking.clientName : booking.photographerName;
+    final otherUserId =
+        widget.isPhotographer ? booking.clientId : booking.photographerId;
+    final otherUserName =
+        widget.isPhotographer ? booking.clientName : booking.photographerName;
     final otherUserPhoto = widget.isPhotographer
         ? booking.clientPhotoUrl
         : booking.photographerPhotoUrl;
 
-    final convId = await MessagingService().getOrCreateConversation(
-      myId: currentUser.uid,
-      myName: userProfile?.name ?? currentUser.displayName ?? 'User',
-      myPhotoUrl: userProfile?.photoUrl,
+    await ChatNavigationHelper.openChat(
+      context: context,
       otherUserId: otherUserId,
       otherUserName: otherUserName,
       otherUserPhotoUrl: otherUserPhoto,
-      bookingId: booking.id,
-    );
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          conversationId: convId,
-          otherUserId: otherUserId,
-          otherUserName: otherUserName,
-        ),
-      ),
     );
   }
 
@@ -322,14 +296,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             color: const Color(0xFF1A1A1A),
           ),
         ),
-        actions: [
-          if (!booking.isPast)
-            IconButton(
-              icon: const Icon(Icons.chat_bubble_outline_rounded,
-                  color: Color(0xFF374151)),
-              onPressed: _openChat,
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -383,7 +349,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             // ── Countdown (upcoming only) ─────────────────────────────────
             if (status == BookingStatus.confirmed && booking.isUpcoming) ...[
               Builder(builder: (_) {
-                final dur = _countdown(booking.scheduledSessionStart);
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -410,7 +375,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                               ),
                             ),
                             Text(
-                              _countdownText(dur),
+                              _countdownText(booking),
                               style: GoogleFonts.poppins(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w800,
@@ -567,6 +532,39 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            if (!booking.isPast) ...[
+              _ActionSection(
+                title: 'Contact',
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _openChat,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      'Message',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             if (status == BookingStatus.paymentPending && !isPhotographer) ...[
               _ActionSection(
@@ -783,32 +781,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 title: 'Manage Session',
                 child: Column(
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _openChat,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1565C0),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.chat_bubble_outline_rounded,
-                            size: 18),
-                        label: Text(
-                          'Message',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(

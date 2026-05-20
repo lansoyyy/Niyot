@@ -1,13 +1,22 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/app_avatar_colors.dart';
+import '../../core/booking_expiration.dart';
+import '../../models/booking_model.dart';
 import '../../models/photographer_model.dart';
 import '../../models/user_model.dart';
+import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../services/user_service.dart';
+import '../../widgets/home/client_next_shoot_card.dart';
+import '../../widgets/home/near_you_card.dart';
 import '../explore/explore_screen.dart';
+import '../bookings/my_bookings_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../notifications/notifications_screen.dart';
 
@@ -19,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _clientUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  Timer? _countdownTimer;
   int _selectedCategory = 0;
   List<PhotographerModel> _featured = [];
   List<PhotographerModel> _photographers = [];
@@ -40,6 +51,29 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  BookingModel? _nextClientShoot(List<BookingModel> bookings) {
+    final upcoming = bookings.where((b) => b.isUpcoming).toList()
+      ..sort(
+        (a, b) => a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
+      );
+    return upcoming.isEmpty ? null : upcoming.first;
+  }
+
+  void _openAllBookings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MyBookingsScreen()),
+    );
   }
 
   Future<void> _loadData() async {
@@ -111,7 +145,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildCategoryChips(),
               ),
             ),
-            // Featured section
+            // Next shoot (client)
+            if (_clientUid.isNotEmpty)
+              SliverToBoxAdapter(
+                child: StreamBuilder<List<BookingModel>>(
+                  stream: BookingService().clientBookingsStream(_clientUid),
+                  builder: (context, snap) {
+                    final next = _nextClientShoot(snap.data ?? const []);
+                    if (next == null) return const SizedBox.shrink();
+                    final countdown =
+                        SessionCountdown.until(next.scheduledSessionStart);
+                    return ClientNextShootSection(
+                      booking: next,
+                      countdown: countdown,
+                      onViewAll: _openAllBookings,
+                    );
+                  },
+                ),
+              ),
+            // Featured creators
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 0, 12),
@@ -126,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             SliverToBoxAdapter(child: _buildFeaturedCarousel()),
-            // Near You
+            // Near you
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -149,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       child: Text(
-                        'See all',
+                        'See all →',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -161,7 +213,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // Grid of photographers
             if (_isLoading)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -195,21 +246,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.72,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _PhotographerCard(
-                      photographer: _photographers[index],
-                      onTap: () => _openProfile(context, _photographers[index]),
-                    ),
-                    childCount: _photographers.length,
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 280,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                    itemCount: _photographers.length.clamp(0, 12),
+                    itemBuilder: (context, index) =>
+                        NearYouCard(photographer: _photographers[index]),
                   ),
                 ),
               ),
@@ -673,159 +718,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PhotographerProfileScreen(photographer: photographer),
-      ),
-    );
-  }
-}
-
-class _PhotographerCard extends StatelessWidget {
-  const _PhotographerCard({required this.photographer, required this.onTap});
-
-  final PhotographerModel photographer;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Photo area
-            Container(
-              height: 130,
-              decoration: const BoxDecoration(
-                color: AppAvatarColors.profileHeaderBackground,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: AppProfileAvatar(
-                      displayName: photographer.name,
-                      photoUrl: photographer.photoUrl,
-                      size: 60,
-                    ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            color: Colors.yellowAccent,
-                            size: 12,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            photographer.rating.toStringAsFixed(1),
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    photographer.name,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    photographer.primarySpecialty.isNotEmpty
-                        ? photographer.primarySpecialty
-                        : photographer.specialties.isNotEmpty
-                        ? photographer.specialties.first
-                        : '',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: const Color(0xFF9E9E9E),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        photographer.startingPrice,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFC62828),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            size: 11,
-                            color: Color(0xFFBDBDBD),
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            photographer.locationText.contains(',')
-                                ? photographer.locationText.split(',')[1].trim()
-                                : photographer.locationText,
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              color: const Color(0xFFBDBDBD),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

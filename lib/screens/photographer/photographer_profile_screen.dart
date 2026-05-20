@@ -6,13 +6,12 @@ import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
 import '../../models/review_model.dart';
 import '../../models/service_package_model.dart';
-import '../../services/messaging_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import '../booking/booking_screen.dart';
-import '../messages/chat_screen.dart';
+import '../../widgets/messaging/chat_navigation_helper.dart';
 import '../profile/edit_profile_screen.dart';
 import 'manage_packages_screen.dart';
 import 'manage_portfolio_screen.dart';
@@ -708,43 +707,15 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
   }
 
   Future<void> _openMessageThread() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (FirebaseAuth.instance.currentUser?.uid == null) return;
     setState(() => _isOpeningChat = true);
     try {
-      final user = UserService().cachedUser;
-      final myName = user?.name ??
-          FirebaseAuth.instance.currentUser?.displayName ??
-          'User';
-      final convId = await MessagingService().getOrCreateConversation(
-        myId: uid,
-        myName: myName,
-        myPhotoUrl: user?.photoUrl,
+      await ChatNavigationHelper.openChat(
+        context: context,
         otherUserId: _photographer.uid,
         otherUserName: _photographer.name,
         otherUserPhotoUrl: _photographer.photoUrl,
       );
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ChatScreen(
-            conversationId: convId,
-            otherUserId: _photographer.uid,
-            otherUserName: _photographer.name,
-          ),
-        ),
-      );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Unable to open chat right now.',
-              style: GoogleFonts.poppins(fontSize: 13),
-            ),
-          ),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isOpeningChat = false);
     }

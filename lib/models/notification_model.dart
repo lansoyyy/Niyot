@@ -6,8 +6,10 @@ enum NotificationType {
   bookingConfirmed,
   bookingDeclined,
   bookingRequest,
+  bookingExpired,
   newMessage,
   paymentReceived,
+  photosDelivered,
   reviewLeft,
   profileView,
   system,
@@ -26,10 +28,14 @@ extension NotificationTypeX on NotificationType {
         return NotificationTypes.newMessage;
       case NotificationType.paymentReceived:
         return NotificationTypes.paymentReceived;
+      case NotificationType.bookingExpired:
+        return NotificationTypes.bookingExpired;
       case NotificationType.reviewLeft:
         return NotificationTypes.reviewLeft;
       case NotificationType.profileView:
         return NotificationTypes.profileView;
+      case NotificationType.photosDelivered:
+        return NotificationTypes.photosDelivered;
       case NotificationType.system:
         return NotificationTypes.system;
     }
@@ -43,10 +49,14 @@ extension NotificationTypeX on NotificationType {
         return NotificationType.bookingDeclined;
       case NotificationTypes.bookingRequest:
         return NotificationType.bookingRequest;
+      case NotificationTypes.bookingExpired:
+        return NotificationType.bookingExpired;
       case NotificationTypes.newMessage:
         return NotificationType.newMessage;
       case NotificationTypes.paymentReceived:
         return NotificationType.paymentReceived;
+      case NotificationTypes.photosDelivered:
+        return NotificationType.photosDelivered;
       case NotificationTypes.reviewLeft:
         return NotificationType.reviewLeft;
       case NotificationTypes.profileView:
@@ -64,10 +74,14 @@ extension NotificationTypeX on NotificationType {
         return Icons.cancel_rounded;
       case NotificationType.bookingRequest:
         return Icons.calendar_today_rounded;
+      case NotificationType.bookingExpired:
+        return Icons.timer_off_rounded;
       case NotificationType.newMessage:
         return Icons.chat_bubble_rounded;
       case NotificationType.paymentReceived:
         return Icons.payments_rounded;
+      case NotificationType.photosDelivered:
+        return Icons.photo_library_rounded;
       case NotificationType.reviewLeft:
         return Icons.star_rounded;
       case NotificationType.profileView:
@@ -85,10 +99,14 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFFC62828);
       case NotificationType.bookingRequest:
         return const Color(0xFFFF6D00);
+      case NotificationType.bookingExpired:
+        return const Color(0xFF9E9E9E);
       case NotificationType.newMessage:
         return const Color(0xFFC62828);
       case NotificationType.paymentReceived:
         return const Color(0xFF2E7D32);
+      case NotificationType.photosDelivered:
+        return const Color(0xFF1565C0);
       case NotificationType.reviewLeft:
         return const Color(0xFFFFB300);
       case NotificationType.profileView:
@@ -106,10 +124,14 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFFFFEBEE);
       case NotificationType.bookingRequest:
         return const Color(0xFFFFF3E0);
+      case NotificationType.bookingExpired:
+        return const Color(0xFFF5F5F5);
       case NotificationType.newMessage:
         return const Color(0xFFFFEBEE);
       case NotificationType.paymentReceived:
         return const Color(0xFFE8F5E9);
+      case NotificationType.photosDelivered:
+        return const Color(0xFFE3F2FD);
       case NotificationType.reviewLeft:
         return const Color(0xFFFFF8E1);
       case NotificationType.profileView:

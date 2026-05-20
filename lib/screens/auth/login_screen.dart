@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen>
         password: _passwordController.text,
       );
       await UserService().fetchCurrentUser();
-      await NotificationService().initFCM();
+      await NotificationService().init();
       _navigateToHome();
     } catch (e) {
       _showError(AuthService.parseError(e));

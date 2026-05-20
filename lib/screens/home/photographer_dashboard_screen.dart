@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/app_avatar_colors.dart';
+import '../../core/booking_expiration.dart';
 import '../../core/profile_initials.dart';
 import '../../models/booking_model.dart';
 import '../../models/photographer_model.dart';
@@ -50,10 +51,8 @@ class _PhotographerDashboardScreenState
     super.dispose();
   }
 
-  Duration _timeUntil(DateTime target) {
-    final diff = target.difference(DateTime.now());
-    return diff.isNegative ? Duration.zero : diff;
-  }
+  Duration _timeUntilSession(BookingModel booking) =>
+      SessionCountdown.until(booking.scheduledSessionStart);
 
   String _twoDigit(int n) => n.toString().padLeft(2, '0');
 
@@ -239,7 +238,7 @@ class _PhotographerDashboardScreenState
   // ── Next Shoot Card ────────────────────────────────────────────────────────
 
   Widget _buildNextShootCard(BookingModel nextShoot) {
-    final countdown = _timeUntil(nextShoot.scheduledDate);
+    final countdown = _timeUntilSession(nextShoot);
     final days = countdown.inDays;
     final hours = countdown.inHours % 24;
     final minutes = countdown.inMinutes % 60;

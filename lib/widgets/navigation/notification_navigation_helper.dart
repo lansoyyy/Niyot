@@ -30,7 +30,9 @@ class NotificationNavigationHelper {
         case NotificationType.bookingRequest:
         case NotificationType.bookingConfirmed:
         case NotificationType.bookingDeclined:
+        case NotificationType.bookingExpired:
         case NotificationType.paymentReceived:
+        case NotificationType.photosDelivered:
         case NotificationType.reviewLeft:
           final booking = await BookingService().getBookingById(related);
           if (!context.mounted) return;

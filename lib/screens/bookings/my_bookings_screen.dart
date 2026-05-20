@@ -527,15 +527,7 @@ class _BookingCardState extends State<_BookingCard> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _Chip(
-                        icon: Icons.location_on_rounded,
-                        text: booking.location,
-                        expand: true,
-                      ),
-                    ],
-                  ),
+                  _LocationChip(location: booking.location),
                   // ── Photographer quick-action buttons for requested ──
                   if (isPhotographer && isRequested) ...[
                     const SizedBox(height: 12),
@@ -616,22 +608,65 @@ class _BookingCardState extends State<_BookingCard> {
 
 // ─── Small chip widget ────────────────────────────────────────────────────────
 
+class _LocationChip extends StatelessWidget {
+  const _LocationChip({required this.location});
+
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.location_on_rounded,
+              size: 14,
+              color: Color(0xFF9E9E9E),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              location,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF7A7A7A),
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.icon,
     required this.text,
     this.color,
-    this.expand = false,
   });
 
   final IconData icon;
   final String text;
   final Color? color;
-  final bool expand;
 
   @override
   Widget build(BuildContext context) {
-    final chip = Container(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F5F5),
@@ -654,9 +689,5 @@ class _Chip extends StatelessWidget {
         ],
       ),
     );
-    if (expand) {
-      return Expanded(child: chip);
-    }
-    return chip;
   }
 }

@@ -70,6 +70,8 @@ class NotificationTypes {
   static const String paymentReceived = 'payment_received';
   static const String reviewLeft = 'review_left';
   static const String profileView = 'profile_view';
+  static const String photosDelivered = 'photos_delivered';
+  static const String bookingExpired = 'booking_expired';
   static const String system = 'system';
 }
 

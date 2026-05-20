@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/booking_model.dart';
+import '../../services/booking_service.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import '../payment/payment_screen.dart';
 
+/// Summary before payment. Booking is **not** written to Firestore until the
+/// client taps Proceed to Payment (slot is reserved at that moment).
 class BookingConfirmationScreen extends StatefulWidget {
   const BookingConfirmationScreen({
     super.key,
-    required this.bookingId,
-    required this.photographerName,
-    required this.photographerLocation,
-    required this.date,
-    required this.time,
-    required this.service,
-    required this.total,
+    required this.pendingBooking,
   });
 
-  final String bookingId;
-  final String photographerName;
-  final String photographerLocation;
-  final DateTime date;
-  final String time;
-  final String service;
-  final int total;
+  final BookingModel pendingBooking;
 
   @override
   State<BookingConfirmationScreen> createState() =>
@@ -34,6 +26,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
   late AnimationController _controller;
   late Animation<double> _scaleAnim;
   late Animation<double> _fadeAnim;
+  bool _isCreating = false;
+
+  BookingModel get _booking => widget.pendingBooking;
 
   @override
   void initState() {
@@ -81,8 +76,71 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
+  Future<void> _proceedToPayment() async {
+    if (_isCreating) return;
+    setState(() => _isCreating = true);
+    try {
+      final available = await BookingService().isTimeSlotAvailable(
+        photographerId: _booking.photographerId,
+        scheduledDate: _booking.scheduledDate,
+        scheduledTime: _booking.scheduledTime,
+      );
+      if (!available) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'That time slot was just taken. Please edit your details and pick another slot.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+            backgroundColor: const Color(0xFFC62828),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+
+      final bookingId = await BookingService().createBooking(_booking);
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => PaymentScreen(bookingId: bookingId),
+        ),
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.message,
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not continue: $e',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final booking = _booking;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -91,7 +149,6 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: Column(
             children: [
-              // Success animation
               AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
@@ -137,7 +194,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Confirm cash payment on the next screen so your request is sent to ${widget.photographerName} for approval.',
+                      'Review your details below. Your request is only sent to ${booking.photographerName} after you confirm cash payment on the next screen.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
@@ -146,7 +203,6 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       ),
                     ),
                     const SizedBox(height: 32),
-                    // Booking details card
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
@@ -160,74 +216,41 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                           _DetailRow(
                             icon: Icons.person_rounded,
                             label: 'Photographer',
-                            value: widget.photographerName,
+                            value: booking.photographerName,
                           ),
                           _divider(),
                           _DetailRow(
                             icon: Icons.camera_alt_rounded,
                             label: 'Service',
-                            value: widget.service,
+                            value: booking.packageName,
                           ),
                           _divider(),
                           _DetailRow(
                             icon: Icons.calendar_today_rounded,
                             label: 'Date',
-                            value: _formatDate(widget.date),
+                            value: _formatDate(booking.scheduledDate),
                           ),
                           _divider(),
                           _DetailRow(
                             icon: Icons.access_time_rounded,
                             label: 'Time',
-                            value: widget.time,
+                            value: booking.scheduledTime,
                           ),
                           _divider(),
                           _DetailRow(
                             icon: Icons.location_on_rounded,
                             label: 'Location',
-                            value: widget.photographerLocation,
+                            value: booking.location,
                           ),
                           _divider(),
                           _DetailRow(
                             icon: Icons.attach_money_rounded,
                             label: 'Total',
-                            value: widget.total <= 0
+                            value: booking.packagePrice <= 0
                                 ? 'Free'
-                                : 'PHP ${PesoPriceText.formatDigits(widget.total)}',
+                                : 'PHP ${PesoPriceText.formatDigits(booking.packagePrice)}',
                             valueColor: const Color(0xFF2E7D32),
                             valueBold: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Booking ID
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEBEE),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.confirmation_number_rounded,
-                            size: 16,
-                            color: Color(0xFFC62828),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              'Booking ID: ${widget.bookingId.isNotEmpty ? '#${widget.bookingId.substring(0, widget.bookingId.length.clamp(0, 8)).toUpperCase()}' : 'Pending'}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFC62828),
-                              ),
-                            ),
                           ),
                         ],
                       ),
@@ -236,7 +259,6 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                 ),
               ),
               const SizedBox(height: 28),
-              // Action buttons (inside scroll so short phones can reach them)
               FadeTransition(
                 opacity: _fadeAnim,
                 child: Column(
@@ -245,14 +267,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PaymentScreen(bookingId: widget.bookingId),
-                            ),
-                          );
-                        },
+                        onPressed: _isCreating ? null : _proceedToPayment,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFC62828),
                           foregroundColor: Colors.white,
@@ -261,13 +276,22 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: Text(
-                          'Proceed to Payment',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _isCreating
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Proceed to Payment',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -275,7 +299,9 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen>
                       width: double.infinity,
                       height: 52,
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _isCreating
+                            ? null
+                            : () => Navigator.of(context).pop(),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFFC62828),
                           side: const BorderSide(color: Color(0xFFC62828)),
@@ -344,8 +370,6 @@ class _DetailRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                softWrap: false,
-                overflow: TextOverflow.visible,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: const Color(0xFF9E9E9E),
@@ -356,7 +380,7 @@ class _DetailRow extends StatelessWidget {
               Text(
                 value,
                 softWrap: true,
-                maxLines: 4,
+                maxLines: 6,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.poppins(
                   fontSize: 14,

@@ -145,22 +145,10 @@ class BookingModel {
     return DateTime(day.year, day.month, day.day, 23, 59, 59);
   }
 
-  /// Future sessions that are not finished or rejected — includes package flow
-  /// ([paymentPending]), chat-offer flow ([requested]), and [confirmed].
-  bool get isUpcoming {
-    if (status == BookingStatus.declined ||
-        status == BookingStatus.cancelled ||
-        status == BookingStatus.completed ||
-        status == BookingStatus.inProgress) {
-      return false;
-    }
-    if (status != BookingStatus.confirmed &&
-        status != BookingStatus.requested &&
-        status != BookingStatus.paymentPending) {
-      return false;
-    }
-    return scheduledSessionStart.isAfter(DateTime.now());
-  }
+  /// Confirmed shoots still in the future (Upcoming tab).
+  bool get isUpcoming =>
+      status == BookingStatus.confirmed &&
+      scheduledSessionStart.isAfter(DateTime.now());
 
   bool get isPast =>
       status == BookingStatus.completed ||
