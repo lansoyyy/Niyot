@@ -6,6 +6,8 @@ import '../../models/booking_model.dart';
 import '../../screens/bookings/booking_detail_screen.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 
+import '../../widgets/home/home_section_header.dart';
+
 /// Client home — next confirmed upcoming session.
 class ClientNextShootCard extends StatelessWidget {
   const ClientNextShootCard({
@@ -161,7 +163,7 @@ class ClientNextShootCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    SessionCountdown.shootDayLabel(countdown),
+                    SessionCountdown.shootDayLabel(booking.scheduledSessionStart),
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -195,41 +197,19 @@ class ClientNextShootSection extends StatelessWidget {
     if (booking == null) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Next shoot',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-              TextButton(
-                onPressed: onViewAll,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'All bookings →',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFC62828),
-                  ),
-                ),
-              ),
-            ],
+          HomeSectionHeader(
+            title: 'Next shoot',
+            actionLabel: 'All bookings →',
+            onAction: onViewAll,
           ),
-          const SizedBox(height: 12),
-          ClientNextShootCard(booking: booking!, countdown: countdown),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            child: ClientNextShootCard(booking: booking!, countdown: countdown),
+          ),
         ],
       ),
     );

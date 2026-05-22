@@ -209,6 +209,71 @@ class NotificationService {
         ),
       );
 
+  Future<void> createBookingCancelledNotification({
+    required String recipientId,
+    required String bookingId,
+    required bool cancelledByPhotographer,
+    String? reason,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: recipientId,
+          title: cancelledByPhotographer
+              ? 'Cancelled by photographer'
+              : 'Cancelled by client',
+          body: cancelledByPhotographer
+              ? 'The photographer cancelled your booking.${reason != null && reason.isNotEmpty ? ' Reason: $reason' : ''}'
+              : 'The client cancelled this booking.${reason != null && reason.isNotEmpty ? ' Reason: $reason' : ''}',
+          type: NotificationType.bookingCancelled,
+          relatedId: bookingId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+  Future<void> createRescheduleRequestNotification({
+    required String recipientId,
+    required String requesterName,
+    required String bookingId,
+    required DateTime scheduledDate,
+    required String scheduledTime,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: recipientId,
+          title: 'Reschedule Request',
+          body:
+              '$requesterName requested a new time: ${_formatDate(scheduledDate)} at $scheduledTime. Tap to review.',
+          type: NotificationType.rescheduleRequest,
+          relatedId: bookingId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+  Future<void> createRescheduleConfirmedNotification({
+    required String recipientId,
+    required String changerName,
+    required String bookingId,
+    required DateTime scheduledDate,
+    required String scheduledTime,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: recipientId,
+          title: 'Booking Rescheduled',
+          body:
+              '$changerName updated the session to ${_formatDate(scheduledDate)} at $scheduledTime.',
+          type: NotificationType.rescheduleConfirmed,
+          relatedId: bookingId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
   Future<void> createReviewNotification({
     required String photographerId,
     required String clientName,

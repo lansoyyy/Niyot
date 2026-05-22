@@ -33,15 +33,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
       stream: MessagingService().conversationsStream(_currentUid),
       builder: (context, snapshot) {
         final conversations = snapshot.data ?? const <ConversationModel>[];
-        final recentContacts = conversations
-            .where(
-              (conversation) =>
-                  DateTime.now()
-                      .difference(conversation.lastMessageTime)
-                      .inHours <
-                  24,
-            )
-            .toList();
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -50,31 +41,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Messages',
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1A1A1A),
-                        ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Messages',
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1A1A1A),
                       ),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFEBEE),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.edit_rounded,
-                          size: 18,
-                          color: Color(0xFFC62828),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 Padding(
@@ -107,51 +83,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (recentContacts.isNotEmpty)
-                  SizedBox(
-                    height: 80,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: recentContacts.length,
-                      itemBuilder: (context, index) {
-                        final conversation = recentContacts[index];
-                        final otherId = conversation.getOtherUserId(
-                          _currentUid,
-                        );
-                        final otherName = conversation.getOtherUserName(
-                          _currentUid,
-                        );
-
-                        return Container(
-                          margin: const EdgeInsets.only(right: 16),
-                          child: Column(
-                            children: [
-                              _ConversationAvatar(
-                                otherUserId: otherId,
-                                fallbackName: otherName,
-                                stalePhotoUrl: conversation.getOtherUserPhotoUrl(
-                                  _currentUid,
-                                ),
-                                size: 48,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                otherName.split(' ').first,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: const Color(0xFF7A7A7A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                if (recentContacts.isNotEmpty) const SizedBox(height: 8),
-                Divider(color: Colors.grey.shade100, height: 1),
+                const SizedBox(height: 8),
                 Expanded(
                   child:
                       snapshot.connectionState == ConnectionState.waiting &&

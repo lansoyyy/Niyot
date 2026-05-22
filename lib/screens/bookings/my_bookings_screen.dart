@@ -74,10 +74,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         final requested = all.where((b) {
           return b.status == BookingStatus.requested ||
               b.status == BookingStatus.paymentPending;
-        }).toList();
-        final upcoming = all.where((b) => b.isUpcoming).toList();
-        final active = all.where((b) => b.isActive).toList();
-        final past = all.where((b) => b.isPast).toList();
+        }).toList()
+          ..sort(
+            (a, b) => a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
+          );
+        final upcoming = all.where((b) => b.isUpcoming).toList()
+          ..sort(
+            (a, b) => a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
+          );
+        final active = all.where((b) => b.isActive).toList()
+          ..sort(
+            (a, b) => a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
+          );
+        final past = all.where((b) => b.isPast).toList()
+          ..sort(
+            (a, b) => b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+          );
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F8F8),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/booking_expiration.dart';
+import '../core/booking_policy.dart';
 import '../core/firebase_constants.dart';
 import '../models/booking_model.dart';
 import '../models/availability_model.dart';
@@ -168,7 +169,7 @@ class BookingService {
         b.scheduledDate.day,
       );
       if (bDay != day || b.scheduledTime != scheduledTime) continue;
-      await cancelBooking(doc.id);
+      await updateStatus(doc.id, BookingStatus.cancelled);
     }
   }
 
@@ -381,10 +382,35 @@ class BookingService {
                 .toList();
             list.sort(
               (a, b) =>
-                  b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+                  a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
             );
             return _syncExpirations(list);
           });
+
+  /// Bookings that need the user's attention (badge on bottom nav).
+  Stream<int> pendingActionCountStream(
+    String userId, {
+    required bool isPhotographer,
+  }) {
+    final source = isPhotographer
+        ? photographerBookingsStream(userId)
+        : clientBookingsStream(userId);
+    return source.map((bookings) {
+      if (isPhotographer) {
+        return bookings
+            .where(
+              (b) =>
+                  b.status == BookingStatus.requested ||
+                  b.status == BookingStatus.paymentPending,
+            )
+            .length;
+      }
+      return bookings.where((b) {
+        if (b.status == BookingStatus.paymentPending) return true;
+        return BookingPolicy.canRespondToReschedule(b, userId);
+      }).length;
+    });
+  }
 
   Stream<List<BookingModel>> photographerBookingsStream(
     String photographerId,
@@ -399,7 +425,7 @@ class BookingService {
                 .toList();
             list.sort(
               (a, b) =>
-                  b.scheduledSessionStart.compareTo(a.scheduledSessionStart),
+                  a.scheduledSessionStart.compareTo(b.scheduledSessionStart),
             );
             return _syncExpirations(list);
           });
@@ -514,8 +540,19 @@ class BookingService {
     required String bookingId,
     required DateTime scheduledDate,
     required String scheduledTime,
+    required String requestedBy,
     String? rescheduleNotes,
   }) async {
+    final existing = await getBookingById(bookingId);
+    if (existing == null) {
+      throw StateError('Booking not found.');
+    }
+
+    final mode = BookingPolicy.rescheduleMode(existing);
+    if (mode == RescheduleMode.disabled) {
+      throw StateError(BookingPolicy.rescheduleBlockedMessage(existing));
+    }
+
     final bookingRef = _firestore
         .collection(FirebaseCollections.bookings)
         .doc(bookingId);
@@ -528,6 +565,7 @@ class BookingService {
         rescheduleNotes != null && rescheduleNotes.trim().isNotEmpty
         ? rescheduleNotes.trim()
         : null;
+    final graceImmediate = mode == RescheduleMode.graceImmediate;
 
     await _firestore.runTransaction((transaction) async {
       final bookingSnap = await transaction.get(bookingRef);
@@ -536,11 +574,8 @@ class BookingService {
       }
 
       final booking = BookingModel.fromMap(bookingId, bookingSnap.data()!);
-      if (booking.status == BookingStatus.cancelled ||
-          booking.status == BookingStatus.declined ||
-          booking.status == BookingStatus.completed ||
-          booking.status == BookingStatus.inProgress) {
-        throw StateError('This booking can no longer be rescheduled.');
+      if (booking.status != BookingStatus.confirmed) {
+        throw StateError('Only confirmed bookings can be rescheduled.');
       }
 
       final currentDate = DateTime(
@@ -552,106 +587,219 @@ class BookingService {
         throw StateError('Please choose a different date or time.');
       }
 
-      final currentAvailabilityRef = _availabilityDocRef(
-        booking.photographerId,
-        currentDate,
-      );
-      final nextAvailabilityRef = _availabilityDocRef(
-        booking.photographerId,
-        nextDate,
+      await _applySlotChangeInTransaction(
+        transaction: transaction,
+        booking: booking,
+        fromDate: currentDate,
+        fromTime: booking.scheduledTime,
+        toDate: nextDate,
+        toTime: scheduledTime,
       );
 
-      final currentAvailabilitySnap = await transaction.get(
+      final updateData = <String, dynamic>{
+        'scheduledDate': Timestamp.fromDate(nextDate),
+        'scheduledTime': scheduledTime,
+        'rescheduleNotes': normalizedRescheduleNotes,
+        'rescheduledAt': FieldValue.serverTimestamp(),
+        'rescheduleRequestedBy': requestedBy,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (graceImmediate) {
+        updateData['status'] = BookingStatus.confirmed.value;
+        updateData['previousScheduledDate'] = FieldValue.delete();
+        updateData['previousScheduledTime'] = FieldValue.delete();
+      } else {
+        updateData['status'] = BookingStatus.requested.value;
+        updateData['previousScheduledDate'] = Timestamp.fromDate(currentDate);
+        updateData['previousScheduledTime'] = booking.scheduledTime;
+      }
+
+      transaction.update(bookingRef, updateData);
+    });
+
+    final updated = await getBookingById(bookingId);
+    if (updated == null) return;
+
+    try {
+      final recipientId = requestedBy == 'client'
+          ? updated.photographerId
+          : updated.clientId;
+      final requesterName = requestedBy == 'client'
+          ? updated.clientName
+          : updated.photographerName;
+
+      if (graceImmediate) {
+        await NotificationService().createRescheduleConfirmedNotification(
+          recipientId: recipientId,
+          changerName: requesterName,
+          bookingId: bookingId,
+          scheduledDate: updated.scheduledDate,
+          scheduledTime: updated.scheduledTime,
+        );
+      } else {
+        await NotificationService().createRescheduleRequestNotification(
+          recipientId: recipientId,
+          requesterName: requesterName,
+          bookingId: bookingId,
+          scheduledDate: updated.scheduledDate,
+          scheduledTime: updated.scheduledTime,
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> rejectRescheduleRequest(String bookingId) async {
+    final bookingRef = _firestore
+        .collection(FirebaseCollections.bookings)
+        .doc(bookingId);
+
+    await _firestore.runTransaction((transaction) async {
+      final bookingSnap = await transaction.get(bookingRef);
+      if (!bookingSnap.exists) {
+        throw StateError('Booking not found.');
+      }
+
+      final booking = BookingModel.fromMap(bookingId, bookingSnap.data()!);
+      if (!BookingPolicy.isReschedulePending(booking)) {
+        throw StateError('This booking is not waiting for reschedule approval.');
+      }
+
+      final previousDate = booking.previousScheduledDate;
+      final previousTime = booking.previousScheduledTime;
+      if (previousDate == null || previousTime == null) {
+        throw StateError('Unable to restore the previous schedule.');
+      }
+
+      final currentDate = DateTime(
+        booking.scheduledDate.year,
+        booking.scheduledDate.month,
+        booking.scheduledDate.day,
+      );
+      final restoreDate = DateTime(
+        previousDate.year,
+        previousDate.month,
+        previousDate.day,
+      );
+
+      await _applySlotChangeInTransaction(
+        transaction: transaction,
+        booking: booking,
+        fromDate: currentDate,
+        fromTime: booking.scheduledTime,
+        toDate: restoreDate,
+        toTime: previousTime,
+      );
+
+      transaction.update(bookingRef, {
+        'scheduledDate': Timestamp.fromDate(restoreDate),
+        'scheduledTime': previousTime,
+        'status': BookingStatus.confirmed.value,
+        'rescheduleNotes': FieldValue.delete(),
+        'rescheduledAt': FieldValue.delete(),
+        'rescheduleRequestedBy': FieldValue.delete(),
+        'previousScheduledDate': FieldValue.delete(),
+        'previousScheduledTime': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<void> _applySlotChangeInTransaction({
+    required Transaction transaction,
+    required BookingModel booking,
+    required DateTime fromDate,
+    required String fromTime,
+    required DateTime toDate,
+    required String toTime,
+  }) async {
+    final currentAvailabilityRef = _availabilityDocRef(
+      booking.photographerId,
+      fromDate,
+    );
+    final nextAvailabilityRef = _availabilityDocRef(
+      booking.photographerId,
+      toDate,
+    );
+
+    final currentAvailabilitySnap = await transaction.get(
+      currentAvailabilityRef,
+    );
+    final nextAvailabilitySnap =
+        currentAvailabilityRef.path == nextAvailabilityRef.path
+        ? currentAvailabilitySnap
+        : await transaction.get(nextAvailabilityRef);
+
+    final currentSlots = currentAvailabilitySnap.exists
+        ? AvailabilityModel.fromMap(currentAvailabilitySnap.data()!).slots
+        : AvailabilityModel.defaultSlots();
+
+    final releasedCurrentSlots = currentSlots.map((slot) {
+      if (slot.time == fromTime &&
+          (slot.bookedByBookingId == null ||
+              slot.bookedByBookingId == booking.id)) {
+        return slot.copyWith(isAvailable: true, bookedByBookingId: null);
+      }
+      return slot;
+    }).toList();
+
+    final nextBaseSlots =
+        currentAvailabilityRef.path == nextAvailabilityRef.path
+        ? releasedCurrentSlots
+        : nextAvailabilitySnap.exists
+        ? AvailabilityModel.fromMap(nextAvailabilitySnap.data()!).slots
+        : AvailabilityModel.defaultSlots();
+
+    final targetIndex = nextBaseSlots.indexWhere((slot) => slot.time == toTime);
+    if (targetIndex == -1) {
+      throw StateError('Selected time slot is unavailable.');
+    }
+
+    final targetSlot = nextBaseSlots[targetIndex];
+    if (!targetSlot.isAvailable && targetSlot.bookedByBookingId != booking.id) {
+      throw StateError('Selected time slot is already booked.');
+    }
+
+    final reservedNextSlots = nextBaseSlots.map((slot) {
+      if (slot.time == toTime) {
+        return slot.copyWith(
+          isAvailable: false,
+          bookedByBookingId: booking.id,
+        );
+      }
+      return slot;
+    }).toList();
+
+    if (currentAvailabilityRef.path == nextAvailabilityRef.path) {
+      transaction.set(
         currentAvailabilityRef,
+        AvailabilityModel(
+          photographerId: booking.photographerId,
+          date: toDate,
+          slots: reservedNextSlots,
+        ).toMap(),
       );
-      final nextAvailabilitySnap =
-          currentAvailabilityRef.path == nextAvailabilityRef.path
-          ? currentAvailabilitySnap
-          : await transaction.get(nextAvailabilityRef);
-
-      final currentSlots = currentAvailabilitySnap.exists
-          ? AvailabilityModel.fromMap(currentAvailabilitySnap.data()!).slots
-          : AvailabilityModel.defaultSlots();
-
-      final releasedCurrentSlots = currentSlots.map((slot) {
-        if (slot.time == booking.scheduledTime &&
-            (slot.bookedByBookingId == null ||
-                slot.bookedByBookingId == booking.id)) {
-          return slot.copyWith(isAvailable: true, bookedByBookingId: null);
-        }
-        return slot;
-      }).toList();
-
-      final nextBaseSlots =
-          currentAvailabilityRef.path == nextAvailabilityRef.path
-          ? releasedCurrentSlots
-          : nextAvailabilitySnap.exists
-          ? AvailabilityModel.fromMap(nextAvailabilitySnap.data()!).slots
-          : AvailabilityModel.defaultSlots();
-
-      final targetIndex = nextBaseSlots.indexWhere(
-        (slot) => slot.time == scheduledTime,
-      );
-      if (targetIndex == -1) {
-        throw StateError('Selected time slot is unavailable.');
-      }
-
-      final targetSlot = nextBaseSlots[targetIndex];
-      if (!targetSlot.isAvailable &&
-          targetSlot.bookedByBookingId != booking.id) {
-        throw StateError('Selected time slot is already booked.');
-      }
-
-      final reservedNextSlots = nextBaseSlots.map((slot) {
-        if (slot.time == scheduledTime) {
-          return slot.copyWith(
-            isAvailable: false,
-            bookedByBookingId: booking.id,
-          );
-        }
-        return slot;
-      }).toList();
-
-      if (currentAvailabilityRef.path == nextAvailabilityRef.path) {
+    } else {
+      if (currentAvailabilitySnap.exists) {
         transaction.set(
           currentAvailabilityRef,
           AvailabilityModel(
             photographerId: booking.photographerId,
-            date: nextDate,
-            slots: reservedNextSlots,
-          ).toMap(),
-        );
-      } else {
-        if (currentAvailabilitySnap.exists) {
-          transaction.set(
-            currentAvailabilityRef,
-            AvailabilityModel(
-              photographerId: booking.photographerId,
-              date: currentDate,
-              slots: releasedCurrentSlots,
-            ).toMap(),
-          );
-        }
-
-        transaction.set(
-          nextAvailabilityRef,
-          AvailabilityModel(
-            photographerId: booking.photographerId,
-            date: nextDate,
-            slots: reservedNextSlots,
+            date: fromDate,
+            slots: releasedCurrentSlots,
           ).toMap(),
         );
       }
 
-      transaction.update(bookingRef, {
-        'scheduledDate': Timestamp.fromDate(nextDate),
-        'scheduledTime': scheduledTime,
-        'status': BookingStatus.requested.value,
-        'rescheduleNotes': normalizedRescheduleNotes,
-        'rescheduledAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    });
+      transaction.set(
+        nextAvailabilityRef,
+        AvailabilityModel(
+          photographerId: booking.photographerId,
+          date: toDate,
+          slots: reservedNextSlots,
+        ).toMap(),
+      );
+    }
   }
 
   // ─── Convenience Status Helpers ──────────────────────────────────────────
@@ -659,11 +807,40 @@ class BookingService {
   Future<void> acceptBooking(String bookingId) =>
       updateStatus(bookingId, BookingStatus.confirmed);
 
-  Future<void> declineBooking(String bookingId) =>
-      updateStatus(bookingId, BookingStatus.declined);
+  Future<void> declineBooking(String bookingId) async {
+    final booking = await getBookingById(bookingId);
+    if (booking == null) return;
+    if (BookingPolicy.isReschedulePending(booking)) {
+      await rejectRescheduleRequest(bookingId);
+      return;
+    }
+    await updateStatus(bookingId, BookingStatus.declined);
+  }
 
-  Future<void> cancelBooking(String bookingId) =>
-      updateStatus(bookingId, BookingStatus.cancelled);
+  Future<void> cancelBooking(
+    String bookingId, {
+    required String cancelledBy,
+    String? cancellationReason,
+  }) async {
+    final booking = await getBookingById(bookingId);
+    if (booking == null) return;
+
+    if (!BookingPolicy.canCancel(booking)) {
+      throw StateError(BookingPolicy.cancelBlockedMessage(booking));
+    }
+
+    if (BookingPolicy.requiresCancellationReason(booking) &&
+        (cancellationReason == null || cancellationReason.trim().isEmpty)) {
+      throw StateError('Please provide a cancellation reason.');
+    }
+
+    await updateStatus(
+      bookingId,
+      BookingStatus.cancelled,
+      cancelledBy: cancelledBy,
+      cancellationReason: cancellationReason?.trim(),
+    );
+  }
 
   Future<void> markDelivered({
     required String bookingId,
@@ -703,6 +880,8 @@ class BookingService {
     String bookingId,
     BookingStatus status, {
     String? notes,
+    String? cancelledBy,
+    String? cancellationReason,
   }) async {
     final booking = await getBookingById(bookingId);
     if (booking == null) return;
@@ -712,6 +891,22 @@ class BookingService {
       'updatedAt': FieldValue.serverTimestamp(),
     };
     if (notes != null) updateData['notes'] = notes;
+
+    if (status == BookingStatus.confirmed) {
+      updateData['confirmedAt'] = FieldValue.serverTimestamp();
+      updateData['rescheduleNotes'] = FieldValue.delete();
+      updateData['rescheduledAt'] = FieldValue.delete();
+      updateData['rescheduleRequestedBy'] = FieldValue.delete();
+      updateData['previousScheduledDate'] = FieldValue.delete();
+      updateData['previousScheduledTime'] = FieldValue.delete();
+    }
+
+    if (status == BookingStatus.cancelled) {
+      if (cancelledBy != null) updateData['cancelledBy'] = cancelledBy;
+      if (cancellationReason != null && cancellationReason.isNotEmpty) {
+        updateData['cancellationReason'] = cancellationReason;
+      }
+    }
 
     await _firestore
         .collection(FirebaseCollections.bookings)
@@ -744,6 +939,21 @@ class BookingService {
           photographerName: booking.photographerName,
           bookingId: bookingId,
         );
+        break;
+      case BookingStatus.cancelled:
+        if (cancelledBy != null && notes != 'Request expired') {
+          final recipientId = cancelledBy == 'photographer'
+              ? booking.clientId
+              : booking.photographerId;
+          try {
+            await NotificationService().createBookingCancelledNotification(
+              recipientId: recipientId,
+              bookingId: bookingId,
+              cancelledByPhotographer: cancelledBy == 'photographer',
+              reason: cancellationReason,
+            );
+          } catch (_) {}
+        }
         break;
       default:
         break;

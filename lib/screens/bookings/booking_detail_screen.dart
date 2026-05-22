@@ -1,11 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/app_avatar_colors.dart';
 import '../../core/booking_expiration.dart';
+import '../../core/booking_policy.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
+import '../../widgets/bookings/booking_policy_notice.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import '../../widgets/messaging/chat_navigation_helper.dart';
@@ -69,6 +72,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         SessionCountdown.until(booking.scheduledSessionStart),
       );
 
+  String get _cancelledBy =>
+      widget.isPhotographer ? 'photographer' : 'client';
+
+  String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
   // ── actions ────────────────────────────────────────────────────────────────
 
   Future<void> _accept() async {
@@ -131,6 +139,26 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   Future<void> _cancelBooking() async {
+    final booking = widget.booking;
+    if (!BookingPolicy.canCancel(booking)) {
+      _showError(BookingPolicy.cancelBlockedMessage(booking));
+      return;
+    }
+
+    if (BookingPolicy.requiresCancellationReason(booking)) {
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => BookingActionsScreen(
+            booking: booking,
+            actionType: 'cancel',
+            isPhotographer: widget.isPhotographer,
+          ),
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -140,7 +168,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
         ),
         content: Text(
-          'Are you sure you want to cancel this booking?',
+          widget.isPhotographer
+              ? 'Are you sure you want to cancel this booking? The client will be notified.'
+              : 'Are you sure you want to cancel this booking?',
           style: GoogleFonts.poppins(fontSize: 14),
         ),
         actions: [
@@ -166,7 +196,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     if (confirm != true) return;
     setState(() => _isLoading = true);
     try {
-      await BookingService().cancelBooking(widget.booking.id);
+      await BookingService().cancelBooking(
+        widget.booking.id,
+        cancelledBy: _cancelledBy,
+      );
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
@@ -174,6 +207,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _openReschedule() async {
+    final booking = widget.booking;
+    if (!BookingPolicy.canReschedule(booking)) {
+      _showError(BookingPolicy.rescheduleBlockedMessage(booking));
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => BookingActionsScreen(
+          booking: booking,
+          actionType: 'reschedule',
+          isPhotographer: widget.isPhotographer,
+        ),
+      ),
+    );
   }
 
   Future<void> _deliverPhotos() async {
@@ -528,6 +578,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       label: 'Notes',
                       value: booking.notes!,
                     ),
+                  if (status == BookingStatus.cancelled &&
+                      booking.cancelledBy != null) ...[
+                    _DetailRow(
+                      icon: Icons.person_off_outlined,
+                      label: 'Cancelled by',
+                      value: booking.cancelledBy == 'photographer'
+                          ? 'Photographer'
+                          : 'Client',
+                    ),
+                    if (booking.cancellationReason != null &&
+                        booking.cancellationReason!.isNotEmpty)
+                      _DetailRow(
+                        icon: Icons.info_outline_rounded,
+                        label: 'Reason',
+                        value: booking.cancellationReason!,
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -661,7 +728,158 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
             // ── Status-specific action sections ───────────────────────────
             if (status == BookingStatus.requested) ...[
-              if (isPhotographer) ...[
+              if (BookingPolicy.isReschedulePending(booking) &&
+                  BookingPolicy.canRespondToReschedule(booking, _currentUid)) ...[
+                _ActionSection(
+                  title: 'Reschedule Request',
+                  child: Column(
+                    children: [
+                      BookingPolicyNotice(booking: booking),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3F2FD),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.update_rounded,
+                                color: Color(0xFF1976D2), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'New time: ${_formatDate(booking.scheduledDate)} at ${booking.scheduledTime}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (booking.rescheduleNotes != null &&
+                          booking.rescheduleNotes!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          booking.rescheduleNotes!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: const Color(0xFF6B7280),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isLoading ? null : _decline,
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFC62828)),
+                                foregroundColor: const Color(0xFFC62828),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Keep original date',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _accept,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Approve new time',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (BookingPolicy.isReschedulePending(booking)) ...[
+                _ActionSection(
+                  title: 'Reschedule Pending',
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3E0),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.hourglass_empty_rounded,
+                                color: Color(0xFFFF6D00), size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Waiting for the other party to approve the new date and time.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: const Color(0xFF374151),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (BookingPolicy.canCancel(booking)) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _isLoading ? null : _cancelBooking,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFC62828)),
+                              foregroundColor: const Color(0xFFC62828),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel Booking',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ] else if (isPhotographer) ...[
                 // Photographer: accept / decline
                 _ActionSection(
                   title: 'Respond to Request',
@@ -776,65 +994,67 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ],
             ],
 
-            if (status == BookingStatus.confirmed && booking.isUpcoming) ...[
+            if (status == BookingStatus.confirmed &&
+                (booking.isUpcoming || BookingPolicy.isShootDay(booking))) ...[
               _ActionSection(
                 title: 'Manage Session',
                 child: Column(
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => BookingActionsScreen(
-                              booking: widget.booking,
-                              actionType: 'reschedule',
+                    BookingPolicyNotice(booking: booking),
+                    if (BookingPolicy.canReschedule(booking) ||
+                        BookingPolicy.canCancel(booking))
+                      const SizedBox(height: 12),
+                    if (BookingPolicy.canReschedule(booking))
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _openReschedule,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade300),
+                            foregroundColor: const Color(0xFF374151),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.edit_calendar_outlined,
+                              size: 18),
+                          label: Text(
+                            'Reschedule',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade300),
-                          foregroundColor: const Color(0xFF374151),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      ),
+                    if (BookingPolicy.canReschedule(booking) &&
+                        BookingPolicy.canCancel(booking))
+                      const SizedBox(height: 10),
+                    if (BookingPolicy.canCancel(booking))
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : _cancelBooking,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFC62828)),
+                            foregroundColor: const Color(0xFFC62828),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                        ),
-                        icon: const Icon(Icons.edit_calendar_outlined,
-                            size: 18),
-                        label: Text(
-                          'Reschedule',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                          child: Text(
+                            'Cancel Booking',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _isLoading ? null : _cancelBooking,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFC62828)),
-                          foregroundColor: const Color(0xFFC62828),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Cancel Booking',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

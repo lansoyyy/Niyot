@@ -31,6 +31,9 @@ class NotificationNavigationHelper {
         case NotificationType.bookingConfirmed:
         case NotificationType.bookingDeclined:
         case NotificationType.bookingExpired:
+        case NotificationType.bookingCancelled:
+        case NotificationType.rescheduleRequest:
+        case NotificationType.rescheduleConfirmed:
         case NotificationType.paymentReceived:
         case NotificationType.photosDelivered:
         case NotificationType.reviewLeft:

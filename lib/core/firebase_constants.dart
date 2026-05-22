@@ -72,6 +72,9 @@ class NotificationTypes {
   static const String profileView = 'profile_view';
   static const String photosDelivered = 'photos_delivered';
   static const String bookingExpired = 'booking_expired';
+  static const String bookingCancelled = 'booking_cancelled';
+  static const String rescheduleRequest = 'reschedule_request';
+  static const String rescheduleConfirmed = 'reschedule_confirmed';
   static const String system = 'system';
 }
 

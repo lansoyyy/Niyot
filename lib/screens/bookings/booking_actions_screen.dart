@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../core/booking_policy.dart';
 import '../../models/availability_model.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
+import '../../widgets/bookings/booking_policy_notice.dart';
 import '../../widgets/currency/peso_price_text.dart';
 
 class BookingActionsScreen extends StatefulWidget {
@@ -12,10 +14,12 @@ class BookingActionsScreen extends StatefulWidget {
     super.key,
     required this.booking,
     required this.actionType, // 'cancel' or 'reschedule'
+    required this.isPhotographer,
   });
 
   final BookingModel booking;
   final String actionType;
+  final bool isPhotographer;
 
   @override
   State<BookingActionsScreen> createState() => _BookingActionsScreenState();
@@ -31,13 +35,28 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   List<TimeSlotModel> _availableSlots = const [];
   final _notesController = TextEditingController();
 
-  final List<String> _cancellationReasons = [
+  final List<String> _urgentCancellationReasons = [
+    'Emergency',
+    'Weather',
+    'Schedule conflict',
+    'Other',
+  ];
+
+  final List<String> _standardCancellationReasons = [
     'Schedule conflict',
     'Change of plans',
     'Found another photographer',
     'Financial reasons',
     'Other',
   ];
+
+  List<String> get _cancellationReasons =>
+      BookingPolicy.requiresCancellationReason(widget.booking)
+      ? _urgentCancellationReasons
+      : _standardCancellationReasons;
+
+  String get _cancelledBy =>
+      widget.isPhotographer ? 'photographer' : 'client';
 
   @override
   void initState() {
@@ -287,6 +306,14 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            BookingPolicyNotice(
+              booking: booking,
+              showRescheduleHint: !isCancel,
+            ),
+            if (!isCancel ||
+                BookingPolicy.requiresCancellationReason(booking) ||
+                BookingPolicy.isNotYetAccepted(booking))
+              const SizedBox(height: 16),
             // Action content
             if (isCancel)
               _buildCancellationContent()
@@ -736,7 +763,10 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'The photographer will need to confirm the new date and time',
+                  BookingPolicy.rescheduleMode(widget.booking) ==
+                          RescheduleMode.graceImmediate
+                      ? 'The new date will apply immediately during your grace window.'
+                      : BookingPolicy.approvalRescheduleHint(),
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: const Color(0xFF6B7280),
@@ -793,7 +823,8 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   void _confirmAction() {
     final isCancel = widget.actionType == 'cancel';
 
-    if (isCancel && _selectedCancellationReason == null) {
+    if (isCancel && BookingPolicy.requiresCancellationReason(widget.booking) &&
+        _selectedCancellationReason == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -900,25 +931,40 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
               setState(() => _isLoading = true);
               try {
                 if (isCancel) {
-                  await BookingService().updateStatus(
+                  final reason = _selectedCancellationReason;
+                  final notes = _notesController.text.trim();
+                  String? fullReason;
+                  if (reason != null) {
+                    fullReason = notes.isEmpty ? reason : '$reason — $notes';
+                  } else if (notes.isNotEmpty) {
+                    fullReason = notes;
+                  }
+                  await BookingService().cancelBooking(
                     widget.booking.id,
-                    BookingStatus.cancelled,
+                    cancelledBy: _cancelledBy,
+                    cancellationReason: fullReason,
                   );
                 } else {
                   await BookingService().rescheduleBooking(
                     bookingId: widget.booking.id,
                     scheduledDate: _selectedDate,
                     scheduledTime: _selectedTimeSlot!,
+                    requestedBy: _cancelledBy,
                     rescheduleNotes: _notesController.text,
                   );
                 }
                 if (mounted) {
                   Navigator.of(context).pop();
+                  final grace = !isCancel &&
+                      BookingPolicy.rescheduleMode(widget.booking) ==
+                          RescheduleMode.graceImmediate;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
                         isCancel
                             ? 'Booking cancelled successfully'
+                            : grace
+                            ? 'Booking rescheduled'
                             : 'Reschedule request sent',
                         style: GoogleFonts.poppins(
                           fontSize: 14,

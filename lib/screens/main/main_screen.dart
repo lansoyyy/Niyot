@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/booking_service.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
 import '../home/home_screen.dart';
@@ -93,6 +94,12 @@ class _MainScreenState extends State<MainScreen> {
                     icon: Icons.calendar_month_rounded,
                     label: 'Bookings',
                     isSelected: _currentIndex == 2,
+                    badgeStream: _currentUid.isEmpty
+                        ? null
+                        : BookingService().pendingActionCountStream(
+                            _currentUid,
+                            isPhotographer: _isPhotographer,
+                          ),
                     onTap: () => setState(() => _currentIndex = 2),
                   ),
                   _NavItem(

@@ -13,6 +13,7 @@ import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../services/user_service.dart';
+import '../../widgets/home/home_section_header.dart';
 import '../../widgets/home/client_next_shoot_card.dart';
 import '../../widgets/home/near_you_card.dart';
 import '../explore/explore_screen.dart';
@@ -165,52 +166,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             // Featured creators
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 0, 12),
-                child: Text(
-                  'Featured Creators',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1A1A1A),
-                  ),
-                ),
-              ),
+              child: HomeSectionHeader(title: 'Featured Creators'),
             ),
             SliverToBoxAdapter(child: _buildFeaturedCarousel()),
             // Near you
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Near You',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A1A1A),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _openExplore,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'See all →',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFC62828),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              child: HomeSectionHeader(
+                title: 'Near You',
+                actionLabel: 'See all →',
+                onAction: _openExplore,
               ),
             ),
             if (_isLoading)
@@ -303,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Find Your\nPerfect Creator',
+                  'Find Your Perfect Creator',
                   style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -551,12 +515,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     if (_featured.isEmpty) {
-      return const SizedBox(
-        height: 200,
-        child: Center(
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: Align(
+          alignment: Alignment.centerLeft,
           child: Text(
             'No featured photographers yet.',
-            style: TextStyle(color: Color(0xFF9E9E9E)),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: const Color(0xFF9E9E9E),
+            ),
           ),
         ),
       );

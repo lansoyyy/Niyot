@@ -57,10 +57,18 @@ class SessionCountdown {
     return '$minutes min';
   }
 
-  static String shootDayLabel(Duration d) {
-    if (d == Duration.zero) return 'Today';
-    final days = d.inDays;
-    if (days == 0) return 'Today';
-    return 'in $days day${days == 1 ? '' : 's'}';
+  static String shootDayLabel(DateTime sessionStart) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final shootDay = DateTime(
+      sessionStart.year,
+      sessionStart.month,
+      sessionStart.day,
+    );
+    final calendarDays = shootDay.difference(today).inDays;
+
+    if (calendarDays <= 0) return 'Today';
+    if (calendarDays == 1) return 'Tomorrow';
+    return 'in $calendarDays days';
   }
 }

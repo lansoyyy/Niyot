@@ -88,6 +88,12 @@ class BookingModel {
   final String? notes;
   final String? rescheduleNotes;
   final DateTime? rescheduledAt;
+  final String? rescheduleRequestedBy;
+  final DateTime? previousScheduledDate;
+  final String? previousScheduledTime;
+  final DateTime? confirmedAt;
+  final String? cancelledBy;
+  final String? cancellationReason;
   final String? reviewId;
   final DateTime? reviewedAt;
   final String? deliveryLink;
@@ -115,6 +121,12 @@ class BookingModel {
     this.notes,
     this.rescheduleNotes,
     this.rescheduledAt,
+    this.rescheduleRequestedBy,
+    this.previousScheduledDate,
+    this.previousScheduledTime,
+    this.confirmedAt,
+    this.cancelledBy,
+    this.cancellationReason,
     this.reviewId,
     this.reviewedAt,
     this.deliveryLink,
@@ -180,6 +192,16 @@ class BookingModel {
     'rescheduledAt': rescheduledAt != null
         ? Timestamp.fromDate(rescheduledAt!)
         : null,
+    'rescheduleRequestedBy': rescheduleRequestedBy,
+    'previousScheduledDate': previousScheduledDate != null
+        ? Timestamp.fromDate(previousScheduledDate!)
+        : null,
+    'previousScheduledTime': previousScheduledTime,
+    'confirmedAt': confirmedAt != null
+        ? Timestamp.fromDate(confirmedAt!)
+        : null,
+    'cancelledBy': cancelledBy,
+    'cancellationReason': cancellationReason,
     'reviewId': reviewId,
     'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
     'deliveryLink': deliveryLink,
@@ -210,6 +232,13 @@ class BookingModel {
         notes: map['notes'] as String?,
         rescheduleNotes: map['rescheduleNotes'] as String?,
         rescheduledAt: (map['rescheduledAt'] as Timestamp?)?.toDate(),
+        rescheduleRequestedBy: map['rescheduleRequestedBy'] as String?,
+        previousScheduledDate:
+            (map['previousScheduledDate'] as Timestamp?)?.toDate(),
+        previousScheduledTime: map['previousScheduledTime'] as String?,
+        confirmedAt: (map['confirmedAt'] as Timestamp?)?.toDate(),
+        cancelledBy: map['cancelledBy'] as String?,
+        cancellationReason: map['cancellationReason'] as String?,
         reviewId: map['reviewId'] as String?,
         reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
         deliveryLink: map['deliveryLink'] as String?,
@@ -238,10 +267,18 @@ class BookingModel {
 
   BookingModel copyWith({
     BookingStatus? status,
+    DateTime? scheduledDate,
+    String? scheduledTime,
     DateTime? updatedAt,
     String? notes,
     String? rescheduleNotes,
     DateTime? rescheduledAt,
+    String? rescheduleRequestedBy,
+    DateTime? previousScheduledDate,
+    String? previousScheduledTime,
+    DateTime? confirmedAt,
+    String? cancelledBy,
+    String? cancellationReason,
     String? reviewId,
     DateTime? reviewedAt,
     String? deliveryLink,
@@ -259,12 +296,20 @@ class BookingModel {
     packageName: packageName,
     packagePrice: packagePrice,
     packageDuration: packageDuration,
-    scheduledDate: scheduledDate,
-    scheduledTime: scheduledTime,
+    scheduledDate: scheduledDate ?? this.scheduledDate,
+    scheduledTime: scheduledTime ?? this.scheduledTime,
     location: location,
     notes: notes ?? this.notes,
     rescheduleNotes: rescheduleNotes ?? this.rescheduleNotes,
     rescheduledAt: rescheduledAt ?? this.rescheduledAt,
+    rescheduleRequestedBy: rescheduleRequestedBy ?? this.rescheduleRequestedBy,
+    previousScheduledDate:
+        previousScheduledDate ?? this.previousScheduledDate,
+    previousScheduledTime:
+        previousScheduledTime ?? this.previousScheduledTime,
+    confirmedAt: confirmedAt ?? this.confirmedAt,
+    cancelledBy: cancelledBy ?? this.cancelledBy,
+    cancellationReason: cancellationReason ?? this.cancellationReason,
     reviewId: reviewId ?? this.reviewId,
     reviewedAt: reviewedAt ?? this.reviewedAt,
     deliveryLink: deliveryLink ?? this.deliveryLink,
