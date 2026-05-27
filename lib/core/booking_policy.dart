@@ -40,8 +40,7 @@ class BookingPolicy {
   }
 
   static bool isReschedulePending(BookingModel booking) =>
-      booking.status == BookingStatus.requested &&
-      booking.rescheduledAt != null;
+      booking.isReschedulePending;
 
   /// Who must respond to a pending reschedule request.
   static String? rescheduleResponderId(BookingModel booking) {
@@ -80,6 +79,7 @@ class BookingPolicy {
   }
 
   static bool canReschedule(BookingModel booking) {
+    if (isReschedulePending(booking)) return false;
     if (booking.status != BookingStatus.confirmed) return false;
     if (isShootDay(booking)) return false;
     if (isWithinGracePeriod(booking)) return true;

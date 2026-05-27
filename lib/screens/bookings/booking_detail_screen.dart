@@ -9,6 +9,7 @@ import '../../core/booking_policy.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 import '../../widgets/bookings/booking_policy_notice.dart';
+import '../../widgets/bookings/booking_status_badge.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import '../../widgets/messaging/chat_navigation_helper.dart';
@@ -169,8 +170,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         ),
         content: Text(
           widget.isPhotographer
-              ? 'Are you sure you want to cancel this booking? The client will be notified.'
-              : 'Are you sure you want to cancel this booking?',
+              ? 'Are you sure you want to cancel this booking? Your client will receive a notification.'
+              : 'Are you sure you want to cancel this booking? Your photographer will receive a notification.',
           style: GoogleFonts.poppins(fontSize: 14),
         ),
         actions: [
@@ -201,6 +202,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         cancelledBy: _cancelledBy,
       );
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'The other party has been notified about the cancellation.',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       Navigator.of(context).pop();
     } catch (e) {
       _showError('$e');
@@ -390,14 +400,19 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                       ],
                     ),
                   ),
-                  _StatusBadge(status: status),
+                  BookingStatusBadge(
+                    booking: booking,
+                    onDarkBackground: true,
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
             // ── Countdown (upcoming only) ─────────────────────────────────
-            if (status == BookingStatus.confirmed && booking.isUpcoming) ...[
+            if ((status == BookingStatus.confirmed ||
+                    booking.isReschedulePending) &&
+                booking.isUpcoming) ...[
               Builder(builder: (_) {
                 return Container(
                   width: double.infinity,
@@ -732,6 +747,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   BookingPolicy.canRespondToReschedule(booking, _currentUid)) ...[
                 _ActionSection(
                   title: 'Reschedule Request',
+                  subtitle: '(reschedule request)',
                   child: Column(
                     children: [
                       BookingPolicyNotice(booking: booking),
@@ -826,6 +842,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ] else if (BookingPolicy.isReschedulePending(booking)) ...[
                 _ActionSection(
                   title: 'Reschedule Pending',
+                  subtitle: '(reschedule request)',
                   child: Column(
                     children: [
                       Container(
@@ -994,8 +1011,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               ],
             ],
 
-            if (status == BookingStatus.confirmed &&
-                (booking.isUpcoming || BookingPolicy.isShootDay(booking))) ...[
+            if ((status == BookingStatus.confirmed ||
+                    booking.isReschedulePending) &&
+                (booking.isUpcoming || BookingPolicy.isShootDay(booking)) &&
+                !BookingPolicy.isReschedulePending(booking)) ...[
               _ActionSection(
                 title: 'Manage Session',
                 child: Column(
@@ -1306,66 +1325,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
 // ─── Helper widgets ───────────────────────────────────────────────────────────
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-  final BookingStatus status;
-
-  Color get _color {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return const Color(0xFF2E7D32);
-      case BookingStatus.requested:
-        return const Color(0xFFFF6D00);
-      case BookingStatus.paymentPending:
-        return const Color(0xFFFB8C00);
-      case BookingStatus.inProgress:
-        return const Color(0xFF1565C0);
-      case BookingStatus.completed:
-        return const Color(0xFF6B7280);
-      case BookingStatus.cancelled:
-      case BookingStatus.declined:
-        return const Color(0xFFC62828);
-    }
-  }
-
-  Color get _bg {
-    switch (status) {
-      case BookingStatus.confirmed:
-        return const Color(0xFFE8F5E9);
-      case BookingStatus.requested:
-        return const Color(0xFFFFF3E0);
-      case BookingStatus.paymentPending:
-        return const Color(0xFFFFF8E1);
-      case BookingStatus.inProgress:
-        return const Color(0xFFE3F2FD);
-      case BookingStatus.completed:
-        return const Color(0xFFF3F4F6);
-      case BookingStatus.cancelled:
-      case BookingStatus.declined:
-        return const Color(0xFFFFEBEE);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: _bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status.displayName,
-        style: GoogleFonts.poppins(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: _color,
-        ),
-      ),
-    );
-  }
-}
-
 class _Card extends StatelessWidget {
   const _Card({required this.child});
   final Widget child;
@@ -1392,8 +1351,14 @@ class _Card extends StatelessWidget {
 }
 
 class _ActionSection extends StatelessWidget {
-  const _ActionSection({required this.title, required this.child});
+  const _ActionSection({
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
   final String title;
+  final String? subtitle;
   final Widget child;
 
   @override
@@ -1401,13 +1366,29 @@ class _ActionSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF6B7280),
-          ),
+        Row(
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6B7280),
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                subtitle!,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  fontStyle: FontStyle.italic,
+                  color: const Color(0xFF1565C0),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         child,

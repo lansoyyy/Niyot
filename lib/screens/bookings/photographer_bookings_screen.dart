@@ -45,7 +45,8 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
         final newRequests = all
             .where(
               (b) =>
-                  b.status == BookingStatus.requested ||
+                  (b.status == BookingStatus.requested &&
+                      !b.isReschedulePending) ||
                   b.status == BookingStatus.paymentPending,
             )
             .toList();
@@ -852,7 +853,9 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = booking.status == BookingStatus.completed
+    final statusColor = booking.isReschedulePending
+        ? const Color(0xFF1565C0)
+        : booking.status == BookingStatus.completed
         ? const Color(0xFF1976D2)
         : const Color(0xFF2E7D32);
 
@@ -930,7 +933,7 @@ class _BookingCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  booking.status.displayName,
+                  booking.statusBadgeLabel,
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

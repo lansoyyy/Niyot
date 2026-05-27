@@ -7,6 +7,7 @@ import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/photographer_service.dart';
 import '../../widgets/bookings/booking_policy_notice.dart';
+import '../../widgets/bookings/booking_status_badge.dart';
 import '../../widgets/currency/peso_price_text.dart';
 
 class BookingActionsScreen extends StatefulWidget {
@@ -241,24 +242,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                                 color: const Color(0xFF2E7D32),
                               ),
                             ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F5E9),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          booking.status.displayName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF2E7D32),
-                          ),
-                        ),
-                      ),
+                      BookingStatusBadge(booking: booking, compact: true),
                     ],
                   ),
                 ],
@@ -962,7 +946,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                     SnackBar(
                       content: Text(
                         isCancel
-                            ? 'Booking cancelled successfully'
+                            ? 'The other party has been notified about the cancellation.'
                             : grace
                             ? 'Booking rescheduled'
                             : 'Reschedule request sent',

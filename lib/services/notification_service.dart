@@ -253,6 +253,24 @@ class NotificationService {
         ),
       );
 
+  Future<void> createRescheduleDeclinedNotification({
+    required String recipientId,
+    required String bookingId,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: recipientId,
+          title: 'Reschedule Declined',
+          body:
+              'Your reschedule request was declined. The original date and time were kept.',
+          type: NotificationType.rescheduleRequest,
+          relatedId: bookingId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
   Future<void> createRescheduleConfirmedNotification({
     required String recipientId,
     required String changerName,

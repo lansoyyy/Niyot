@@ -400,7 +400,8 @@ class BookingService {
         return bookings
             .where(
               (b) =>
-                  b.status == BookingStatus.requested ||
+                  (b.status == BookingStatus.requested &&
+                      !b.isReschedulePending) ||
                   b.status == BookingStatus.paymentPending,
             )
             .length;
@@ -650,6 +651,9 @@ class BookingService {
   }
 
   Future<void> rejectRescheduleRequest(String bookingId) async {
+    final existing = await getBookingById(bookingId);
+    if (existing == null) return;
+
     final bookingRef = _firestore
         .collection(FirebaseCollections.bookings)
         .doc(bookingId);
@@ -703,6 +707,18 @@ class BookingService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    if (!BookingPolicy.isReschedulePending(existing)) return;
+
+    final recipientId = existing.rescheduleRequestedBy == 'client'
+        ? existing.clientId
+        : existing.photographerId;
+    try {
+      await NotificationService().createRescheduleDeclinedNotification(
+        recipientId: recipientId,
+        bookingId: bookingId,
+      );
+    } catch (_) {}
   }
 
   Future<void> _applySlotChangeInTransaction({

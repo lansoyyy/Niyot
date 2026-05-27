@@ -157,10 +157,22 @@ class BookingModel {
     return DateTime(day.year, day.month, day.day, 23, 59, 59);
   }
 
-  /// Confirmed shoots still in the future (Upcoming tab).
-  bool get isUpcoming =>
-      status == BookingStatus.confirmed &&
-      scheduledSessionStart.isAfter(DateTime.now());
+  /// A confirmed booking with a pending reschedule approval request.
+  bool get isReschedulePending =>
+      status == BookingStatus.requested && rescheduledAt != null;
+
+  /// Label for status chips — shows reschedule state instead of generic "Pending".
+  String get statusBadgeLabel {
+    if (isReschedulePending) return 'Reschedule';
+    return status.displayName;
+  }
+
+  /// Confirmed shoots still in the future (Upcoming tab), including reschedule pending.
+  bool get isUpcoming {
+    if (!scheduledSessionStart.isAfter(DateTime.now())) return false;
+    if (status == BookingStatus.confirmed) return true;
+    return isReschedulePending;
+  }
 
   bool get isPast =>
       status == BookingStatus.completed ||

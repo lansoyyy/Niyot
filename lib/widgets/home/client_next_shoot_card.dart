@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/booking_expiration.dart';
 import '../../models/booking_model.dart';
 import '../../screens/bookings/booking_detail_screen.dart';
+import '../../widgets/bookings/booking_status_badge.dart';
 import '../../widgets/common/app_profile_avatar.dart';
-
 import '../../widgets/home/home_section_header.dart';
 
 /// Client home — next confirmed upcoming session.
@@ -77,6 +77,8 @@ class ClientNextShootCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF1A1A1A),
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -91,46 +93,37 @@ class ClientNextShootCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Confirmed',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF2E7D32),
-                      ),
-                    ),
-                  ),
+                  BookingStatusBadge(booking: booking, compact: true),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _MetaChip(
-                    icon: Icons.calendar_today_rounded,
-                    label: dateLabel,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _MetaChip(
+                        icon: Icons.calendar_today_rounded,
+                        label: dateLabel,
+                      ),
+                      _MetaChip(
+                        icon: Icons.access_time_rounded,
+                        label: booking.scheduledTime,
+                      ),
+                    ],
                   ),
-                  _MetaChip(
-                    icon: Icons.access_time_rounded,
-                    label: booking.scheduledTime,
-                  ),
-                  _MetaChip(
-                    icon: Icons.location_on_rounded,
-                    label: booking.location,
-                    wide: true,
-                  ),
+                  if (booking.location.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _LocationRow(location: booking.location),
+                  ],
+                  if (booking.isReschedulePending) ...[
+                    const SizedBox(height: 6),
+                    const RescheduleRequestMark(),
+                  ],
                 ],
               ),
             ),
@@ -217,44 +210,77 @@ class ClientNextShootSection extends StatelessWidget {
 }
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({
-    required this.icon,
-    required this.label,
-    this.wide = false,
-  });
+  const _MetaChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
-    final chip = Container(
-      constraints: wide ? const BoxConstraints(maxWidth: double.infinity) : null,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
-        mainAxisSize: wide ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: const Color(0xFF9E9E9E)),
           const SizedBox(width: 5),
-          Flexible(
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationRow extends StatelessWidget {
+  const _LocationRow({required this.location});
+
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.location_on_rounded,
+              size: 13,
+              color: Color(0xFF9E9E9E),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
             child: Text(
-              label,
+              location,
               style: GoogleFonts.poppins(
                 fontSize: 11,
                 color: const Color(0xFF6B7280),
+                height: 1.35,
               ),
-              maxLines: wide ? 2 : 1,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
     );
-    return wide ? SizedBox(width: double.infinity, child: chip) : chip;
   }
 }

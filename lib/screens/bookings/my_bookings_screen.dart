@@ -9,6 +9,7 @@ import '../../models/booking_model.dart';
 import '../../models/user_model.dart';
 import '../../services/booking_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/bookings/booking_status_badge.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
 import 'booking_detail_screen.dart';
@@ -72,7 +73,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         final all = snapshot.data ?? [];
 
         final requested = all.where((b) {
-          return b.status == BookingStatus.requested ||
+          return (b.status == BookingStatus.requested &&
+                  !b.isReschedulePending) ||
               b.status == BookingStatus.paymentPending;
         }).toList()
           ..sort(
@@ -360,42 +362,6 @@ class _BookingCardState extends State<_BookingCard> {
     return '${m[d.month - 1]} ${d.day}';
   }
 
-  Color _statusColor(BookingStatus s) {
-    switch (s) {
-      case BookingStatus.confirmed:
-        return const Color(0xFF2E7D32);
-      case BookingStatus.requested:
-        return const Color(0xFFFF6D00);
-      case BookingStatus.paymentPending:
-        return const Color(0xFFFB8C00);
-      case BookingStatus.inProgress:
-        return const Color(0xFF1565C0);
-      case BookingStatus.completed:
-        return const Color(0xFF6B7280);
-      case BookingStatus.cancelled:
-      case BookingStatus.declined:
-        return const Color(0xFFC62828);
-    }
-  }
-
-  Color _statusBg(BookingStatus s) {
-    switch (s) {
-      case BookingStatus.confirmed:
-        return const Color(0xFFE8F5E9);
-      case BookingStatus.requested:
-        return const Color(0xFFFFF3E0);
-      case BookingStatus.paymentPending:
-        return const Color(0xFFFFF8E1);
-      case BookingStatus.inProgress:
-        return const Color(0xFFE3F2FD);
-      case BookingStatus.completed:
-        return const Color(0xFFF3F4F6);
-      case BookingStatus.cancelled:
-      case BookingStatus.declined:
-        return const Color(0xFFFFEBEE);
-    }
-  }
-
   Future<void> _accept() async {
     setState(() => _isLoading = true);
     try {
@@ -491,23 +457,19 @@ class _BookingCardState extends State<_BookingCard> {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusBg(status),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      status.displayName,
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: _statusColor(status),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      BookingStatusBadge(
+                        booking: booking,
+                        compact: true,
+                        onDarkBackground: true,
                       ),
-                    ),
+                      if (booking.isReschedulePending) ...[
+                        const SizedBox(height: 4),
+                        const RescheduleRequestMark(onDarkBackground: true),
+                      ],
+                    ],
                   ),
                 ],
               ),
