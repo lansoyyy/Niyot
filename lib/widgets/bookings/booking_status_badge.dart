@@ -70,6 +70,12 @@ class BookingStatusBadge extends StatelessWidget {
           background: Color(0xFFFFF8E1),
         );
       case BookingStatus.inProgress:
+        if (booking.deliveryLink != null && booking.deliveryLink!.isNotEmpty) {
+          return const _BadgeColors(
+            foreground: Color(0xFF2E7D32),
+            background: Color(0xFFE8F5E9),
+          );
+        }
         return const _BadgeColors(
           foreground: Color(0xFF1565C0),
           background: Color(0xFFE3F2FD),

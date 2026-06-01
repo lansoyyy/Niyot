@@ -163,15 +163,20 @@ class BookingModel {
 
   /// Label for status chips — shows reschedule state instead of generic "Pending".
   String get statusBadgeLabel {
-    if (isReschedulePending) return 'Reschedule';
+    if (isReschedulePending) return 'Reschedule Request';
+    if (status == BookingStatus.inProgress &&
+        deliveryLink != null &&
+        deliveryLink!.isNotEmpty) {
+      return 'Photos Delivered';
+    }
     return status.displayName;
   }
 
-  /// Confirmed shoots still in the future (Upcoming tab), including reschedule pending.
+  /// Confirmed shoots still in the future (Upcoming tab).
+  /// Reschedule-pending bookings appear in the Requested tab instead.
   bool get isUpcoming {
     if (!scheduledSessionStart.isAfter(DateTime.now())) return false;
-    if (status == BookingStatus.confirmed) return true;
-    return isReschedulePending;
+    return status == BookingStatus.confirmed;
   }
 
   bool get isPast =>

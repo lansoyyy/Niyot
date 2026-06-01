@@ -194,7 +194,7 @@ class NearYouCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(
+                      Flexible(
                         child: photographer.startingPrice.isEmpty
                             ? Text(
                                 'View',
@@ -203,28 +203,33 @@ class NearYouCard extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFFC62828),
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
                               )
                             : Text(
                                 '${photographer.startingPrice} starting',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFFC62828),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                softWrap: false,
                               ),
                       ),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.star_rounded,
                         color: Color(0xFFFFB300),
-                        size: 12,
+                        size: 11,
                       ),
                       const SizedBox(width: 2),
                       Text(
                         photographer.rating.toStringAsFixed(1),
                         style: GoogleFonts.poppins(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF374151),
                         ),

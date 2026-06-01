@@ -45,8 +45,7 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
         final newRequests = all
             .where(
               (b) =>
-                  (b.status == BookingStatus.requested &&
-                      !b.isReschedulePending) ||
+                  b.status == BookingStatus.requested ||
                   b.status == BookingStatus.paymentPending,
             )
             .toList();

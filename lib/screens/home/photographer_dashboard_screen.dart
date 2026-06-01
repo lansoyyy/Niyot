@@ -11,6 +11,7 @@ import '../../core/profile_initials.dart';
 import '../../models/booking_model.dart';
 import '../../models/photographer_model.dart';
 import '../../services/booking_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
@@ -216,7 +217,45 @@ class _PhotographerDashboardScreenState
                     builder: (_) => const NotificationsScreen(),
                   ),
                 ),
-                child: _headerIconBtn(Icons.notifications_rounded),
+                child: Stack(
+                  children: [
+                    _headerIconBtn(Icons.notifications_rounded),
+                    StreamBuilder<int>(
+                      stream: _uid.isEmpty
+                          ? null
+                          : NotificationService()
+                              .unreadCountStream(_uid),
+                      builder: (context, snapshot) {
+                        final unread = snapshot.data ?? 0;
+                        if (unread <= 0) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5),
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFC62828),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '$unread',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

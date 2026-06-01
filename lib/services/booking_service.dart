@@ -397,18 +397,47 @@ class BookingService {
         : clientBookingsStream(userId);
     return source.map((bookings) {
       if (isPhotographer) {
-        return bookings
-            .where(
-              (b) =>
-                  (b.status == BookingStatus.requested &&
-                      !b.isReschedulePending) ||
-                  b.status == BookingStatus.paymentPending,
-            )
-            .length;
+        return bookings.where((b) {
+          // New booking request
+          if (b.status == BookingStatus.requested && !b.isReschedulePending) {
+            return true;
+          }
+          // Payment pending
+          if (b.status == BookingStatus.paymentPending) return true;
+          // Client requested reschedule (photographer must approve)
+          if (b.isReschedulePending &&
+              b.rescheduleRequestedBy != null &&
+              b.rescheduleRequestedBy != 'photographer') {
+            return true;
+          }
+          // Client cancelled
+          if (b.status == BookingStatus.cancelled &&
+              b.cancelledBy != null &&
+              b.cancelledBy != 'photographer') {
+            return true;
+          }
+          return false;
+        }).length;
       }
       return bookings.where((b) {
+        // Payment pending
         if (b.status == BookingStatus.paymentPending) return true;
-        return BookingPolicy.canRespondToReschedule(b, userId);
+        // Photographer requested reschedule (client must approve)
+        if (BookingPolicy.canRespondToReschedule(b, userId)) return true;
+        // Photos delivered
+        if (b.status == BookingStatus.inProgress &&
+            b.deliveryLink != null &&
+            b.deliveryLink!.isNotEmpty) {
+          return true;
+        }
+        // Photographer cancelled
+        if (b.status == BookingStatus.cancelled &&
+            b.cancelledBy == 'photographer') {
+          return true;
+        }
+        // Marked as complete (needs client review)
+        if (b.status == BookingStatus.completed && !b.hasReview) return true;
+        return false;
       }).length;
     });
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,10 +26,22 @@ class _MainScreenState extends State<MainScreen> {
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
   bool _isPhotographer = false;
 
+  StreamController<int>? _bookingsBadgeController;
+  StreamSubscription<int>? _bookingsBadgeSub;
+  int _lastBookingsCount = 0;
+
   @override
   void initState() {
     super.initState();
     _detectRole();
+    _initBookingsBadge();
+  }
+
+  @override
+  void dispose() {
+    _bookingsBadgeSub?.cancel();
+    _bookingsBadgeController?.close();
+    super.dispose();
   }
 
   void _detectRole() {
@@ -40,6 +54,32 @@ class _MainScreenState extends State<MainScreen> {
           setState(() => _isPhotographer = user.isPhotographer);
         }
       });
+    }
+  }
+
+  void _initBookingsBadge() {
+    if (_currentUid.isEmpty) return;
+    _bookingsBadgeController = StreamController<int>.broadcast();
+    _bookingsBadgeSub = BookingService()
+        .pendingActionCountStream(
+          _currentUid,
+          isPhotographer: _isPhotographer,
+        )
+        .listen((count) {
+      _lastBookingsCount = count;
+      if (_currentIndex != 2) {
+        _bookingsBadgeController?.add(count);
+      }
+    });
+  }
+
+  void _updateIndex(int index) {
+    final wasBookings = _currentIndex == 2;
+    setState(() => _currentIndex = index);
+    if (index == 2) {
+      _bookingsBadgeController?.add(0);
+    } else if (wasBookings) {
+      _bookingsBadgeController?.add(_lastBookingsCount);
     }
   }
 
@@ -82,25 +122,20 @@ class _MainScreenState extends State<MainScreen> {
                     icon: Icons.home_rounded,
                     label: 'Home',
                     isSelected: _currentIndex == 0,
-                    onTap: () => setState(() => _currentIndex = 0),
+                    onTap: () => _updateIndex(0),
                   ),
                   _NavItem(
                     icon: Icons.explore_rounded,
                     label: 'Explore',
                     isSelected: _currentIndex == 1,
-                    onTap: () => setState(() => _currentIndex = 1),
+                    onTap: () => _updateIndex(1),
                   ),
                   _NavItem(
                     icon: Icons.calendar_month_rounded,
                     label: 'Bookings',
                     isSelected: _currentIndex == 2,
-                    badgeStream: _currentUid.isEmpty
-                        ? null
-                        : BookingService().pendingActionCountStream(
-                            _currentUid,
-                            isPhotographer: _isPhotographer,
-                          ),
-                    onTap: () => setState(() => _currentIndex = 2),
+                    badgeStream: _bookingsBadgeController?.stream,
+                    onTap: () => _updateIndex(2),
                   ),
                   _NavItem(
                     icon: Icons.chat_bubble_rounded,
@@ -109,13 +144,13 @@ class _MainScreenState extends State<MainScreen> {
                     badgeStream: _currentUid.isEmpty
                         ? null
                         : MessagingService().totalUnreadStream(_currentUid),
-                    onTap: () => setState(() => _currentIndex = 3),
+                    onTap: () => _updateIndex(3),
                   ),
                   _NavItem(
                     icon: Icons.person_rounded,
                     label: 'Profile',
                     isSelected: _currentIndex == 4,
-                    onTap: () => setState(() => _currentIndex = 4),
+                    onTap: () => _updateIndex(4),
                   ),
                 ],
               ),

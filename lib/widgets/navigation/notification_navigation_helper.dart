@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/booking_model.dart';
 import '../../models/notification_model.dart';
 import '../../screens/bookings/booking_detail_screen.dart';
 import '../../screens/messages/chat_screen.dart';
@@ -42,6 +43,20 @@ class NotificationNavigationHelper {
           if (booking == null) {
             _snack(context, 'This booking is no longer available.');
             return;
+          }
+          if (booking.id != related) {
+            _snack(context, 'Booking mismatch. Please try again.');
+            return;
+          }
+          // Warn if the booking status no longer matches the notification
+          if (notification.type == NotificationType.bookingRequest &&
+              booking.status != BookingStatus.requested &&
+              booking.status != BookingStatus.paymentPending) {
+            _snack(
+              context,
+              'This booking is now ${booking.status.displayName.toLowerCase()}.'
+              ' Showing latest details.',
+            );
           }
           final isPhotographer = booking.photographerId == uid;
           await Navigator.of(context).push<void>(

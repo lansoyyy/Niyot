@@ -73,8 +73,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
         final all = snapshot.data ?? [];
 
         final requested = all.where((b) {
-          return (b.status == BookingStatus.requested &&
-                  !b.isReschedulePending) ||
+          return b.status == BookingStatus.requested ||
               b.status == BookingStatus.paymentPending;
         }).toList()
           ..sort(
@@ -190,22 +189,34 @@ class _Header extends StatelessWidget {
               _StatPill(
                 value: requestedCount,
                 label: 'Pending',
-                color: const Color(0xFFFF6D00),
-                bg: const Color(0xFFFFF3E0),
+                color: requestedCount > 0
+                    ? const Color(0xFFFF6D00)
+                    : const Color(0xFF9E9E9E),
+                bg: requestedCount > 0
+                    ? const Color(0xFFFFF3E0)
+                    : const Color(0xFFF5F5F5),
               ),
               const SizedBox(width: 8),
               _StatPill(
                 value: upcomingCount,
                 label: 'Upcoming',
-                color: const Color(0xFFC62828),
-                bg: const Color(0xFFFFEBEE),
+                color: upcomingCount > 0
+                    ? const Color(0xFFC62828)
+                    : const Color(0xFF9E9E9E),
+                bg: upcomingCount > 0
+                    ? const Color(0xFFFFEBEE)
+                    : const Color(0xFFF5F5F5),
               ),
               const SizedBox(width: 8),
               _StatPill(
                 value: activeCount,
                 label: 'Active',
-                color: const Color(0xFF1565C0),
-                bg: const Color(0xFFE3F2FD),
+                color: activeCount > 0
+                    ? const Color(0xFF1565C0)
+                    : const Color(0xFF9E9E9E),
+                bg: activeCount > 0
+                    ? const Color(0xFFE3F2FD)
+                    : const Color(0xFFF5F5F5),
               ),
             ],
           ),
@@ -224,10 +235,19 @@ class _Header extends StatelessWidget {
             indicatorColor: const Color(0xFFC62828),
             indicatorWeight: 2.5,
             tabs: [
-              Tab(text: 'Requested ($requestedCount)'),
-              Tab(text: 'Upcoming ($upcomingCount)'),
-              Tab(text: 'Active ($activeCount)'),
-              Tab(text: 'Past ($pastCount)'),
+              Tab(
+                  text: requestedCount > 0
+                      ? 'Requested ($requestedCount)'
+                      : 'Requested'),
+              Tab(
+                  text: upcomingCount > 0
+                      ? 'Upcoming ($upcomingCount)'
+                      : 'Upcoming'),
+              Tab(
+                  text: activeCount > 0
+                      ? 'Active ($activeCount)'
+                      : 'Active'),
+              const Tab(text: 'Past'),
             ],
           ),
         ],

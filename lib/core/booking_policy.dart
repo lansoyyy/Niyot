@@ -82,6 +82,12 @@ class BookingPolicy {
     if (isReschedulePending(booking)) return false;
     if (booking.status != BookingStatus.confirmed) return false;
     if (isShootDay(booking)) return false;
+    // Prevent immediate re-rescheduling after a recent reschedule
+    final rescheduledAt = booking.rescheduledAt;
+    if (rescheduledAt != null) {
+      final diff = DateTime.now().difference(rescheduledAt);
+      if (diff < const Duration(hours: 1)) return false;
+    }
     if (isWithinGracePeriod(booking)) return true;
     return timeUntilShoot(booking) > rescheduleCutoff;
   }
