@@ -8,6 +8,7 @@ import '../../core/booking_expiration.dart';
 import '../../core/booking_policy.dart';
 import '../../models/booking_model.dart';
 import '../../services/booking_service.dart';
+import '../../services/booking_view_tracker.dart';
 import '../../widgets/bookings/booking_policy_notice.dart';
 import '../../widgets/bookings/booking_status_badge.dart';
 import '../../widgets/common/app_profile_avatar.dart';
@@ -39,6 +40,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   @override
   void initState() {
     super.initState();
+    BookingViewTracker.instance.markViewed(widget.booking.id);
     if (widget.booking.deliveryLink != null) {
       _deliveryLinkCtrl.text = widget.booking.deliveryLink!;
     }
@@ -319,7 +321,33 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final booking = widget.booking;
+    return StreamBuilder<BookingModel?>(
+      stream: BookingService().bookingStream(widget.booking.id),
+      initialData: widget.booking,
+      builder: (context, snapshot) {
+        final booking = snapshot.data;
+        if (booking == null) {
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            body: Center(
+              child: Text(
+                'Booking not found',
+                style: GoogleFonts.poppins(color: const Color(0xFF6B7280)),
+              ),
+            ),
+          );
+        }
+        return _buildDetail(context, booking);
+      },
+    );
+  }
+
+  Widget _buildDetail(BuildContext context, BookingModel booking) {
     final isPhotographer = widget.isPhotographer;
     final status = booking.status;
 
@@ -787,54 +815,76 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                           ),
                         ),
                       ],
+                      if (booking.previousScheduledDate != null &&
+                          booking.previousScheduledTime != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Original: ${_formatDate(booking.previousScheduledDate!)} at ${booking.previousScheduledTime}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF9E9E9E),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isLoading ? null : _decline,
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFC62828)),
-                                foregroundColor: const Color(0xFFC62828),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                'Keep original date',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _accept,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _accept,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E7D32),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                'Approve new time',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
+                          child: Text(
+                            'Accept reschedule',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
-                        ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : _cancelBooking,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFC62828)),
+                            foregroundColor: const Color(0xFFC62828),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel booking',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: _isLoading ? null : _decline,
+                          child: Text(
+                            'Keep original date',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

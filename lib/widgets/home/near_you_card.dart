@@ -101,9 +101,10 @@ class NearYouCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
@@ -192,44 +193,40 @@ class NearYouCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
+                  if (photographer.startingPrice.isNotEmpty)
+                    Text(
+                      '${photographer.startingPrice} starting',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFC62828),
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  else
+                    Text(
+                      'View packages',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFFC62828),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      Flexible(
-                        child: photographer.startingPrice.isEmpty
-                            ? Text(
-                                'View',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFC62828),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              )
-                            : Text(
-                                '${photographer.startingPrice} starting',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFFC62828),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                      ),
-                      const SizedBox(width: 4),
                       const Icon(
                         Icons.star_rounded,
                         color: Color(0xFFFFB300),
-                        size: 11,
+                        size: 12,
                       ),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 3),
                       Text(
                         photographer.rating.toStringAsFixed(1),
                         style: GoogleFonts.poppins(
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF374151),
                         ),

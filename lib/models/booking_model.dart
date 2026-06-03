@@ -157,9 +157,11 @@ class BookingModel {
     return DateTime(day.year, day.month, day.day, 23, 59, 59);
   }
 
-  /// A confirmed booking with a pending reschedule approval request.
+  /// Confirmed booking waiting for the other party to approve a new date/time.
   bool get isReschedulePending =>
-      status == BookingStatus.requested && rescheduledAt != null;
+      status == BookingStatus.requested &&
+      previousScheduledDate != null &&
+      rescheduleRequestedBy != null;
 
   /// Label for status chips — shows reschedule state instead of generic "Pending".
   String get statusBadgeLabel {

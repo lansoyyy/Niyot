@@ -939,17 +939,12 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
                 }
                 if (mounted) {
                   Navigator.of(context).pop();
-                  final grace = !isCancel &&
-                      BookingPolicy.rescheduleMode(widget.booking) ==
-                          RescheduleMode.graceImmediate;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
                         isCancel
                             ? 'The other party has been notified about the cancellation.'
-                            : grace
-                            ? 'Booking rescheduled'
-                            : 'Reschedule request sent',
+                            : 'Reschedule request sent. The other party can accept or cancel.',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,

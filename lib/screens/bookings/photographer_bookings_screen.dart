@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/booking_policy.dart';
 import '../../models/booking_model.dart';
 import '../../models/payment_record_model.dart';
 import '../../services/booking_service.dart';
@@ -42,13 +43,12 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
       stream: _bookingsStream,
       builder: (context, snapshot) {
         final all = snapshot.data ?? [];
-        final newRequests = all
-            .where(
-              (b) =>
-                  b.status == BookingStatus.requested ||
-                  b.status == BookingStatus.paymentPending,
-            )
-            .toList();
+        final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+        final newRequests = all.where((b) {
+          if (b.status == BookingStatus.paymentPending) return true;
+          if (BookingPolicy.canRespondToReschedule(b, uid)) return true;
+          return b.status == BookingStatus.requested && !b.isReschedulePending;
+        }).toList();
         final upcoming = all.where((b) => b.isUpcoming).toList();
         final completed = all
             .where((b) => b.status == BookingStatus.completed)
@@ -161,6 +161,7 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           request: request,
           onAccept: () => _showAcceptDialog(request),
           onDecline: () => _showDeclineDialog(request),
+          onCancelBooking: () => _showCancelBookingDialog(request),
         );
       },
     );
@@ -214,12 +215,13 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
   }
 
   void _showAcceptDialog(BookingModel request) {
+    final isReschedule = request.isReschedulePending;
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Accept Booking Request?',
+          isReschedule ? 'Accept Reschedule?' : 'Accept Booking Request?',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -227,7 +229,9 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           ),
         ),
         content: Text(
-          'You are about to accept the booking request from ${request.clientName} for ${request.packageName} on ${_formatDate(request.scheduledDate)} at ${request.scheduledTime}.',
+          isReschedule
+              ? 'Approve the new schedule for ${request.clientName}: ${_formatDate(request.scheduledDate)} at ${request.scheduledTime}?'
+              : 'You are about to accept the booking request from ${request.clientName} for ${request.packageName} on ${_formatDate(request.scheduledDate)} at ${request.scheduledTime}.',
           style: GoogleFonts.poppins(
             fontSize: 14,
             color: const Color(0xFF6B7280),
@@ -249,15 +253,21 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               try {
-                await BookingService().updateStatus(
-                  request.id,
-                  BookingStatus.confirmed,
-                );
+                if (isReschedule) {
+                  await BookingService().acceptBooking(request.id);
+                } else {
+                  await BookingService().updateStatus(
+                    request.id,
+                    BookingStatus.confirmed,
+                  );
+                }
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Booking request accepted!',
+                        isReschedule
+                            ? 'Reschedule accepted'
+                            : 'Booking request accepted!',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -293,14 +303,56 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
     );
   }
 
+  void _showCancelBookingDialog(BookingModel request) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Cancel Booking?',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This will cancel the booking. ${request.clientName} will be notified.',
+          style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6B7280)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('Go back', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              try {
+                await BookingService().cancelBooking(
+                  request.id,
+                  cancelledBy: 'photographer',
+                );
+              } catch (_) {}
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+            ),
+            child: Text('Cancel booking', style: GoogleFonts.poppins()),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeclineDialog(BookingModel request) {
+    final isReschedule = request.isReschedulePending;
     final reasonController = TextEditingController();
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Decline Booking Request?',
+          isReschedule ? 'Keep Original Date?' : 'Decline Booking Request?',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -312,41 +364,45 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to decline this booking request?',
+              isReschedule
+                  ? 'The proposed new date will be rejected and the original schedule will be kept.'
+                  : 'Are you sure you want to decline this booking request?',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: const Color(0xFF6B7280),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Optional: Add a reason...',
-                hintStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: const Color(0xFFBDBDBD),
+            if (!isReschedule) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Optional: Add a reason...',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: const Color(0xFFBDBDBD),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF5F5F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-                filled: true,
-                fillColor: const Color(0xFFF5F5F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF1A1A1A),
                 ),
               ),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xFF1A1A1A),
-              ),
-            ),
+            ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
-              'Cancel',
+              'Go back',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -358,18 +414,24 @@ class _PhotographerBookingsScreenState extends State<PhotographerBookingsScreen>
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               try {
-                await BookingService().updateStatus(
-                  request.id,
-                  BookingStatus.declined,
-                  notes: reasonController.text.isNotEmpty
-                      ? reasonController.text
-                      : null,
-                );
+                if (isReschedule) {
+                  await BookingService().declineBooking(request.id);
+                } else {
+                  await BookingService().updateStatus(
+                    request.id,
+                    BookingStatus.declined,
+                    notes: reasonController.text.isNotEmpty
+                        ? reasonController.text
+                        : null,
+                  );
+                }
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Booking request declined',
+                        isReschedule
+                            ? 'Original date kept'
+                            : 'Booking request declined',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -477,11 +539,13 @@ class _NewRequestCard extends StatelessWidget {
     required this.request,
     required this.onAccept,
     required this.onDecline,
+    required this.onCancelBooking,
   });
 
   final BookingModel request;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+  final VoidCallback onCancelBooking;
 
   static const _gradients = [
     [Color(0xFF6B0000), Color(0xFFC62828)],
@@ -758,7 +822,66 @@ class _NewRequestCard extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           // Action buttons
-          if (request.status == BookingStatus.requested)
+          if (request.isReschedulePending) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onAccept,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'Accept reschedule',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onCancelBooking,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFC62828)),
+                  foregroundColor: const Color(0xFFC62828),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'Cancel booking',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: onDecline,
+                child: Text(
+                  'Keep original date',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ),
+            ),
+          ] else if (request.status == BookingStatus.requested)
             Row(
               children: [
                 Expanded(

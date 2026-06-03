@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/booking_attention_counts.dart';
 import '../core/booking_expiration.dart';
 import '../core/booking_policy.dart';
 import '../core/firebase_constants.dart';
@@ -396,49 +397,14 @@ class BookingService {
         ? photographerBookingsStream(userId)
         : clientBookingsStream(userId);
     return source.map((bookings) {
-      if (isPhotographer) {
-        return bookings.where((b) {
-          // New booking request
-          if (b.status == BookingStatus.requested && !b.isReschedulePending) {
-            return true;
-          }
-          // Payment pending
-          if (b.status == BookingStatus.paymentPending) return true;
-          // Client requested reschedule (photographer must approve)
-          if (b.isReschedulePending &&
-              b.rescheduleRequestedBy != null &&
-              b.rescheduleRequestedBy != 'photographer') {
-            return true;
-          }
-          // Client cancelled
-          if (b.status == BookingStatus.cancelled &&
-              b.cancelledBy != null &&
-              b.cancelledBy != 'photographer') {
-            return true;
-          }
-          return false;
-        }).length;
-      }
-      return bookings.where((b) {
-        // Payment pending
-        if (b.status == BookingStatus.paymentPending) return true;
-        // Photographer requested reschedule (client must approve)
-        if (BookingPolicy.canRespondToReschedule(b, userId)) return true;
-        // Photos delivered
-        if (b.status == BookingStatus.inProgress &&
-            b.deliveryLink != null &&
-            b.deliveryLink!.isNotEmpty) {
-          return true;
-        }
-        // Photographer cancelled
-        if (b.status == BookingStatus.cancelled &&
-            b.cancelledBy == 'photographer') {
-          return true;
-        }
-        // Marked as complete (needs client review)
-        if (b.status == BookingStatus.completed && !b.hasReview) return true;
-        return false;
-      }).length;
+      final attention = isPhotographer
+          ? BookingAttentionCounts.forPhotographer(bookings, userId)
+          : BookingAttentionCounts.forClient(bookings, userId);
+      return isPhotographer
+          ? attention.bookingRequest +
+              attention.reschedule +
+              attention.cancel
+          : attention.pending + attention.reschedule + attention.delivered;
     });
   }
 
@@ -595,8 +561,6 @@ class BookingService {
         rescheduleNotes != null && rescheduleNotes.trim().isNotEmpty
         ? rescheduleNotes.trim()
         : null;
-    final graceImmediate = mode == RescheduleMode.graceImmediate;
-
     await _firestore.runTransaction((transaction) async {
       final bookingSnap = await transaction.get(bookingRef);
       if (!bookingSnap.exists) {
@@ -635,15 +599,9 @@ class BookingService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      if (graceImmediate) {
-        updateData['status'] = BookingStatus.confirmed.value;
-        updateData['previousScheduledDate'] = FieldValue.delete();
-        updateData['previousScheduledTime'] = FieldValue.delete();
-      } else {
-        updateData['status'] = BookingStatus.requested.value;
-        updateData['previousScheduledDate'] = Timestamp.fromDate(currentDate);
-        updateData['previousScheduledTime'] = booking.scheduledTime;
-      }
+      updateData['status'] = BookingStatus.requested.value;
+      updateData['previousScheduledDate'] = Timestamp.fromDate(currentDate);
+      updateData['previousScheduledTime'] = booking.scheduledTime;
 
       transaction.update(bookingRef, updateData);
     });
@@ -659,23 +617,13 @@ class BookingService {
           ? updated.clientName
           : updated.photographerName;
 
-      if (graceImmediate) {
-        await NotificationService().createRescheduleConfirmedNotification(
-          recipientId: recipientId,
-          changerName: requesterName,
-          bookingId: bookingId,
-          scheduledDate: updated.scheduledDate,
-          scheduledTime: updated.scheduledTime,
-        );
-      } else {
-        await NotificationService().createRescheduleRequestNotification(
-          recipientId: recipientId,
-          requesterName: requesterName,
-          bookingId: bookingId,
-          scheduledDate: updated.scheduledDate,
-          scheduledTime: updated.scheduledTime,
-        );
-      }
+      await NotificationService().createRescheduleRequestNotification(
+        recipientId: recipientId,
+        requesterName: requesterName,
+        bookingId: bookingId,
+        scheduledDate: updated.scheduledDate,
+        scheduledTime: updated.scheduledTime,
+      );
     } catch (_) {}
   }
 

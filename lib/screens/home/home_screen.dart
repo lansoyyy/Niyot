@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
             else
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 280,
+                  height: 300,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),

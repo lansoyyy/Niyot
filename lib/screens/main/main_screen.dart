@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/booking_service.dart';
+import '../../services/booking_view_tracker.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
 import '../home/home_screen.dart';
@@ -34,7 +35,6 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _detectRole();
-    _initBookingsBadge();
   }
 
   @override
@@ -47,18 +47,27 @@ class _MainScreenState extends State<MainScreen> {
   void _detectRole() {
     final cached = UserService().cachedUser;
     if (cached != null) {
-      _isPhotographer = cached.isPhotographer;
+      setState(() => _isPhotographer = cached.isPhotographer);
+      _initBookingsBadge();
     } else {
       UserService().fetchCurrentUser().then((user) {
-        if (mounted && user != null) {
-          setState(() => _isPhotographer = user.isPhotographer);
-        }
+        if (!mounted || user == null) return;
+        setState(() => _isPhotographer = user.isPhotographer);
+        _restartBookingsBadge();
       });
     }
   }
 
+  void _restartBookingsBadge() {
+    _bookingsBadgeSub?.cancel();
+    _bookingsBadgeController?.close();
+    _lastBookingsCount = 0;
+    _initBookingsBadge();
+  }
+
   void _initBookingsBadge() {
     if (_currentUid.isEmpty) return;
+    BookingViewTracker.instance.init(_currentUid);
     _bookingsBadgeController = StreamController<int>.broadcast();
     _bookingsBadgeSub = BookingService()
         .pendingActionCountStream(
@@ -204,22 +213,30 @@ class _NavItem extends StatelessWidget {
                 if (badgeStream != null)
                   StreamBuilder<int>(
                     stream: badgeStream,
+                    initialData: 0,
                     builder: (context, snapshot) {
                       final badge = snapshot.data ?? 0;
                       if (badge <= 0) return const SizedBox.shrink();
+                      final label = badge > 9 ? '9+' : '$badge';
                       return Positioned(
-                        top: 0,
-                        right: 0,
+                        top: -2,
+                        right: -4,
                         child: Container(
-                          width: 14,
-                          height: 14,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
                           decoration: const BoxDecoration(
                             color: Color(0xFFC62828),
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.all(Radius.circular(8)),
                           ),
                           child: Center(
                             child: Text(
-                              '$badge',
+                              label,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 8,
