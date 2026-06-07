@@ -59,6 +59,10 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
   String get _cancelledBy =>
       widget.isPhotographer ? 'photographer' : 'client';
 
+  String get _rescheduleMessageLabel => widget.isPhotographer
+      ? 'Message to client (optional)'
+      : 'Message to photographer (optional)';
+
   @override
   void initState() {
     super.initState();
@@ -762,7 +766,7 @@ class _BookingActionsScreenState extends State<BookingActionsScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Message to photographer (optional)',
+          _rescheduleMessageLabel,
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,

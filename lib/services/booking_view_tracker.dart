@@ -27,8 +27,15 @@ class BookingViewTracker extends ChangeNotifier {
   }
 
   Future<void> markViewed(String bookingId) async {
-    if (_viewedIds.contains(bookingId)) return;
-    _viewedIds.add(bookingId);
+    await markViewedBatch([bookingId]);
+  }
+
+  Future<void> markViewedBatch(Iterable<String> bookingIds) async {
+    var changed = false;
+    for (final id in bookingIds) {
+      if (_viewedIds.add(id)) changed = true;
+    }
+    if (!changed) return;
     notifyListeners();
     final uid = _userId;
     if (uid == null) return;

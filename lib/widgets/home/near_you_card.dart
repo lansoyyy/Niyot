@@ -216,11 +216,16 @@ class NearYouCard extends StatelessWidget {
                     ),
                   const SizedBox(height: 6),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Color(0xFFFFB300),
-                        size: 12,
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFFB300),
+                          size: 12,
+                        ),
                       ),
                       const SizedBox(width: 3),
                       Text(

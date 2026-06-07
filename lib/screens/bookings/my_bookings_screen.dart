@@ -25,11 +25,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   late TabController _tabController;
   Stream<List<BookingModel>>? _bookingsStream;
   bool _isPhotographer = false;
+  List<BookingModel> _latestBookings = const [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _initStream();
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -45,8 +47,29 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
   @override
   void dispose() {
     BookingViewTracker.instance.removeListener(_onViewTrackerChanged);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == 3) {
+      _markClientCancellationsViewed();
+    }
+  }
+
+  Future<void> _markClientCancellationsViewed() async {
+    if (!_isPhotographer) return;
+    final unviewedIds = _latestBookings
+        .where(
+          (b) =>
+              b.status == BookingStatus.cancelled &&
+              b.cancelledBy == 'client' &&
+              !BookingViewTracker.instance.isViewed(b.id),
+        )
+        .map((b) => b.id);
+    await BookingViewTracker.instance.markViewedBatch(unviewedIds);
   }
 
   void _initStream() {
@@ -76,6 +99,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
 
   void _goToTab(int index) {
     _tabController.animateTo(index);
+    if (index == 3) {
+      _markClientCancellationsViewed();
+    }
   }
 
   @override
@@ -87,6 +113,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen>
           stream: _bookingsStream,
           builder: (context, snapshot) {
             final all = snapshot.data ?? [];
+            _latestBookings = all;
             final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
             final requested = all.where((b) {

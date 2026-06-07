@@ -201,54 +201,61 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
-              children: [
-                Icon(
-                  icon,
-                  size: 24,
-                  color: isSelected
-                      ? const Color(0xFFC62828)
-                      : const Color(0xFFBDBDBD),
-                ),
-                if (badgeStream != null)
-                  StreamBuilder<int>(
-                    stream: badgeStream,
-                    initialData: 0,
-                    builder: (context, snapshot) {
-                      final badge = snapshot.data ?? 0;
-                      if (badge <= 0) return const SizedBox.shrink();
-                      final label = badge > 9 ? '9+' : '$badge';
-                      return Positioned(
-                        top: -2,
-                        right: -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFC62828),
-                            borderRadius: BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: Center(
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w700,
+            SizedBox(
+              width: 32,
+              height: 28,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: isSelected
+                        ? const Color(0xFFC62828)
+                        : const Color(0xFFBDBDBD),
+                  ),
+                  if (badgeStream != null)
+                    StreamBuilder<int>(
+                      stream: badgeStream,
+                      initialData: 0,
+                      builder: (context, snapshot) {
+                        final badge = snapshot.data ?? 0;
+                        if (badge <= 0) return const SizedBox.shrink();
+                        final label = badge > 9 ? '9+' : '$badge';
+                        return Positioned(
+                          top: -4,
+                          right: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFC62828),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(8)),
+                            ),
+                            child: Center(
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
+                        );
+                      },
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 4),
             Text(

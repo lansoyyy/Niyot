@@ -213,16 +213,17 @@ class _HomeScreenState extends State<HomeScreen> {
             else
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 300,
+                  height: 260,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: _photographers.length.clamp(0, 12),
                     itemBuilder: (context, index) =>
                         NearYouCard(photographer: _photographers[index]),
                   ),
                 ),
               ),
+            const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
           ],
         ),
       ),
