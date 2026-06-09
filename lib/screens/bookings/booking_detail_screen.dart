@@ -600,7 +600,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   _DetailRow(
                     icon: Icons.hourglass_top_rounded,
                     label: 'Duration',
-                    value: booking.packageDuration,
+                    value: '${booking.packageDuration} hours',
                   ),
                   _DetailRow(
                     icon: Icons.location_on_rounded,

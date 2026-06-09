@@ -763,8 +763,8 @@ class _PhotographerDashboardScreenState
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(12),
@@ -776,7 +776,7 @@ class _PhotographerDashboardScreenState
               child: Text(
                 label,
                 style: GoogleFonts.poppins(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF1A1A1A),
                 ),
@@ -785,7 +785,7 @@ class _PhotographerDashboardScreenState
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFFBDBDBD),
-              size: 18,
+              size: 16,
             ),
           ],
         ),

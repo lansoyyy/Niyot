@@ -184,7 +184,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   Expanded(
                     child: Text(
                       _supportsPasswordChange
-                          ? 'Your password update will be applied directly to your Firebase Auth account.'
+                          ? 'Your password update will be applied.'
                           : 'This account uses a social sign-in provider. Send a reset email to manage your password for $email.',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
