@@ -444,7 +444,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.algovision.niyot',
+                userAgentPackageName: 'com.niyot.niyot',
               ),
               // Markers
               MarkerLayer(

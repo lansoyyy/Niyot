@@ -22,7 +22,7 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 android {
-    namespace = "com.algovision.niyot"
+    namespace = "com.niyot.niyot"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -37,13 +37,13 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.algovision.niyot"
+        applicationId = "com.niyot.niyot"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
         targetSdk = flutter.targetSdkVersion
-        versionCode = 2
-        versionName = "1.0.2"
+        versionCode = 5
+        versionName = "1.0.5"
     }
     signingConfigs {
         release {
