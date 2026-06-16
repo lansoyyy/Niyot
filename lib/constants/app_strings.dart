@@ -4,7 +4,8 @@ class AppStrings {
 
   // App Info
   static const String appName = 'Niyot';
-  static const String appDescription = 'A new Flutter project';
+  static const String appDescription =
+      'Book and connect with photographers near you.';
 
   // General
   static const String loading = 'Loading...';
@@ -54,6 +55,9 @@ class AppStrings {
 
   // Messages
   static const String logoutConfirmation = 'Are you sure you want to logout?';
+  static const String deleteAccountConfirmation =
+      'This permanently deletes your Niyot account and personal data. '
+      'This action cannot be undone.';
   static const String deleteConfirmation =
       'Are you sure you want to delete this item?';
   static const String unsavedChanges =

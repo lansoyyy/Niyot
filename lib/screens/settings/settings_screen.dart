@@ -15,6 +15,7 @@ import '../auth/login_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'change_password_screen.dart';
+import 'delete_account_screen.dart';
 import 'favorites_screen.dart';
 import 'verification_screen.dart';
 
@@ -542,6 +543,18 @@ class _SettingsContent extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+              _SettingsTile(
+                icon: Icons.delete_forever_outlined,
+                title: 'Delete Account',
+                subtitle: 'Permanently remove your account and personal data',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DeleteAccountScreen(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 100),
             ],

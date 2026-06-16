@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/firebase_constants.dart';
+import '../core/google_sign_in_config.dart';
 import '../models/user_model.dart';
 import '../models/photographer_model.dart';
 import '../models/service_package_model.dart';
@@ -20,7 +20,7 @@ class AuthService {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
-  final _googleSignIn = GoogleSignIn();
+  final _googleSignIn = createGoogleSignIn();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   User? get currentUser => _auth.currentUser;
@@ -241,6 +241,8 @@ class AuthService {
           return 'This account has been disabled.';
         case 'operation-not-allowed':
           return 'This sign-in method is not enabled.';
+        case 'requires-recent-login':
+          return 'Please sign in again before deleting your account.';
         default:
           return error.message ?? 'An error occurred. Please try again.';
       }

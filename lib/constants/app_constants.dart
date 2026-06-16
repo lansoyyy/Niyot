@@ -4,7 +4,7 @@ class AppConstants {
 
   // App Info
   static const String appName = 'Niyot';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.5';
 
   // API
   static const int apiTimeout = 30000; // 30 seconds
