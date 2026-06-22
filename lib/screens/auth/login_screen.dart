@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -25,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -86,6 +88,21 @@ class _LoginScreenState extends State<LoginScreen>
       if (msg != 'Google sign-in was cancelled.') _showError(msg);
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  Future<void> _loginWithApple() async {
+    setState(() => _isAppleLoading = true);
+    try {
+      await _authService.signInWithApple();
+      _navigateToHome();
+    } catch (e) {
+      final msg = AuthService.parseError(e);
+      if (!msg.contains('cancelled') && !msg.contains('failed')) {
+        _showError(msg);
+      }
+    } finally {
+      if (mounted) setState(() => _isAppleLoading = false);
     }
   }
 
@@ -372,9 +389,52 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(height: 32),
-                          // Sign up link
-                          Row(
+                           const SizedBox(height: 16),
+                           // Apple button
+                           if (defaultTargetPlatform == TargetPlatform.iOS ||
+                               defaultTargetPlatform == TargetPlatform.macOS)
+                             SizedBox(
+                               width: double.infinity,
+                               height: 52,
+                               child: OutlinedButton.icon(
+                                 onPressed: _isAppleLoading
+                                     ? null
+                                     : _loginWithApple,
+                                 style: OutlinedButton.styleFrom(
+                                   side: BorderSide(
+                                       color: Colors.grey.shade300),
+                                   shape: RoundedRectangleBorder(
+                                     borderRadius: BorderRadius.circular(14),
+                                   ),
+                                   backgroundColor: Colors.black,
+                                 ),
+                                 icon: _isAppleLoading
+                                     ? const SizedBox(
+                                         width: 20,
+                                         height: 20,
+                                         child: CircularProgressIndicator(
+                                           strokeWidth: 2,
+                                           color: Colors.white,
+                                         ),
+                                       )
+                                     : const Icon(
+                                         Icons.apple,
+                                         color: Colors.white,
+                                         size: 22,
+                                       ),
+                                 label: Text(
+                                   'Continue with Apple',
+                                   style: GoogleFonts.poppins(
+                                     fontSize: 14,
+                                     fontWeight: FontWeight.w500,
+                                     color: Colors.white,
+                                   ),
+                                 ),
+                               ),
+                             ),
+                           const SizedBox(height: 32),
+                           // Sign up link
+                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(

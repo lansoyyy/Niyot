@@ -292,6 +292,45 @@ class NotificationService {
         ),
       );
 
+  Future<void> createContentReportedNotification({
+    required String reportedUserId,
+    required String reportedUserName,
+    required String contentType,
+    required String reason,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: reportedUserId,
+          title: 'Content Reported',
+          body:
+              'Your $contentType has been reported for: $reason. Our moderation team will review this.',
+          type: NotificationType.contentReported,
+          relatedId: reportedUserId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+  Future<void> createUserBlockedNotification({
+    required String blockedUserId,
+    required String blockedUserName,
+    required String blockedBy,
+  }) =>
+      createNotification(
+        NotificationModel(
+          id: '',
+          userId: blockedUserId,
+          title: 'Account Action',
+          body:
+              'Your account has been reported by another user. Our moderation team will review this.',
+          type: NotificationType.userBlocked,
+          relatedId: blockedUserId,
+          isRead: false,
+          createdAt: DateTime.now(),
+        ),
+      );
+
   Future<void> createReviewNotification({
     required String photographerId,
     required String clientName,

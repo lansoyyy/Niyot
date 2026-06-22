@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,8 @@ import '../../services/auth_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/location/ph_location_dropdowns.dart';
 import '../main/main_screen.dart';
+import '../legal/terms_of_service_screen.dart';
+import '../legal/privacy_policy_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -382,37 +385,55 @@ class _RegisterScreenState extends State<RegisterScreen>
                         side: BorderSide(color: Colors.grey.shade300),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: const Color(0xFF7A7A7A),
-                          ),
-                          children: [
-                            const TextSpan(text: 'I agree to the '),
-                            TextSpan(
-                              text: 'Terms of Service',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFC62828),
-                              ),
-                            ),
-                            const TextSpan(text: ' and '),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFC62828),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                     const SizedBox(width: 10),
+                     Expanded(
+                       child: RichText(
+                         text: TextSpan(
+                           style: GoogleFonts.poppins(
+                             fontSize: 13,
+                             color: const Color(0xFF7A7A7A),
+                           ),
+                           children: [
+                             const TextSpan(text: 'I agree to the '),
+                             TextSpan(
+                               text: 'Terms of Service',
+                               style: GoogleFonts.poppins(
+                                 fontSize: 13,
+                                 fontWeight: FontWeight.w600,
+                                 color: const Color(0xFFC62828),
+                               ),
+                               recognizer: TapGestureRecognizer()
+                                 ..onTap = () {
+                                   Navigator.of(context).push(
+                                     MaterialPageRoute(
+                                       builder: (_) =>
+                                           const TermsOfServiceScreen(),
+                                     ),
+                                   );
+                                 },
+                             ),
+                             const TextSpan(text: ' and '),
+                             TextSpan(
+                               text: 'Privacy Policy',
+                               style: GoogleFonts.poppins(
+                                 fontSize: 13,
+                                 fontWeight: FontWeight.w600,
+                                 color: const Color(0xFFC62828),
+                               ),
+                               recognizer: TapGestureRecognizer()
+                                 ..onTap = () {
+                                   Navigator.of(context).push(
+                                     MaterialPageRoute(
+                                       builder: (_) =>
+                                           const PrivacyPolicyScreen(),
+                                     ),
+                                   );
+                                 },
+                             ),
+                           ],
+                         ),
+                       ),
+                     ),
                   ],
                 ),
                 const SizedBox(height: 28),

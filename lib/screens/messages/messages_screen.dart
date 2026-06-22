@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/conversation_model.dart';
 import '../../models/user_model.dart';
+import '../../services/block_service.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
@@ -18,6 +19,19 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  Set<String> _blockedUserIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    if (_currentUid.isNotEmpty) {
+      BlockService().blockedUserIdsStream(_currentUid).listen((ids) {
+        if (mounted) {
+          setState(() => _blockedUserIds = ids);
+        }
+      });
+    }
+  }
 
   String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
@@ -32,7 +46,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return StreamBuilder<List<ConversationModel>>(
       stream: MessagingService().conversationsStream(_currentUid),
       builder: (context, snapshot) {
-        final conversations = snapshot.data ?? const <ConversationModel>[];
+        final allConversations = snapshot.data ?? const <ConversationModel>[];
+        final conversations = allConversations.where((c) {
+          final otherId = c.getOtherUserId(_currentUid);
+          return !_blockedUserIds.contains(otherId);
+        }).toList();
 
         return Scaffold(
           backgroundColor: Colors.white,

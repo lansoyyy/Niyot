@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/login_screen.dart';
+import '../legal/terms_of_service_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -90,7 +92,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
-  void _goToLogin() {
+  Future<void> _goToLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final termsAccepted = prefs.getBool('terms_accepted') ?? false;
+
+    if (!termsAccepted && mounted) {
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const TermsOfServiceScreen(),
+          fullscreenDialog: true,
+        ),
+      );
+      if (result == true && mounted) {
+        await prefs.setBool('terms_accepted', true);
+        _navigateToLogin();
+      }
+    } else if (mounted) {
+      _navigateToLogin();
+    }
+  }
+
+  void _navigateToLogin() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => const LoginScreen(),

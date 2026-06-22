@@ -10,6 +10,9 @@ import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
+import '../../services/block_service.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/report/report_bottom_sheet.dart';
 import '../booking/booking_screen.dart';
 import '../../widgets/messaging/chat_navigation_helper.dart';
 import '../profile/edit_profile_screen.dart';
@@ -80,6 +83,111 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
       }
     } catch (_) {
       if (mounted) setState(() => _isLoadingTabs = false);
+    }
+  }
+
+  Future<void> _blockPhotographer(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Block ${_photographer.name}',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to block this photographer? They will no longer appear in your search results, and they will not be able to message you. This action will be reported to our moderation team.',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: const Color(0xFF6B7280),
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF7A7A7A),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Block',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await BlockService().blockUser(
+          blockedUserId: _photographer.uid,
+          blockedUserName: _photographer.name,
+        );
+        await NotificationService().createUserBlockedNotification(
+          blockedUserId: _photographer.uid,
+          blockedUserName: _photographer.name,
+          blockedBy: UserService().cachedUser?.name ?? 'User',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${_photographer.name} has been blocked.',
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+              ),
+              backgroundColor: const Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to block user. Please try again.',
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+              ),
+              backgroundColor: const Color(0xFFB71C1C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -156,54 +264,82 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                         );
                       }
 
-                      // Another photographer's profile — show favorite toggle
-                      return StreamBuilder<bool>(
-                        stream: UserService().favoriteStatusStream(
-                          currentUid,
-                          _photographer.uid,
-                        ),
-                        builder: (context, snapshot) {
-                          final isFavorite = snapshot.data ?? false;
+                      // Another photographer's profile — show favorite toggle + options
+                      return Row(
+                        children: [
+                          StreamBuilder<bool>(
+                            stream: UserService().favoriteStatusStream(
+                              currentUid,
+                              _photographer.uid,
+                            ),
+                            builder: (context, snapshot) {
+                              final isFavorite = snapshot.data ?? false;
 
-                          return GestureDetector(
-                            onTap: () async {
-                              try {
-                                final added = await UserService()
-                                    .toggleFavoritePhotographer(
-                                      uid: currentUid,
-                                      photographer: _photographer,
+                              return GestureDetector(
+                                onTap: () async {
+                                  try {
+                                    final added = await UserService()
+                                        .toggleFavoritePhotographer(
+                                          uid: currentUid,
+                                          photographer: _photographer,
+                                        );
+
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          added
+                                              ? 'Added to favorites.'
+                                              : 'Removed from favorites.',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
                                     );
-
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      added
-                                          ? 'Added to favorites.'
-                                          : 'Removed from favorites.',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                  } catch (_) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Unable to update favorites right now.',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(
+                                    right: 4,
+                                    top: 8,
+                                    bottom: 8,
                                   ),
-                                );
-                              } catch (_) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Unable to update favorites right now.',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                );
-                              }
+                                  child: Icon(
+                                    isFavorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: isFavorite
+                                        ? Colors.pinkAccent
+                                        : Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              );
                             },
-                            child: Container(
+                          ),
+                          PopupMenuButton<String>(
+                            icon: Container(
                               margin: const EdgeInsets.only(
                                 right: 16,
                                 top: 8,
@@ -215,18 +351,74 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                 color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(
-                                isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color: isFavorite
-                                    ? Colors.pinkAccent
-                                    : Colors.white,
-                                size: 20,
+                              child: const Icon(
+                                Icons.more_vert_rounded,
+                                color: Colors.white,
+                                size: 18,
                               ),
                             ),
-                          );
-                        },
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            onSelected: (value) {
+                              if (value == 'report') {
+                                showReportBottomSheet(
+                                  context: context,
+                                  reportedUserId: _photographer.uid,
+                                  reportedUserName: _photographer.name,
+                                  contentType: 'photographer',
+                                );
+                              } else if (value == 'block') {
+                                _blockPhotographer(context);
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'report',
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.flag_rounded,
+                                      size: 18,
+                                      color: Color(0xFFC62828),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Report',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'block',
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.block_rounded,
+                                      size: 18,
+                                      color: Color(0xFFC62828),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Block',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -1234,6 +1426,49 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   fontSize: 13,
                   color: const Color(0xFF7A7A7A),
                   height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () {
+                    showReportBottomSheet(
+                      context: context,
+                      reportedUserId: review.clientId,
+                      reportedUserName: review.clientName,
+                      contentType: 'review',
+                      contentId: review.id,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.flag_outlined,
+                          size: 12,
+                          color: Color(0xFF9E9E9E),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Report',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: const Color(0xFF9E9E9E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

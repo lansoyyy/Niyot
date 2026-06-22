@@ -15,10 +15,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/availability_model.dart';
 import '../../models/booking_model.dart';
 import '../../models/message_model.dart';
+import '../../services/block_service.dart';
 import '../../services/booking_service.dart';
 import '../../services/messaging_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/report/report_bottom_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -93,6 +96,111 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       _scrollToBottom(animated: false);
     });
+  }
+
+  Future<void> _blockUser() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Block ${widget.otherUserName}',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to block this user? They will no longer be able to message you, and their content will be removed from your feed. This action will be reported to our moderation team.',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: const Color(0xFF6B7280),
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF7A7A7A),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFC62828),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Block',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await BlockService().blockUser(
+          blockedUserId: widget.otherUserId,
+          blockedUserName: widget.otherUserName,
+        );
+        await NotificationService().createUserBlockedNotification(
+          blockedUserId: widget.otherUserId,
+          blockedUserName: widget.otherUserName,
+          blockedBy: UserService().cachedUser?.name ?? 'User',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${widget.otherUserName} has been blocked.',
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+              ),
+              backgroundColor: const Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to block user. Please try again.',
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+              ),
+              backgroundColor: const Color(0xFFB71C1C),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -408,7 +516,82 @@ class _ChatScreenState extends State<ChatScreen> {
             );
           },
         ),
-        actions: const [],
+        actions: [
+          PopupMenuButton<String>(
+            icon: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.more_vert_rounded,
+                size: 18,
+                color: Color(0xFF374151),
+              ),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (value) {
+              if (value == 'report') {
+                showReportBottomSheet(
+                  context: context,
+                  reportedUserId: widget.otherUserId,
+                  reportedUserName: widget.otherUserName,
+                  contentType: 'message',
+                );
+              } else if (value == 'block') {
+                _blockUser();
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.flag_rounded,
+                      size: 18,
+                      color: Color(0xFFC62828),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Report User',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'block',
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.block_rounded,
+                      size: 18,
+                      color: Color(0xFFC62828),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Block User',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

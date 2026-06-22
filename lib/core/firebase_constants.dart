@@ -20,6 +20,10 @@ class FirebaseCollections {
   static const String reviews = 'reviews';
   static const String availability = 'availability';
   static const String favorites = 'favorites';
+  static const String blockedUsers = 'blocked_users';
+
+  // Top-level collection for content reports
+  static const String reports = 'reports';
 }
 
 class FirebaseStoragePaths {
@@ -76,6 +80,8 @@ class NotificationTypes {
   static const String rescheduleRequest = 'reschedule_request';
   static const String rescheduleConfirmed = 'reschedule_confirmed';
   static const String system = 'system';
+  static const String contentReported = 'content_reported';
+  static const String userBlocked = 'user_blocked';
 }
 
 /// Verification status values stored in Firestore.

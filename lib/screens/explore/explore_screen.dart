@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/photographer_model.dart';
+import '../../services/block_service.dart';
 import '../../services/photographer_service.dart';
 import '../../widgets/explore/explore_creator_card.dart';
 import 'map_view_screen.dart';
@@ -38,6 +40,7 @@ class _ExploreScreenState extends State<ExploreScreen>
   String? _error;
   Timer? _debounceTimer;
   _ExploreSortOption _sortOption = _ExploreSortOption.ratingHighToLow;
+  Set<String> _blockedUserIds = <String>{};
 
   final List<String> _filters = [
     'All',
@@ -63,10 +66,24 @@ class _ExploreScreenState extends State<ExploreScreen>
         widget.initialSearchQuery!.trim().isNotEmpty) {
       _searchController.text = widget.initialSearchQuery!.trim();
     }
+    _initBlockedUsers();
     _loadData();
     _searchController.addListener(() {
       if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 600), _loadData);
+    });
+  }
+
+  void _initBlockedUsers() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    BlockService().blockedUserIdsStream(uid).listen((ids) {
+      if (mounted) {
+        setState(() {
+          _blockedUserIds = ids;
+        });
+        _loadData();
+      }
     });
   }
 
@@ -106,6 +123,12 @@ class _ExploreScreenState extends State<ExploreScreen>
     List<PhotographerModel> photographers,
   ) {
     var processed = List<PhotographerModel>.from(photographers);
+
+    if (_blockedUserIds.isNotEmpty) {
+      processed = processed
+          .where((photographer) => !_blockedUserIds.contains(photographer.uid))
+          .toList();
+    }
 
     if (_availableOnly) {
       processed = processed

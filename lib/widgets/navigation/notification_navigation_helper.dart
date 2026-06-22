@@ -100,6 +100,18 @@ class NotificationNavigationHelper {
         case NotificationType.system:
           _snack(context, 'No additional details for this notification.');
           break;
+        case NotificationType.contentReported:
+          _snack(
+            context,
+            'Your content has been reported and is under review by our moderation team.',
+          );
+          break;
+        case NotificationType.userBlocked:
+          _snack(
+            context,
+            'Your account has been reported by another user. Our moderation team will review this.',
+          );
+          break;
       }
     } catch (_) {
       if (context.mounted) {

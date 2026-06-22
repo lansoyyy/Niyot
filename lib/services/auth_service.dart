@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../core/firebase_constants.dart';
 import '../core/google_sign_in_config.dart';
@@ -199,6 +200,56 @@ class AuthService {
     await NotificationService().init();
   }
 
+  // ─── Apple Sign-In ───────────────────────────────────────────────────────
+
+  Future<void> signInWithApple() async {
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      webAuthenticationOptions: WebAuthenticationOptions(
+        clientId: 'com.niyot.app',
+        redirectUri: Uri.parse(
+          'https://niyot-app.firebaseapp.com/__/auth/handler',
+        ),
+      ),
+    );
+
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+    );
+
+    final userCredential = await _auth.signInWithCredential(oauthCredential);
+    final user = userCredential.user!;
+
+    final doc = await _firestore
+        .collection(FirebaseCollections.users)
+        .doc(user.uid)
+        .get();
+    if (!doc.exists) {
+      final givenName = appleCredential.givenName ?? '';
+      final familyName = appleCredential.familyName ?? '';
+      final displayName = '$givenName $familyName'.trim();
+      final userModel = UserModel(
+        uid: user.uid,
+        name: displayName.isNotEmpty ? displayName : (user.displayName ?? 'User'),
+        email: user.email ?? appleCredential.email ?? '',
+        photoUrl: user.photoURL,
+        role: 'client',
+        createdAt: DateTime.now(),
+      );
+      await _firestore
+          .collection(FirebaseCollections.users)
+          .doc(user.uid)
+          .set(userModel.toMap());
+    }
+
+    await UserService().fetchCurrentUser();
+    await NotificationService().init();
+  }
+
   // ─── Forgot Password ──────────────────────────────────────────────────────
 
   Future<void> sendPasswordResetEmail(String email) async {
@@ -250,6 +301,10 @@ class AuthService {
     if (error is Exception &&
         error.toString().contains('google-sign-in-cancelled')) {
       return 'Google sign-in was cancelled.';
+    }
+    if (error is Exception &&
+        error.toString().contains('authorizationError')) {
+      return 'Apple sign-in was cancelled or failed.';
     }
     return 'An unexpected error occurred. Please try again.';
   }

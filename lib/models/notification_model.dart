@@ -16,6 +16,8 @@ enum NotificationType {
   reviewLeft,
   profileView,
   system,
+  contentReported,
+  userBlocked,
 }
 
 extension NotificationTypeX on NotificationType {
@@ -47,6 +49,10 @@ extension NotificationTypeX on NotificationType {
         return NotificationTypes.photosDelivered;
       case NotificationType.system:
         return NotificationTypes.system;
+      case NotificationType.contentReported:
+        return NotificationTypes.contentReported;
+      case NotificationType.userBlocked:
+        return NotificationTypes.userBlocked;
     }
   }
 
@@ -76,6 +82,10 @@ extension NotificationTypeX on NotificationType {
         return NotificationType.reviewLeft;
       case NotificationTypes.profileView:
         return NotificationType.profileView;
+      case NotificationTypes.contentReported:
+        return NotificationType.contentReported;
+      case NotificationTypes.userBlocked:
+        return NotificationType.userBlocked;
       default:
         return NotificationType.system;
     }
@@ -109,6 +119,10 @@ extension NotificationTypeX on NotificationType {
         return Icons.visibility_rounded;
       case NotificationType.system:
         return Icons.info_rounded;
+      case NotificationType.contentReported:
+        return Icons.flag_rounded;
+      case NotificationType.userBlocked:
+        return Icons.block_rounded;
     }
   }
 
@@ -140,6 +154,10 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFF1565C0);
       case NotificationType.system:
         return const Color(0xFF880E4F);
+      case NotificationType.contentReported:
+        return const Color(0xFFFF6D00);
+      case NotificationType.userBlocked:
+        return const Color(0xFFC62828);
     }
   }
 
@@ -171,6 +189,10 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFFE3F2FD);
       case NotificationType.system:
         return const Color(0xFFFCE4EC);
+      case NotificationType.contentReported:
+        return const Color(0xFFFFF3E0);
+      case NotificationType.userBlocked:
+        return const Color(0xFFFFEBEE);
     }
   }
 }
