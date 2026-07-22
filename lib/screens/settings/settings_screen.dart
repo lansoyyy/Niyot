@@ -11,24 +11,28 @@ import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../core/app_avatar_colors.dart';
 import '../../widgets/common/app_profile_avatar.dart';
-import '../auth/login_screen.dart';
+import '../main/main_screen.dart';
 import '../photographer/photographer_profile_screen.dart';
 import '../profile/edit_profile_screen.dart';
+import '../../widgets/profile/guest_profile_view.dart';
 import 'change_password_screen.dart';
 import 'delete_account_screen.dart';
 import 'favorites_screen.dart';
 import 'verification_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.onBrowseCreators});
+
+  final VoidCallback? onBrowseCreators;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
   bool _isSigningOut = false;
+
+  String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   Future<void> _updateNotificationPreference(
     UserModel user,
@@ -46,7 +50,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await AuthService().signOut();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const MainScreen()),
         (route) => false,
       );
     } catch (error) {
@@ -125,73 +129,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentUid.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text('No signed-in user found')),
-      );
-    }
-
-    return StreamBuilder<UserModel?>(
-      stream: UserService().userStream(_currentUid),
-      builder: (context, userSnapshot) {
-        if (userSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFFC62828)),
-            ),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, authSnap) {
+        final uid = authSnap.data?.uid ?? '';
+        if (uid.isEmpty) {
+          return GuestProfileView(
+            onBrowseCreators: widget.onBrowseCreators,
           );
         }
 
-        final user = userSnapshot.data;
-        if (user == null) {
-          return Scaffold(
-            backgroundColor: const Color(0xFFF8F8F8),
-            body: Center(
-              child: Text(
-                'Unable to load account settings',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: const Color(0xFF6B7280),
+        return StreamBuilder<UserModel?>(
+          stream: UserService().userStream(uid),
+          builder: (context, userSnapshot) {
+            if (userSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(color: Color(0xFFC62828)),
                 ),
-              ),
-            ),
-          );
-        }
-
-        if (user.isPhotographer) {
-          return StreamBuilder<PhotographerModel?>(
-            stream: PhotographerService().photographerStream(_currentUid),
-            builder: (context, photographerSnapshot) {
-              return _SettingsContent(
-                user: user,
-                photographer: photographerSnapshot.data,
-                onTogglePreference: (key, value) =>
-                    _updateNotificationPreference(user, key, value),
-                onSignOut: _signOut,
-                isSigningOut: _isSigningOut,
-                verificationLabel: _verificationLabel(user.verificationStatus),
-                verificationColor: _verificationColor(user.verificationStatus),
-                verificationBg: _verificationBg(user.verificationStatus),
-                memberSince: _formatMonthYear(user.createdAt),
               );
-            },
-          );
-        }
+            }
 
-        return StreamBuilder<List<BookingModel>>(
-          stream: BookingService().clientBookingsStream(_currentUid),
-          builder: (context, bookingsSnapshot) {
-            return _SettingsContent(
-              user: user,
-              clientBookings: bookingsSnapshot.data ?? const <BookingModel>[],
-              onTogglePreference: (key, value) =>
-                  _updateNotificationPreference(user, key, value),
-              onSignOut: _signOut,
-              isSigningOut: _isSigningOut,
-              verificationLabel: _verificationLabel(user.verificationStatus),
-              verificationColor: _verificationColor(user.verificationStatus),
-              verificationBg: _verificationBg(user.verificationStatus),
-              memberSince: _formatMonthYear(user.createdAt),
+            final user = userSnapshot.data;
+            if (user == null) {
+              return Scaffold(
+                backgroundColor: const Color(0xFFF8F8F8),
+                body: Center(
+                  child: Text(
+                    'Unable to load account settings',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (user.isPhotographer) {
+              return StreamBuilder<PhotographerModel?>(
+                stream: PhotographerService().photographerStream(uid),
+                builder: (context, photographerSnapshot) {
+                  return _SettingsContent(
+                    user: user,
+                    photographer: photographerSnapshot.data,
+                    onTogglePreference: (key, value) =>
+                        _updateNotificationPreference(user, key, value),
+                    onSignOut: _signOut,
+                    isSigningOut: _isSigningOut,
+                    verificationLabel:
+                        _verificationLabel(user.verificationStatus),
+                    verificationColor:
+                        _verificationColor(user.verificationStatus),
+                    verificationBg: _verificationBg(user.verificationStatus),
+                    memberSince: _formatMonthYear(user.createdAt),
+                  );
+                },
+              );
+            }
+
+            return StreamBuilder<List<BookingModel>>(
+              stream: BookingService().clientBookingsStream(uid),
+              builder: (context, bookingsSnapshot) {
+                return _SettingsContent(
+                  user: user,
+                  clientBookings: bookingsSnapshot.data ?? const <BookingModel>[],
+                  onTogglePreference: (key, value) =>
+                      _updateNotificationPreference(user, key, value),
+                  onSignOut: _signOut,
+                  isSigningOut: _isSigningOut,
+                  verificationLabel: _verificationLabel(user.verificationStatus),
+                  verificationColor: _verificationColor(user.verificationStatus),
+                  verificationBg: _verificationBg(user.verificationStatus),
+                  memberSince: _formatMonthYear(user.createdAt),
+                );
+              },
             );
           },
         );

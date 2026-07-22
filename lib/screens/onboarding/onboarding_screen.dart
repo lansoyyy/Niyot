@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../auth/login_screen.dart';
 import '../legal/terms_of_service_screen.dart';
+import '../main/main_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -88,11 +88,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         curve: Curves.easeInOut,
       );
     } else {
-      _goToLogin();
+      _finishOnboarding();
     }
   }
 
-  Future<void> _goToLogin() async {
+  Future<void> _finishOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     final termsAccepted = prefs.getBool('terms_accepted') ?? false;
 
@@ -105,26 +105,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       );
       if (result == true && mounted) {
         await prefs.setBool('terms_accepted', true);
-        _navigateToLogin();
+        await _enterAsGuest();
       }
     } else if (mounted) {
-      _navigateToLogin();
+      await _enterAsGuest();
     }
   }
 
-  void _navigateToLogin() {
+  Future<void> _enterAsGuest() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_seen', true);
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const LoginScreen(),
+        pageBuilder: (_, __, ___) => const MainScreen(),
         transitionDuration: const Duration(milliseconds: 500),
         transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
@@ -187,7 +184,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       if (_currentPage < _pages.length - 1)
                         Expanded(
                           child: TextButton(
-                            onPressed: _goToLogin,
+                            onPressed: _finishOnboarding,
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
@@ -221,7 +218,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             children: [
                               Text(
                                 _currentPage == _pages.length - 1
-                                    ? 'Get Started'
+                                    ? 'Explore as Guest'
                                     : 'Next',
                                 style: GoogleFonts.poppins(
                                   fontSize: 15,

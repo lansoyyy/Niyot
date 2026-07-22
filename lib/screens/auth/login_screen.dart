@@ -10,7 +10,10 @@ import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.popOnSuccess = false});
+
+  /// When true, pops with `true` after login instead of replacing with MainScreen.
+  final bool popOnSuccess;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -124,13 +127,18 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _navigateToHome() {
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
+    if (widget.popOnSuccess) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => const MainScreen(),
         transitionDuration: const Duration(milliseconds: 500),
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
+      (route) => false,
     );
   }
 
@@ -327,12 +335,20 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () {
-                                  Navigator.of(context).push(
+                                onTap: () async {
+                                  final result =
+                                      await Navigator.of(context).push<bool>(
                                     MaterialPageRoute(
-                                      builder: (_) => const RegisterScreen(),
+                                      builder: (_) => RegisterScreen(
+                                        popOnSuccess: widget.popOnSuccess,
+                                      ),
                                     ),
                                   );
+                                  if (result == true &&
+                                      widget.popOnSuccess &&
+                                      mounted) {
+                                    Navigator.of(context).pop(true);
+                                  }
                                 },
                                 child: Text(
                                   'Sign Up',

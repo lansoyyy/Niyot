@@ -49,6 +49,9 @@ class AuthService {
     String? country,
     String? city,
     String? province,
+    List<String> serviceTypes = const [],
+    String? socialUrl,
+    String? videoReelUrl,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -103,6 +106,10 @@ class AuthService {
         locationText: locationText,
         specialties: const [],
         primarySpecialty: '',
+        serviceTypes: serviceTypes,
+        socialUrl: socialUrl?.trim().isEmpty == true ? null : socialUrl?.trim(),
+        videoReelUrl:
+            videoReelUrl?.trim().isEmpty == true ? null : videoReelUrl?.trim(),
         rating: 0.0,
         reviewCount: 0,
         bookingCount: 0,

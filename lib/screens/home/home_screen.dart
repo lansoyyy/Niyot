@@ -165,11 +165,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            // Featured creators
-            SliverToBoxAdapter(
-              child: HomeSectionHeader(title: 'Featured Creators'),
-            ),
-            SliverToBoxAdapter(child: _buildFeaturedCarousel()),
+            // Featured creators (hidden when none are featured)
+            if (!_isLoading && _featured.isNotEmpty) ...[
+              const SliverToBoxAdapter(
+                child: HomeSectionHeader(title: 'Featured Creators'),
+              ),
+              SliverToBoxAdapter(child: _buildFeaturedCarousel()),
+            ],
             // Near you
             SliverToBoxAdapter(
               child: HomeSectionHeader(
@@ -405,16 +407,49 @@ class _HomeScreenState extends State<HomeScreen> {
       return photographers;
     }
 
+    final userParts = _locationParts(userLocation!);
     final sorted = List<PhotographerModel>.from(photographers)
       ..sort((a, b) {
-        final aMatches = _locationsMatch(a.locationText, userLocation!);
-        final bMatches = _locationsMatch(b.locationText, userLocation);
-        if (aMatches == bMatches) {
-          return 0;
+        final scoreA = _proximityScore(a.locationText, userParts);
+        final scoreB = _proximityScore(b.locationText, userParts);
+        if (scoreA != scoreB) {
+          // Higher score = closer
+          return scoreB.compareTo(scoreA);
         }
-        return aMatches ? -1 : 1;
+        // Tie-break by rating so near lists feel stable
+        return b.rating.compareTo(a.rating);
       });
     return sorted;
+  }
+
+  /// Higher is nearer: same city (3) > same province (2) > shared token (1) > none (0).
+  int _proximityScore(String photographerLocation, List<String> userParts) {
+    if (userParts.isEmpty || photographerLocation.trim().isEmpty) return 0;
+    final photoParts = _locationParts(photographerLocation);
+    if (photoParts.isEmpty) return 0;
+
+    final userCity = userParts.first;
+    final userProvince = userParts.length > 1 ? userParts[1] : '';
+    final photoCity = photoParts.first;
+    final photoProvince = photoParts.length > 1 ? photoParts[1] : '';
+
+    if (userCity.isNotEmpty && userCity == photoCity) return 3;
+    if (userProvince.isNotEmpty &&
+        (userProvince == photoProvince || userProvince == photoCity)) {
+      return 2;
+    }
+    if (userParts.any((p) => photoParts.contains(p))) return 1;
+    return 0;
+  }
+
+  List<String> _locationParts(String value) {
+    final normalized = _normalizeLocation(value);
+    if (normalized == null) return const [];
+    return normalized
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
   }
 
   String _resolveHeaderLocation(
@@ -433,23 +468,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _hasMeaningfulLocation(String? value) =>
       value != null && value.trim().isNotEmpty;
-
-  bool _locationsMatch(String left, String right) {
-    final normalizedLeft = _normalizeLocation(left);
-    final normalizedRight = _normalizeLocation(right);
-    if (normalizedLeft == null || normalizedRight == null) {
-      return false;
-    }
-
-    final leftParts = normalizedLeft.split(',').map((part) => part.trim());
-    final rightParts = normalizedRight.split(',').map((part) => part.trim());
-    return leftParts.any(
-          (part) => part.isNotEmpty && normalizedRight.contains(part),
-        ) ||
-        rightParts.any(
-          (part) => part.isNotEmpty && normalizedLeft.contains(part),
-        );
-  }
 
   String? _normalizeLocation(String? value) {
     if (value == null) {
@@ -527,29 +545,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturedCarousel() {
-    if (_isLoading) {
-      return const SizedBox(
-        height: 200,
-        child: Center(
-          child: CircularProgressIndicator(color: Color(0xFFC62828)),
-        ),
-      );
-    }
-    if (_featured.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'No featured photographers yet.',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: const Color(0xFF9E9E9E),
-            ),
-          ),
-        ),
-      );
-    }
     return SizedBox(
       height: 200,
       child: ListView.builder(
@@ -682,11 +677,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               size: 14,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              item.locationText,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.white70,
+                            Expanded(
+                              child: Text(
+                                item.locationText,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],

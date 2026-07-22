@@ -12,6 +12,7 @@ import '../../services/messaging_service.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/common/service_offer_selector.dart';
 import '../../widgets/location/ph_location_dropdowns.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
+  final _socialUrlController = TextEditingController();
+  final _videoReelUrlController = TextEditingController();
   final _picker = ImagePicker();
   String _country = PhilippinesLocations.countryName;
   String _province = '';
@@ -44,6 +47,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   ];
 
   final Set<String> _selectedSpecialties = {};
+  final Set<String> _selectedOffers = {};
 
   UserModel? _user;
   PhotographerModel? _photographer;
@@ -65,6 +69,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _bioController.dispose();
+    _socialUrlController.dispose();
+    _videoReelUrlController.dispose();
     super.dispose();
   }
 
@@ -93,8 +99,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     if (_province.isNotEmpty &&
         !PhilippinesLocations.provinces.contains(_province)) {
-      _province = 'Other / Not listed';
-      _city = 'Other';
+      String? match;
+      for (final p in PhilippinesLocations.provinces) {
+        if (p.toLowerCase() == _province.toLowerCase()) {
+          match = p;
+          break;
+        }
+      }
+      if (match != null) {
+        _province = match;
+      } else {
+        _province = 'Other / Not listed';
+        _city = 'Other';
+      }
     }
     final cities = PhilippinesLocations.citiesForProvince(_province);
     if (_province.isNotEmpty &&
@@ -120,10 +137,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.text = user?.email ?? '';
     _phoneController.text = user?.phone ?? '';
     _bioController.text = photographer?.bio ?? user?.bio ?? '';
+    _socialUrlController.text = photographer?.socialUrl ?? '';
+    _videoReelUrlController.text = photographer?.videoReelUrl ?? '';
     _parseLocationString(photographer?.locationText ?? user?.location);
     _selectedSpecialties
       ..clear()
       ..addAll(photographer?.specialties ?? const <String>[]);
+    _selectedOffers
+      ..clear()
+      ..addAll(photographer?.serviceTypes ?? const <String>[]);
 
     setState(() => _isLoading = false);
   }
@@ -195,6 +217,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (_user!.isPhotographer && _photographer != null) {
         final specialties = _selectedSpecialties.toList();
+        final offers = _selectedOffers.toList();
+        final social = _socialUrlController.text.trim();
+        final videoReel = _videoReelUrlController.text.trim();
         await PhotographerService().createOrUpdatePhotographerProfile(
           _photographer!.copyWith(
             name: name,
@@ -205,6 +230,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             primarySpecialty: specialties.isNotEmpty
                 ? specialties.first
                 : _photographer!.primarySpecialty,
+            serviceTypes: offers,
+            socialUrl: social.isEmpty ? null : social,
+            videoReelUrl: videoReel.isEmpty ? null : videoReel,
+            clearSocialUrl: social.isEmpty,
+            clearVideoReelUrl: videoReel.isEmpty,
           ),
         );
       }
@@ -445,35 +475,92 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      user.isPhotographer
-                          ? Icons.camera_alt_rounded
-                          : Icons.person_rounded,
-                      color: const Color(0xFFC62828),
+              if (user.isPhotographer)
+                GestureDetector(
+                  onTap: _showOffersSheet,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      user.isPhotographer
-                          ? 'Photographer Account'
-                          : 'Client Account',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1A1A1A),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC62828),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Photographer Account',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1A1A1A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedOffers.isEmpty
+                                    ? 'Tap to select Photography / Videography'
+                                    : _selectedOffers.join(' · '),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: const Color(0xFF9E9E9E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF9E9E9E),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_rounded,
+                        color: Color(0xFFC62828),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Text(
+                        'Client Account',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 24),
               _buildLabel('Full Name'),
               const SizedBox(height: 8),
@@ -515,8 +602,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onCountryChanged: (c) => setState(() => _country = c),
                 onProvinceChanged: (p) => setState(() {
                   _province = p;
-                  final cities = PhilippinesLocations.citiesForProvince(p);
-                  _city = cities.isNotEmpty ? cities.first : '';
+                  _city = '';
                 }),
                 onCityChanged: (c) => setState(() => _city = c),
               ),
@@ -549,6 +635,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               if (user.isPhotographer) ...[
                 const SizedBox(height: 20),
+                _buildLabel('Your Links (optional)'),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: _socialUrlController,
+                  hint: 'Your social link (Instagram or Facebook)',
+                  icon: Icons.radio_button_checked,
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: _videoReelUrlController,
+                  hint: 'Your video link (YouTube or Vimeo)',
+                  icon: Icons.videocam_outlined,
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 20),
                 _buildLabel('Specialties'),
                 const SizedBox(height: 8),
                 Wrap(
@@ -578,6 +680,104 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showOffersSheet() {
+    final draft = Set<String>.from(_selectedOffers);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                20,
+                24,
+                24 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'What do you offer?',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Select Photography, Videography, or both.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: const Color(0xFF9E9E9E),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ServiceOfferSelector(
+                    selected: draft,
+                    onChanged: (next) => setSheetState(() {
+                      draft
+                        ..clear()
+                        ..addAll(next);
+                    }),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedOffers
+                            ..clear()
+                            ..addAll(draft);
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFC62828),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Save',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

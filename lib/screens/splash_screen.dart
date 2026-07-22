@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/user_service.dart';
 import '../../services/notification_service.dart';
 import 'main/main_screen.dart';
@@ -84,7 +85,11 @@ class _SplashScreenState extends State<SplashScreen>
       await NotificationService().init();
       destination = const MainScreen();
     } else {
-      destination = const OnboardingScreen();
+      final prefs = await SharedPreferences.getInstance();
+      final onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
+      destination = onboardingSeen
+          ? const MainScreen()
+          : const OnboardingScreen();
     }
 
     if (mounted) {
@@ -188,10 +193,14 @@ class _SplashScreenState extends State<SplashScreen>
                           width: 1.5,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.camera_alt_rounded,
-                        size: 52,
-                        color: Colors.white,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(26),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),

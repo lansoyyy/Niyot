@@ -8,6 +8,8 @@ import '../../models/portfolio_item_model.dart';
 import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/common/service_offer_icons.dart';
+import '../../widgets/auth/auth_gate_helper.dart';
 import '../../screens/photographer/photographer_profile_screen.dart';
 
 /// Explore list card: portfolio carousel header + creator details (reference UI).
@@ -127,6 +129,16 @@ class _ExploreCreatorCardState extends State<ExploreCreatorCard> {
                     right: 12,
                     child: _FavoriteButton(photographer: p),
                   ),
+                  if (p.serviceTypes.isNotEmpty)
+                    Positioned(
+                      bottom: _hasPortfolio ? 40 : 12,
+                      right: 12,
+                      child: ServiceOfferIcons(
+                        serviceTypes: p.serviceTypes,
+                        size: 28,
+                        iconSize: 14,
+                      ),
+                    ),
                   if (_hasPortfolio)
                     Positioned(
                       bottom: 12,
@@ -422,8 +434,39 @@ class _FavoriteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null || uid == photographer.uid) {
+    if (uid == photographer.uid) {
       return const SizedBox.shrink();
+    }
+
+    if (uid == null) {
+      return Material(
+        color: Colors.white.withValues(alpha: 0.92),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () async {
+            final ok = await AuthGateHelper.requireAuth(
+              context,
+              message: 'Sign in to save favorites',
+            );
+            if (!ok || !context.mounted) return;
+            try {
+              await UserService().toggleFavoritePhotographer(
+                uid: FirebaseAuth.instance.currentUser!.uid,
+                photographer: photographer,
+              );
+            } catch (_) {}
+          },
+          child: const Padding(
+            padding: EdgeInsets.all(8),
+            child: Icon(
+              Icons.favorite_border_rounded,
+              size: 20,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ),
+      );
     }
 
     return StreamBuilder<bool>(

@@ -8,6 +8,7 @@ import '../../services/booking_service.dart';
 import '../../services/booking_view_tracker.dart';
 import '../../services/messaging_service.dart';
 import '../../services/user_service.dart';
+import '../../widgets/auth/auth_gate_helper.dart';
 import '../home/home_screen.dart';
 import '../home/photographer_dashboard_screen.dart';
 import '../explore/explore_screen.dart';
@@ -16,29 +17,40 @@ import '../messages/messages_screen.dart';
 import '../settings/settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
-  final _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  late int _currentIndex;
   bool _isPhotographer = false;
+  StreamSubscription<User?>? _authSub;
 
   StreamController<int>? _bookingsBadgeController;
   StreamSubscription<int>? _bookingsBadgeSub;
   int _lastBookingsCount = 0;
 
+  String get _currentUid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((_) {
+      if (!mounted) return;
+      _detectRole();
+      setState(() {});
+    });
     _detectRole();
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _bookingsBadgeSub?.cancel();
     _bookingsBadgeController?.close();
     super.dispose();
@@ -48,11 +60,14 @@ class _MainScreenState extends State<MainScreen> {
     final cached = UserService().cachedUser;
     if (cached != null) {
       setState(() => _isPhotographer = cached.isPhotographer);
-      _initBookingsBadge();
+      _restartBookingsBadge();
+    } else if (_currentUid.isEmpty) {
+      setState(() => _isPhotographer = false);
+      _restartBookingsBadge();
     } else {
       UserService().fetchCurrentUser().then((user) {
-        if (!mounted || user == null) return;
-        setState(() => _isPhotographer = user.isPhotographer);
+        if (!mounted) return;
+        setState(() => _isPhotographer = user?.isPhotographer ?? false);
         _restartBookingsBadge();
       });
     }
@@ -82,7 +97,22 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  void _updateIndex(int index) {
+  Future<void> _updateIndex(int index) async {
+    // Soft-gate Bookings / Messages for guests
+    if (_currentUid.isEmpty && (index == 2 || index == 3)) {
+      final ok = await AuthGateHelper.requireAuth(
+        context,
+        message: index == 2
+            ? 'Sign in to view bookings'
+            : 'Sign in to view messages',
+      );
+      if (!ok || !mounted) return;
+      // Rebuild with signed-in state then open tab
+      setState(() => _currentIndex = index);
+      _detectRole();
+      return;
+    }
+
     final wasBookings = _currentIndex == 2;
     setState(() => _currentIndex = index);
     if (index == 2) {
@@ -97,7 +127,7 @@ class _MainScreenState extends State<MainScreen> {
     const ExploreScreen(),
     const MyBookingsScreen(),
     const MessagesScreen(),
-    const SettingsScreen(),
+    SettingsScreen(onBrowseCreators: () => _updateIndex(1)),
   ];
 
   @override

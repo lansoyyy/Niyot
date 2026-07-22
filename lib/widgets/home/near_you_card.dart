@@ -6,6 +6,8 @@ import '../../models/photographer_model.dart';
 import '../../screens/photographer/photographer_profile_screen.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/common/service_offer_icons.dart';
+import '../../widgets/auth/auth_gate_helper.dart';
 /// Compact horizontal card for client home "Near You" row.
 class NearYouCard extends StatelessWidget {
   const NearYouCard({super.key, required this.photographer});
@@ -91,11 +93,21 @@ class NearYouCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (uid != null && uid != photographer.uid)
+                  if (uid != photographer.uid)
                     Positioned(
                       top: 8,
                       right: 8,
                       child: _FavoriteHeart(photographer: photographer),
+                    ),
+                  if (photographer.serviceTypes.isNotEmpty)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: ServiceOfferIcons(
+                        serviceTypes: photographer.serviceTypes,
+                        size: 26,
+                        iconSize: 13,
+                      ),
                     ),
                 ],
               ),
@@ -255,7 +267,38 @@ class _FavoriteHeart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Material(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () async {
+            final ok = await AuthGateHelper.requireAuth(
+              context,
+              message: 'Sign in to save favorites',
+            );
+            if (!ok || !context.mounted) return;
+            try {
+              await UserService().toggleFavoritePhotographer(
+                uid: FirebaseAuth.instance.currentUser!.uid,
+                photographer: photographer,
+              );
+            } catch (_) {}
+          },
+          child: const Padding(
+            padding: EdgeInsets.all(6),
+            child: Icon(
+              Icons.favorite_border_rounded,
+              size: 16,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ),
+      );
+    }
+
     return StreamBuilder<bool>(
       stream: UserService().favoriteStatusStream(uid, photographer.uid),
       builder: (context, snapshot) {

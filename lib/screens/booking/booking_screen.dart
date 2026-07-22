@@ -516,8 +516,7 @@ class _BookingScreenState extends State<BookingScreen> {
               onCountryChanged: (c) => setState(() => _country = c),
               onProvinceChanged: (p) => setState(() {
                 _province = p;
-                final cities = PhilippinesLocations.citiesForProvince(p);
-                _city = cities.isNotEmpty ? cities.first : '';
+                _city = '';
               }),
               onCityChanged: (c) => setState(() => _city = c),
             ),

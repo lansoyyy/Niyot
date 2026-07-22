@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../constants/app_colors.dart';
+import '../../constants/service_offers.dart';
 import '../../core/app_avatar_colors.dart';
 import '../../models/photographer_model.dart';
 import '../../models/portfolio_item_model.dart';
@@ -10,6 +13,7 @@ import '../../services/photographer_service.dart';
 import '../../services/user_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
 import '../../widgets/currency/peso_price_text.dart';
+import '../../widgets/auth/auth_gate_helper.dart';
 import '../../services/block_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/report/report_bottom_sheet.dart';
@@ -209,7 +213,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
             slivers: [
               // Hero header
               SliverAppBar(
-                expandedHeight: 280,
+                expandedHeight: 200,
                 pinned: true,
                 backgroundColor: AppAvatarColors.profileHeaderBackground,
                 leading: GestureDetector(
@@ -231,18 +235,76 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   Builder(
                     builder: (context) {
                       final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+                      // Guest — show favorite that opens auth gate
                       if (currentUid == null) {
-                        return const SizedBox.shrink();
+                        return Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () async {
+                                final ok = await AuthGateHelper.requireAuth(
+                                  context,
+                                  message: 'Sign in to save favorites',
+                                );
+                                if (!ok || !context.mounted) return;
+                                try {
+                                  await UserService().toggleFavoritePhotographer(
+                                    uid: FirebaseAuth.instance.currentUser!.uid,
+                                    photographer: _photographer,
+                                  );
+                                  if (!context.mounted) return;
+                                  setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Added to favorites.',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                } catch (_) {}
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(
+                                  right: 8,
+                                  top: 8,
+                                  bottom: 8,
+                                ),
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.favorite_border_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
                       }
 
                       // Own profile — show edit icon
                       if (currentUid == _photographer.uid) {
                         return GestureDetector(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const EditProfileScreen(),
-                            ),
-                          ),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const EditProfileScreen(),
+                              ),
+                            );
+                            final updated = await PhotographerService()
+                                .getPhotographerById(_photographer.uid);
+                            if (updated != null && mounted) {
+                              setState(() => _photographer = updated);
+                            }
+                          },
                           child: Container(
                             margin: const EdgeInsets.only(
                               right: 16,
@@ -457,10 +519,11 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                         ),
                         // Profile info
                         Positioned(
-                          bottom: 24,
+                          bottom: 16,
                           left: 20,
                           right: 20,
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               // Avatar
                               Container(
@@ -474,33 +537,21 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                 child: AppProfileAvatar(
                                   displayName: photographer.name,
                                   photoUrl: photographer.photoUrl,
-                                  size: 72,
+                                  size: 64,
                                 ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       photographer.name,
                                       style: GoogleFonts.poppins(
-                                        fontSize: 20,
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
-                                      ),
-                                    ),
-                                    Text(
-                                      photographer.primarySpecialty.isNotEmpty
-                                          ? photographer.primarySpecialty
-                                          : photographer.specialties.isNotEmpty
-                                          ? photographer.specialties.first
-                                          : '',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.85,
-                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -512,51 +563,61 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                           size: 13,
                                         ),
                                         const SizedBox(width: 3),
-                                        Text(
-                                          photographer.locationText,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: Colors.white70,
+                                        Expanded(
+                                          child: Text(
+                                            photographer.locationText,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 12,
+                                              color: Colors.white70,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    if (photographer.isVerified) ...[
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.2,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: Colors.white54,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.verified_rounded,
+                                    if (photographer.serviceTypes.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: photographer.serviceTypes
+                                            .map((type) {
+                                          final isPhoto =
+                                              type == ServiceOffers.photography;
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
                                               color: Colors.white,
-                                              size: 12,
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                             ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Verified',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white,
-                                              ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  isPhoto
+                                                      ? Icons.camera_alt_rounded
+                                                      : Icons.videocam_rounded,
+                                                  size: 12,
+                                                  color: AppColors.primary,
+                                                ),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  type,
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.primary,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
+                                          );
+                                        }).toList(),
                                       ),
                                     ],
                                   ],
@@ -573,12 +634,12 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
               // Stats bar
               SliverToBoxAdapter(
                 child: Container(
-                  margin: const EdgeInsets.all(20),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5F5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFFCDD2)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFEEEEEE)),
                   ),
                   child: Row(
                     children: [
@@ -606,7 +667,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                   ),
                 ),
               ),
-              // About section
+              // About + Links
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -632,39 +693,41 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                           height: 1.6,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      // Tags
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            [
-                                  ...photographer.specialties.take(5),
-                                  if (photographer.specialties.isEmpty)
-                                    'Photography',
-                                ]
-                                .map(
-                                  (tag) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFEBEE),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      tag,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFFC62828),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                      ),
+                      if (_hasAnyLink(photographer)) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          'Links',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            if (_isValidUrl(photographer.socialUrl))
+                              _CircularLinkButton(
+                                icon: Icons.language_rounded,
+                                tooltip: 'Social',
+                                onTap: () =>
+                                    _openExternalUrl(photographer.socialUrl!),
+                              ),
+                            if (_isValidUrl(photographer.socialUrl) &&
+                                _isValidUrl(photographer.videoReelUrl))
+                              const SizedBox(width: 12),
+                            if (_isValidUrl(photographer.videoReelUrl))
+                              _CircularLinkButton(
+                                icon: Icons.videocam_rounded,
+                                tooltip: 'Video reel',
+                                onTap: () => _openExternalUrl(
+                                  photographer.videoReelUrl!,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -855,11 +918,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
         // Book Now button
         Expanded(
           child: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => BookingScreen(photographer: _photographer),
-              ),
-            ),
+            onPressed: _startBooking,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFC62828),
               foregroundColor: Colors.white,
@@ -898,8 +957,25 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     );
   }
 
+  Future<void> _startBooking() async {
+    final ok = await AuthGateHelper.requireAuth(
+      context,
+      message: 'Sign in to book this creator',
+    );
+    if (!ok || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BookingScreen(photographer: _photographer),
+      ),
+    );
+  }
+
   Future<void> _openMessageThread() async {
-    if (FirebaseAuth.instance.currentUser?.uid == null) return;
+    final ok = await AuthGateHelper.requireAuth(
+      context,
+      message: 'Sign in to message creators',
+    );
+    if (!ok || !mounted) return;
     setState(() => _isOpeningChat = true);
     try {
       await ChatNavigationHelper.openChat(
@@ -1242,14 +1318,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                       child: _canBookPackages
                           ? (isPopular
                                 ? ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => BookingScreen(
-                                          photographer: _photographer,
-                                        ),
-                                      ),
-                                    ),
+                                    onPressed: _startBooking,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFC62828),
                                       foregroundColor: Colors.white,
@@ -1270,14 +1339,7 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
                                     ),
                                   )
                                 : OutlinedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => BookingScreen(
-                                          photographer: _photographer,
-                                        ),
-                                      ),
-                                    ),
+                                    onPressed: _startBooking,
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: const Color(0xFFC62828),
                                       side: const BorderSide(
@@ -1496,8 +1558,95 @@ class _PhotographerProfileScreenState extends State<PhotographerProfileScreen>
     return months[(month - 1).clamp(0, 11)];
   }
 
+  bool _hasAnyLink(PhotographerModel photographer) =>
+      _isValidUrl(photographer.socialUrl) ||
+      _isValidUrl(photographer.videoReelUrl);
+
+  bool _isValidUrl(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return false;
+    final uri = Uri.tryParse(_normalizeUrl(raw));
+    return uri != null &&
+        (uri.isScheme('http') || uri.isScheme('https')) &&
+        uri.host.isNotEmpty;
+  }
+
+  String _normalizeUrl(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return 'https://$trimmed';
+  }
+
+  Future<void> _openExternalUrl(String raw) async {
+    final uri = Uri.tryParse(_normalizeUrl(raw));
+    if (uri == null) return;
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open link.',
+              style: GoogleFonts.poppins(fontSize: 13),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not open link.',
+            style: GoogleFonts.poppins(fontSize: 13),
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _divider() {
-    return Container(width: 1, height: 32, color: const Color(0xFFFFCDD2));
+    return Container(width: 1, height: 32, color: const Color(0xFFEEEEEE));
+  }
+}
+
+class _CircularLinkButton extends StatelessWidget {
+  const _CircularLinkButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primarySurface,
+              border: Border.all(color: AppColors.primary, width: 1.5),
+            ),
+            child: Icon(icon, size: 22, color: AppColors.primary),
+          ),
+        ),
+      ),
+    );
   }
 }
 

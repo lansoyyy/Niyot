@@ -69,7 +69,8 @@ class PhotographerService {
             (p) =>
                 p.name.toLowerCase().contains(q) ||
                 p.locationText.toLowerCase().contains(q) ||
-                p.specialties.any((s) => s.toLowerCase().contains(q)),
+                p.specialties.any((s) => s.toLowerCase().contains(q)) ||
+                p.serviceTypes.any((s) => s.toLowerCase().contains(q)),
           )
           .toList();
     }

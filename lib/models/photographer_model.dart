@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../constants/service_offers.dart';
 import '../core/profile_initials.dart';
 import 'service_package_model.dart';
 
@@ -12,6 +13,10 @@ class PhotographerModel {
   final GeoPoint? geoPoint;
   final List<String> specialties;
   final String primarySpecialty;
+  /// What they offer: [ServiceOffers.photography], [ServiceOffers.videography].
+  final List<String> serviceTypes;
+  final String? socialUrl;
+  final String? videoReelUrl;
   final double rating;
   final int reviewCount;
   final int bookingCount;
@@ -32,6 +37,9 @@ class PhotographerModel {
     this.geoPoint,
     required this.specialties,
     required this.primarySpecialty,
+    this.serviceTypes = const [],
+    this.socialUrl,
+    this.videoReelUrl,
     required this.rating,
     required this.reviewCount,
     required this.bookingCount,
@@ -46,6 +54,12 @@ class PhotographerModel {
 
   /// Two-letter initials derived from the display name.
   String get initials => ProfileInitials.fromName(name);
+
+  bool get offersPhotography =>
+      serviceTypes.contains(ServiceOffers.photography);
+
+  bool get offersVideography =>
+      serviceTypes.contains(ServiceOffers.videography);
 
   /// Formatted starting price from cheapest package.
   String get startingPrice {
@@ -79,6 +93,9 @@ class PhotographerModel {
     'geoPoint': geoPoint,
     'specialties': specialties,
     'primarySpecialty': primarySpecialty,
+    'serviceTypes': serviceTypes,
+    'socialUrl': socialUrl,
+    'videoReelUrl': videoReelUrl,
     'rating': rating,
     'reviewCount': reviewCount,
     'bookingCount': bookingCount,
@@ -101,6 +118,9 @@ class PhotographerModel {
         geoPoint: map['geoPoint'] as GeoPoint?,
         specialties: List<String>.from(map['specialties'] as List? ?? []),
         primarySpecialty: map['primarySpecialty'] as String? ?? '',
+        serviceTypes: List<String>.from(map['serviceTypes'] as List? ?? []),
+        socialUrl: map['socialUrl'] as String?,
+        videoReelUrl: map['videoReelUrl'] as String?,
         rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
         reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0,
         bookingCount: (map['bookingCount'] as num?)?.toInt() ?? 0,
@@ -128,6 +148,11 @@ class PhotographerModel {
     GeoPoint? geoPoint,
     List<String>? specialties,
     String? primarySpecialty,
+    List<String>? serviceTypes,
+    String? socialUrl,
+    String? videoReelUrl,
+    bool clearSocialUrl = false,
+    bool clearVideoReelUrl = false,
     double? rating,
     int? reviewCount,
     int? bookingCount,
@@ -147,6 +172,10 @@ class PhotographerModel {
     geoPoint: geoPoint ?? this.geoPoint,
     specialties: specialties ?? this.specialties,
     primarySpecialty: primarySpecialty ?? this.primarySpecialty,
+    serviceTypes: serviceTypes ?? this.serviceTypes,
+    socialUrl: clearSocialUrl ? null : (socialUrl ?? this.socialUrl),
+    videoReelUrl:
+        clearVideoReelUrl ? null : (videoReelUrl ?? this.videoReelUrl),
     rating: rating ?? this.rating,
     reviewCount: reviewCount ?? this.reviewCount,
     bookingCount: bookingCount ?? this.bookingCount,

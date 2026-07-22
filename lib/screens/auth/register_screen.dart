@@ -8,13 +8,17 @@ import 'package:image_picker/image_picker.dart';
 import '../../data/philippines_locations.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common/app_profile_avatar.dart';
+import '../../widgets/common/service_offer_selector.dart';
 import '../../widgets/location/ph_location_dropdowns.dart';
 import '../main/main_screen.dart';
 import '../legal/terms_of_service_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.popOnSuccess = false});
+
+  /// When true, pops with `true` after register instead of replacing with MainScreen.
+  final bool popOnSuccess;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -27,6 +31,8 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _socialUrlController = TextEditingController();
+  final _videoReelUrlController = TextEditingController();
   final _authService = AuthService();
   String _country = PhilippinesLocations.countryName;
   String _province = '';
@@ -37,6 +43,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isLoading = false;
   bool _acceptedTerms = false;
   int _selectedRole = 0; // 0 = Photographer/Videographer, 1 = Client
+  /// 0 = account form, 1 = service offers (photographers only).
+  int _step = 0;
+  final Set<String> _selectedOffers = {};
   File? _profileImage;
 
   late AnimationController _animController;
@@ -62,6 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _socialUrlController.dispose();
+    _videoReelUrlController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -95,16 +106,41 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
-  void _register() async {
-    if (!_formKey.currentState!.validate()) return;
+  bool _validateAccountForm() {
+    if (!_formKey.currentState!.validate()) return false;
     if (_province.isEmpty || _city.isEmpty) {
       _showError('Please select province and city.');
-      return;
+      return false;
     }
     if (!_acceptedTerms) {
       _showError('Please accept the Terms of Service and Privacy Policy.');
+      return false;
+    }
+    return true;
+  }
+
+  void _onPrimaryPressed() {
+    if (_isLoading) return;
+
+    // Clients finish on step 0. Photographers continue to offers step.
+    if (_step == 0 && _selectedRole == 0) {
+      if (!_validateAccountForm()) return;
+      FocusScope.of(context).unfocus();
+      setState(() => _step = 1);
       return;
     }
+
+    if (_step == 1 && _selectedOffers.isEmpty) {
+      _showError('Please select at least one service you offer.');
+      return;
+    }
+
+    if (_step == 0 && !_validateAccountForm()) return;
+
+    _register();
+  }
+
+  void _register() async {
     FocusScope.of(context).unfocus();
 
     setState(() => _isLoading = true);
@@ -118,15 +154,28 @@ class _RegisterScreenState extends State<RegisterScreen>
         country: _country.trim(),
         city: _city.trim(),
         province: _province.trim(),
+        serviceTypes:
+            _selectedRole == 0 ? _selectedOffers.toList() : const [],
+        socialUrl: _selectedRole == 0
+            ? _socialUrlController.text.trim()
+            : '',
+        videoReelUrl: _selectedRole == 0
+            ? _videoReelUrlController.text.trim()
+            : '',
       );
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        if (widget.popOnSuccess) {
+          Navigator.of(context).pop(true);
+          return;
+        }
+        Navigator.of(context).pushAndRemoveUntil(
           PageRouteBuilder(
             pageBuilder: (_, __, ___) => const MainScreen(),
             transitionDuration: const Duration(milliseconds: 500),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
           ),
+          (route) => false,
         );
       }
     } catch (e) {
@@ -134,6 +183,14 @@ class _RegisterScreenState extends State<RegisterScreen>
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _onBack() {
+    if (_step == 1) {
+      setState(() => _step = 0);
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   @override
@@ -157,7 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               color: Color(0xFF374151),
             ),
           ),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _onBack,
         ),
       ),
       body: FadeTransition(
@@ -167,28 +224,75 @@ class _RegisterScreenState extends State<RegisterScreen>
             padding: const EdgeInsets.fromLTRB(28, 8, 28, 40),
             child: Form(
               key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Create Account',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A1A1A),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Join thousands of creatives on Niyot',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: const Color(0xFF7A7A7A),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  // Profile image picker
-                  Center(
+              child: _step == 0
+                  ? _buildAccountStep()
+                  : _buildOffersStep(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOffersStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'What do you offer?',
+          style: GoogleFonts.poppins(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Select all that apply.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF7A7A7A),
+          ),
+        ),
+        const SizedBox(height: 28),
+        ServiceOfferSelector(
+          selected: _selectedOffers,
+          onChanged: (next) => setState(() {
+            _selectedOffers
+              ..clear()
+              ..addAll(next);
+          }),
+        ),
+        const SizedBox(height: 32),
+        _buildPrimaryButton(label: 'Create Account'),
+      ],
+    );
+  }
+
+  Widget _buildAccountStep() {
+    final isPhotographer = _selectedRole == 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Create Account',
+          style: GoogleFonts.poppins(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Join thousands of creatives on Niyot',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF7A7A7A),
+          ),
+        ),
+        const SizedBox(height: 28),
+        // Profile image picker
+        Center(
                     child: GestureDetector(
                       onTap: _pickImage,
                       child: Stack(
@@ -270,7 +374,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                           icon: Icons.person_search_rounded,
                           label: 'Client /\nBusiness',
                           isSelected: _selectedRole == 1,
-                          onTap: () => setState(() => _selectedRole = 1),
+                          onTap: () => setState(() {
+                            _selectedRole = 1;
+                            _selectedOffers.clear();
+                          }),
                         ),
                       ),
                     ],
@@ -361,11 +468,35 @@ class _RegisterScreenState extends State<RegisterScreen>
                     onCountryChanged: (c) => setState(() => _country = c),
                     onProvinceChanged: (p) => setState(() {
                       _province = p;
-                      final cities = PhilippinesLocations.citiesForProvince(p);
-                      _city = cities.isNotEmpty ? cities.first : '';
+                      _city = '';
                     }),
                     onCityChanged: (c) => setState(() => _city = c),
                   ),
+                  if (isPhotographer) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Your Links (optional)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildFormField(
+                      controller: _socialUrlController,
+                      hint: 'Your social link (Instagram or Facebook)',
+                      icon: Icons.radio_button_checked,
+                      keyboardType: TextInputType.url,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFormField(
+                      controller: _videoReelUrlController,
+                      hint: 'Your video link (YouTube or Vimeo)',
+                      icon: Icons.videocam_outlined,
+                      keyboardType: TextInputType.url,
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   // Terms
                   Row(
@@ -437,38 +568,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ],
                 ),
                 const SizedBox(height: 28),
-                // Create Account button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _register,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFC62828),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            'Create Account',
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
+                _buildPrimaryButton(
+                  label: isPhotographer ? 'Continue' : 'Create Account',
                 ),
                 const SizedBox(height: 24),
                 // Sign in link
@@ -496,11 +597,40 @@ class _RegisterScreenState extends State<RegisterScreen>
                   ],
                 ),
               ],
-            ),
+            );
+  }
+
+  Widget _buildPrimaryButton({required String label}) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _onPrimaryPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFC62828),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              )
+            : Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
-    ),
     );
   }
 
