@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Guest Mode — merge these public-read rules into your existing Firestore rules.
+// Unauthenticated users need to read creators, portfolio, reviews, and availability.
+// Deploy: firebase deploy --only firestore:rules
+//
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- Required for Guest Mode (public browse) ---
+    match /photographers/{photographerId} {
+      allow read: if true;
+
+      match /portfolio/{itemId} {
+        allow read: if true;
+      }
+
+      match /reviews/{reviewId} {
+        allow read: if true;
+      }
+
+      match /availability/{docId} {
+        allow read: if true;
+      }
+    }
+
+    // Keep your existing authenticated write / bookings / messages / users rules below.
+    // Do NOT replace production rules with this file alone unless you copy those over.
+  }
+}
