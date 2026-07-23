@@ -328,11 +328,12 @@ class MessagingService {
       });
       for (final pid in participants) {
         if (pid != senderId) {
-          await NotificationService().createNewMessageNotification(
-            recipientId: pid,
-            senderName: senderName,
+          await NotificationService().createCustomOfferNotification(
+            clientId: pid,
+            photographerName: senderName,
             conversationId: conversationId,
-            messagePreview: preview,
+            offerName: offerName,
+            offerPrice: offerPrice,
           );
         }
       }

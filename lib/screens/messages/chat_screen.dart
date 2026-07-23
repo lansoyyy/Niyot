@@ -305,6 +305,14 @@ class _ChatScreenState extends State<ChatScreen> {
           status: 'accepted',
           bookingId: bookingId,
         );
+        try {
+          await NotificationService().createOfferAcceptedNotification(
+            photographerId: msg.senderId,
+            clientName: clientName,
+            conversationId: widget.conversationId,
+            offerName: msg.offerName ?? 'Custom Package',
+          );
+        } catch (_) {}
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

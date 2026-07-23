@@ -69,6 +69,8 @@ class NotificationNavigationHelper {
           );
           break;
         case NotificationType.newMessage:
+        case NotificationType.customOffer:
+        case NotificationType.offerAccepted:
           final conv = await MessagingService().getConversationById(related);
           if (!context.mounted) return;
           if (conv == null) {

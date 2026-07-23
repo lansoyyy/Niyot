@@ -11,6 +11,8 @@ enum NotificationType {
   rescheduleRequest,
   rescheduleConfirmed,
   newMessage,
+  customOffer,
+  offerAccepted,
   paymentReceived,
   photosDelivered,
   reviewLeft,
@@ -31,6 +33,10 @@ extension NotificationTypeX on NotificationType {
         return NotificationTypes.bookingRequest;
       case NotificationType.newMessage:
         return NotificationTypes.newMessage;
+      case NotificationType.customOffer:
+        return NotificationTypes.customOffer;
+      case NotificationType.offerAccepted:
+        return NotificationTypes.offerAccepted;
       case NotificationType.paymentReceived:
         return NotificationTypes.paymentReceived;
       case NotificationType.bookingExpired:
@@ -74,6 +80,10 @@ extension NotificationTypeX on NotificationType {
         return NotificationType.rescheduleConfirmed;
       case NotificationTypes.newMessage:
         return NotificationType.newMessage;
+      case NotificationTypes.customOffer:
+        return NotificationType.customOffer;
+      case NotificationTypes.offerAccepted:
+        return NotificationType.offerAccepted;
       case NotificationTypes.paymentReceived:
         return NotificationType.paymentReceived;
       case NotificationTypes.photosDelivered:
@@ -109,6 +119,10 @@ extension NotificationTypeX on NotificationType {
         return Icons.event_available_rounded;
       case NotificationType.newMessage:
         return Icons.chat_bubble_rounded;
+      case NotificationType.customOffer:
+        return Icons.local_offer_rounded;
+      case NotificationType.offerAccepted:
+        return Icons.handshake_rounded;
       case NotificationType.paymentReceived:
         return Icons.payments_rounded;
       case NotificationType.photosDelivered:
@@ -144,6 +158,10 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFF2E7D32);
       case NotificationType.newMessage:
         return const Color(0xFFC62828);
+      case NotificationType.customOffer:
+        return const Color(0xFF6A1B9A);
+      case NotificationType.offerAccepted:
+        return const Color(0xFF2E7D32);
       case NotificationType.paymentReceived:
         return const Color(0xFF2E7D32);
       case NotificationType.photosDelivered:
@@ -179,6 +197,10 @@ extension NotificationTypeX on NotificationType {
         return const Color(0xFFE8F5E9);
       case NotificationType.newMessage:
         return const Color(0xFFFFEBEE);
+      case NotificationType.customOffer:
+        return const Color(0xFFF3E5F5);
+      case NotificationType.offerAccepted:
+        return const Color(0xFFE8F5E9);
       case NotificationType.paymentReceived:
         return const Color(0xFFE8F5E9);
       case NotificationType.photosDelivered:

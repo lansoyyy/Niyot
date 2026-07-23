@@ -82,6 +82,8 @@ class NotificationTypes {
   static const String system = 'system';
   static const String contentReported = 'content_reported';
   static const String userBlocked = 'user_blocked';
+  static const String customOffer = 'custom_offer';
+  static const String offerAccepted = 'offer_accepted';
 }
 
 /// Verification status values stored in Firestore.

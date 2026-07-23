@@ -925,6 +925,18 @@ class BookingService {
           bookingId: bookingId,
           scheduledDate: booking.scheduledDate,
         );
+        try {
+          // Photographer's device: schedule their own day-before reminder.
+          // Client schedules when they receive the confirmation notification.
+          await NotificationService().scheduleShootReminders(
+            bookingId: bookingId,
+            clientName: booking.clientName,
+            photographerName: booking.photographerName,
+            sessionStart: booking.scheduledSessionStart,
+            forUserId: booking.photographerId,
+            otherPartyName: booking.clientName,
+          );
+        } catch (_) {}
         break;
       case BookingStatus.declined:
         await NotificationService().createBookingDeclinedNotification(
